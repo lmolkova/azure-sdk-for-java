@@ -46,7 +46,7 @@ stages:
           safeName: azurecoretracingopentelemetry
   - template: /eng/pipelines/templates/stages/archetype-sdk-tests.yml
     parameters:
-       MatrixConfigs:
+      MatrixConfigs:
         - Name: jackson_version_tests
           Path: sdk/core/platform-matrix.json
           Selection: sparse
