@@ -1,6 +1,6 @@
 ## Release History
 
-### 4.2.1-beta.2 (Unreleased)
+## 4.2.1-beta.2 (2021-08-01)
 
 ### 4.2.1-beta.1 (2021-07-15)
 * Fixed Catalog api synapse integration.

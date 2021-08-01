@@ -1,6 +1,6 @@
 # Release History
 
-## 1.19.0-beta.2 (Unreleased)
+## 1.19.0-beta.2 (2021-08-01)
 
 ### Feature Added
  - Added a new constructor `HttpHeaders(int initialCapacity)` which allows configuration of the initial backing map 
