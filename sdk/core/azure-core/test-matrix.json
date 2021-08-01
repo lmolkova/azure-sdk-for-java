@@ -1,4 +1,10 @@
 {
+  "displayNames": { 
+	"2.10.5": "v_2_10",
+	"2.11.4": "v_2_11",
+	"2.12.4": "v_2_12",
+	"2.13.0-rc1": "v_2_13",
+  },
   "matrix": {
     "Agent": {
       "ubuntu-20.04": { "OSVmImage": "MMSUbuntu20.04", "Pool": "azsdk-pool-mms-ubuntu-2004-general" }
