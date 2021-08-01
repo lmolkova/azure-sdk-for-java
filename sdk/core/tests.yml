@@ -3,7 +3,7 @@ trigger: none
 stages:
   - template: /eng/pipelines/templates/stages/archetype-sdk-tests.yml
     parameters:
-      ServiceDirectory: core   
+      ServiceDirectory: core
       Artifacts:
         - name: azure-core
           groupId: com.azure
