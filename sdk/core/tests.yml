@@ -47,7 +47,7 @@ stages:
   - template: /eng/pipelines/templates/stages/archetype-sdk-tests.yml
     parameters:
       ServiceDirectory: core
-      TestName: 'jackson-versions'
+      TestName: 'jackson_versions'
       MatrixConfigs:
         - Name: jackson_version_tests
           Path: sdk/core/platform-matrix.json
