@@ -401,8 +401,7 @@ Get-ChildItem -Path $Path -Filter pom*.xml -Recurse -File | ForEach-Object {
         return
     }
 
-    # TODO
-	if ($_.FullName -like "*azure-core*")		
+	if ($_.FullName -like "*azure-core-jackson-tests*")		
     {
         return
     }
