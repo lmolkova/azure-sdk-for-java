@@ -6,13 +6,12 @@
     "JavaTestVersion": [ "1.8", "1.11" ],
     "AZURE_TEST_HTTP_CLIENTS": [ "okhttp", "netty" ],
     "TestGoals": "surefire:test",
-      "AZURE_CORE_TEST_JACKSON_VERSION": [
+    "AZURE_CORE_TEST_JACKSON_VERSION": [
 	    "2.10.5",
 	    "2.11.4",
 	    "2.12.4",
 	    "2.13.0-rc1"
-	  ],
-	  "TestFromSource": true
-    }
+	],
+	"TestFromSource": true
   }
 }
