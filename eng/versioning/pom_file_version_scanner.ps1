@@ -401,6 +401,12 @@ Get-ChildItem -Path $Path -Filter pom*.xml -Recurse -File | ForEach-Object {
         return
     }
 
+    # TODO
+	if ($_.FullName -like "*azure-core*")		
+    {
+        return
+    }
+	
     if ($PomFilesIgnoreParent -contains $pomFile)
     {
         $xmlPomFile = New-Object xml
