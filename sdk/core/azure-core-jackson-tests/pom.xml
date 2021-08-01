@@ -14,10 +14,6 @@
   <packaging>jar</packaging>
   <version>1.0.0-beta.1</version>
 
-  <properties>
-    <jackson.version>2.12.4</jackson.version> <!-- {x-version-update;com.fasterxml.jackson.core:jackson-annotations;external_dependency} -->
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>com.azure</groupId>
@@ -37,31 +33,31 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
-      <version>${jackson.version}</version>
+      <version>2.12.4</version>  <!-- {x-version-update;com.fasterxml.jackson.core:jackson-annotations;external_dependency} -->
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>${jackson.version}</version>
+      <version>2.12.4</version> <!-- {x-version-update;com.fasterxml.jackson.core:jackson-core;external_dependency} -->
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
+      <version>2.12.4</version> <!-- {x-version-update;com.fasterxml.jackson.core:jackson-databind;external_dependency} -->
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.datatype</groupId>
       <artifactId>jackson-datatype-jsr310</artifactId>
-      <version>${jackson.version}</version>
+      <version>2.12.4</version> <!-- {x-version-update;com.fasterxml.jackson.datatype:jackson-datatype-jsr310;external_dependency} -->
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-xml</artifactId>
-      <version>${jackson.version}</version>
+      <version>2.12.4</version> <!-- {x-version-update;com.fasterxml.jackson.dataformat:jackson-dataformat-xml;external_dependency} -->
       <scope>test</scope>
     </dependency>
 
@@ -176,6 +172,40 @@
       <properties>
         <jackson.version>${env.AZURE_CORE_TEST_JACKSON_VERSION}</jackson.version>
       </properties>
+      <dependencies>
+        <!--Have to redeclare dependencies here to allow x-version-update script to work properly-->
+        <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+          <version>${jackson.version}</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-core</artifactId>
+          <version>${jackson.version}</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+          <version>${jackson.version}</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.fasterxml.jackson.datatype</groupId>
+          <artifactId>jackson-datatype-jsr310</artifactId>
+          <version>${jackson.version}</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.fasterxml.jackson.dataformat</groupId>
+          <artifactId>jackson-dataformat-xml</artifactId>
+          <version>${jackson.version}</version>
+          <scope>test</scope>
+        </dependency>
+
+      </dependencies>
     </profile>
   </profiles>
 
