@@ -6,8 +6,10 @@ stages:
       ServiceDirectory: core
       AdditionalMatrixConfigs:
         - Name: jackson_version_tests
-          Path: sdk/core/azure-core/test-config/test-config.json
+          Path: sdk/core/azure-core/test-matrix.json
           Selection: sparse
+          NonSparseParameters:
+            - AZURE_CORE_TEST_JACKSON_VERSION
           GenerateVMJobs: true      
       Artifacts:
         - name: azure-core
