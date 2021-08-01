@@ -6,7 +6,7 @@ stages:
       ServiceDirectory: core-jackson-tests
       MatrixConfigs:
         - Name: jackson_version_tests
-          Path: sdk/core/azure-core-jackson-tests/version-matrix.json
+          Path: /sdk/core/azure-core-jackson-tests/version-matrix.json
           Selection: sparse
           NonSparseParameters:
             - AZURE_CORE_TEST_JACKSON_VERSION
