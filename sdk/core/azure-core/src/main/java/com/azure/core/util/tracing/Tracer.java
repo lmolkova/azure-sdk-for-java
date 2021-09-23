@@ -19,8 +19,18 @@ public interface Tracer {
      * as the parent span for all spans the SDK creates.
      * <p>
      * If no span data is listed when the span is created it will default to using this span key as the parent span.
+     *
+     * @deprecated Deprecated in favor of TRACE_CONTEXT_KEY, use it to propagate full io.opentelemetry.Context
      */
+    @Deprecated
     String PARENT_SPAN_KEY = "parent-span";
+
+    /**
+     * {@link Context} key to store trace context. This context will be used as a parent context
+     * for new spans and propagated in outgoing HTTP calls.
+     *
+     */
+    String TRACE_CONTEXT_KEY = "trace-context";
 
     /**
      * Key for {@link Context} which indicates that the context contains the name for the user spans that are

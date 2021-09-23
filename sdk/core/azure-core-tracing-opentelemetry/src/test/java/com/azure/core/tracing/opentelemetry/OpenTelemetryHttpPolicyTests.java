@@ -30,12 +30,13 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
-import static com.azure.core.util.tracing.Tracer.PARENT_SPAN_KEY;
+import static com.azure.core.util.tracing.Tracer.TRACE_CONTEXT_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -47,6 +48,7 @@ public class OpenTelemetryHttpPolicyTests {
     private static final int RESPONSE_STATUS_CODE = 201;
     private TestExporter exporter;
     private Tracer tracer;
+    private static final String SPAN_NAME = "foo";
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
@@ -71,10 +73,10 @@ public class OpenTelemetryHttpPolicyTests {
     @Test
     public void openTelemetryHttpPolicyTest() {
         // Start user parent span.
-        Span parentSpan = tracer.spanBuilder(PARENT_SPAN_KEY).startSpan();
+        Span parentSpan = tracer.spanBuilder(SPAN_NAME).startSpan();
 
         // Add parent span to tracingContext
-        Context tracingContext = new Context(PARENT_SPAN_KEY, parentSpan)
+        Context tracingContext = new Context(TRACE_CONTEXT_KEY, io.opentelemetry.context.Context.root().with(parentSpan))
             .addData(AZ_TRACING_NAMESPACE_KEY, "foo");
 
         // Act

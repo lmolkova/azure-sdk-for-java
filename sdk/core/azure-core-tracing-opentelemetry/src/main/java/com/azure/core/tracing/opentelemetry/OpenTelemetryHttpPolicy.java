@@ -16,7 +16,6 @@ import com.azure.core.util.UrlBuilder;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
@@ -32,13 +31,12 @@ import java.util.Optional;
 
 import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
 import static com.azure.core.util.tracing.Tracer.DISABLE_TRACING_KEY;
-import static com.azure.core.util.tracing.Tracer.PARENT_SPAN_KEY;
+import static com.azure.core.util.tracing.Tracer.TRACE_CONTEXT_KEY;
 
 /**
  * Pipeline policy that creates an OpenTelemetry span which traces the service request.
  */
 public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPipelinePolicy {
-
     /**
      * @return a OpenTelemetry HTTP policy.
      */
@@ -85,37 +83,37 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
             return next.process();
         }
 
-        io.opentelemetry.context.Context currentContext = io.opentelemetry.context.Context.current();
-        Span parentSpan = (Span) context.getData(PARENT_SPAN_KEY).orElse(Span.current());
-        HttpRequest request = context.getHttpRequest();
+        return
+            next.process()
+            .doOnEach(OpenTelemetryHttpPolicy::handleResponse)
+            .contextWrite(reactorContext -> startSpan(reactorContext, context));
+    }
+
+    private Context startSpan(Context reactorContext, HttpPipelineCallContext azContext) {
+        io.opentelemetry.context.Context parentContext = getTraceContextOrCurrent(azContext);
+        HttpRequest request = azContext.getHttpRequest();
 
         // Build new child span representing this outgoing request.
-        final UrlBuilder urlBuilder = UrlBuilder.parse(context.getHttpRequest().getUrl());
+        final UrlBuilder urlBuilder = UrlBuilder.parse(azContext.getHttpRequest().getUrl());
 
-        SpanBuilder spanBuilder = tracer.spanBuilder(urlBuilder.getPath())
-            .setParent(currentContext.with(parentSpan));
-
-        // A span's kind can be SERVER (incoming request) or CLIENT (outgoing request);
-        spanBuilder.setSpanKind(SpanKind.CLIENT);
-
-        // Starting the span makes the sampling decision (nothing is logged at this time)
-        Span span = spanBuilder.startSpan();
+        Span span = tracer.spanBuilder(urlBuilder.getPath())
+            .setParent(parentContext)
+            .setSpanKind(SpanKind.CLIENT)
+            .startSpan();
 
         // If span is sampled in, add additional TRACING attributes
         if (span.isRecording()) {
-            addSpanRequestAttributes(span, request, context); // Adds HTTP method, URL, & user-agent
+            addSpanRequestAttributes(span, request, azContext); // Adds HTTP method, URL, & user-agent
         }
 
         // For no-op tracer, SpanContext is INVALID; inject valid span headers onto outgoing request
         SpanContext spanContext = span.getSpanContext();
         if (spanContext.isValid()) {
-            traceContextFormat.inject(currentContext.with(span), request, contextSetter);
+            traceContextFormat.inject(parentContext.with(span), request, contextSetter);
         }
 
-        // run the next policy and handle success and error
-        return next.process()
-            .doOnEach(OpenTelemetryHttpPolicy::handleResponse)
-            .contextWrite(Context.of("TRACING_SPAN", span, "REQUEST", request));
+        // todo otel reflection
+        return reactorContext.put("otel-context-key", parentContext.with(span));
     }
 
     private static void addSpanRequestAttributes(Span span, HttpRequest request,
@@ -149,13 +147,12 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
 
         // Get the context that was added to the mono, this will contain the information needed to end the span.
         ContextView context = signal.getContextView();
-        Optional<Span> tracingSpan = context.getOrEmpty("TRACING_SPAN");
-
-        if (!tracingSpan.isPresent()) {
+        Optional<io.opentelemetry.context.Context> traceContext = context.getOrEmpty("otel-context-key");
+        if (!traceContext.isPresent()) {
             return;
         }
 
-        Span span = tracingSpan.get();
+        Span span = Span.fromContext(traceContext.get());
         HttpResponse httpResponse = null;
         Throwable error = null;
         if (signal.isOnNext()) {
@@ -193,6 +190,22 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
 
         // Ending the span schedules it for export if sampled in or just ignores it if sampled out.
         span.end();
+    }
+
+    /**
+     * Returns OpenTelemetry trace context from given com.azure.core.Context under TRACE_CONTEXT_KEY
+     * or {@link io.opentelemetry.context.Context#current()}
+     */
+    private static io.opentelemetry.context.Context getTraceContextOrCurrent(HttpPipelineCallContext azContext) {
+        final Optional<Object> traceContextOpt = azContext.getData(TRACE_CONTEXT_KEY);
+        if (traceContextOpt.isPresent()) {
+            return (io.opentelemetry.context.Context) traceContextOpt.get();
+        }
+
+        // no need for back-compat with PARENT_SPAN_KEY - OpenTelemetryTracer will set
+        // TRACE_CONTEXT_KEY
+
+        return io.opentelemetry.context.Context.current();
     }
 
     // lambda that actually injects arbitrary header into the request
