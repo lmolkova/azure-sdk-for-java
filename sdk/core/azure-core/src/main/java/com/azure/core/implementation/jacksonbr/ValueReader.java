@@ -8,17 +8,17 @@ import com.fasterxml.jackson.core.JsonToken;
 
 import java.io.IOException;
 
-public abstract class ValueReader
+public abstract class ValueReader<T>
 {
-    protected final Class<?> _valueType;
+    protected final Class<T> _valueType;
 
-    protected ValueReader(Class<?> valueType) {
+    protected ValueReader(Class<T> valueType) {
         _valueType = valueType;
     }
 
-    public abstract Object read(JsonParser p) throws IOException;
+    public abstract T read(JsonParser p) throws IOException;
 
-    public Object readNext(JsonParser p) throws IOException {
+    public T readNext(JsonParser p) throws IOException {
         p.nextToken();
         return read(p);
     }

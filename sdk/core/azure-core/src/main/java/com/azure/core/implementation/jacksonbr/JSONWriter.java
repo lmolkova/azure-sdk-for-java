@@ -42,7 +42,7 @@ import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_NUMB
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_NUMBER_SHORT;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_OBJECT_ARRAY;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_STRING;
-import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_UNIXTIME;
+//import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils. SER_UNIXTIME;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_UNKNOWN;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_URI;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_URL;
@@ -59,19 +59,21 @@ final public class JSONWriter {
         if (value == null) {
             return;
         }
-        _writeValue(value, _writerLocator.findSerializationType(value.getClass()), generator);
+        _writeValue(value, generator);
     }
 
 
-    private void writeField(String fieldName, Object value, int type, JsonGenerator generator) throws IOException {
+    private void writeField(String fieldName, Object value, JsonGenerator generator) throws IOException {
         generator.writeFieldName(fieldName);
-        _writeValue(value, type, generator);
+        _writeValue(value, generator);
     }
 
-    void _writeValue(Object value, int type, JsonGenerator generator) throws IOException {
-        if (type == 0) {
-            type = _writerLocator.findSerializationType(value.getClass());
+    void _writeValue(Object value, JsonGenerator generator) throws IOException {
+        if (value == null) {
+            return;
         }
+
+        int type = ValueLocatorUtils._findSimpleType(value.getClass(), true);
 
         switch (type) {
 
@@ -167,20 +169,19 @@ final public class JSONWriter {
             case SER_ITERABLE:
                 writeIterableValue((Iterable<?>) value, generator);
                 return;
-            case SER_UNIXTIME:
+            /*case SER_UNIXTIME:
                 generator.writeNumber(value.toString());
             case SER_UNKNOWN:
                 writeUnknownValue(value, generator);
-                return;
+                return;*/
         }
 
-        if (type < 0) { // explicit ValueWriter
-            BeanWriter writer = _writerLocator.getWriter(type);
-            if (writer != null) { // sanity check
-                writer.writeValue(this, generator, value);
-                return;
-            }
+        BeanWriter writer = _writerLocator.getOrAdd(value.getClass());
+        if (writer != null) { // sanity check
+            writer.writeValue(value, generator, this);
+            return;
         }
+
         _badType(type, value);
     }
 
@@ -208,7 +209,7 @@ final public class JSONWriter {
                 generator.writeNull();
                 continue;
             }
-            _writeValue(value, _writerLocator.findSerializationType(value.getClass()), generator);
+            _writeValue(value, generator);
         }
         generator.writeEndArray();
     }
@@ -223,9 +224,8 @@ final public class JSONWriter {
                 if (value == null) {
                     continue;
                 }
-                Class<?> cls = value.getClass();
-                int type = _writerLocator.findSerializationType(cls);
-                writeField(key, value, type, generator);
+
+                writeField(key, value, generator);
             }
         }
         generator.writeEndObject();

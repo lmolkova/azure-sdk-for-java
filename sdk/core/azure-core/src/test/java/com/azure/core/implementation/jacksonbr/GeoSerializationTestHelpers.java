@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-package com.azure.core.implementation.jackson;
+package com.azure.core.implementation.jacksonbr;
 
 import com.azure.core.implementation.GeoObjectHelper;
+import com.azure.core.implementation.jackson.GeoJsonDeserializerTests;
 import com.azure.core.models.GeoBoundingBox;
 import com.azure.core.models.GeoCollection;
 import com.azure.core.models.GeoLineString;
@@ -30,7 +31,7 @@ import java.util.stream.Collectors;
 public class GeoSerializationTestHelpers {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static String geoToJson(GeoObject geoObject) {
+    static String geoToJson(GeoObject geoObject) {
         if (geoObject instanceof GeoPoint) {
             return pointToJson((GeoPoint) geoObject);
         } else if (geoObject instanceof GeoLineString) {

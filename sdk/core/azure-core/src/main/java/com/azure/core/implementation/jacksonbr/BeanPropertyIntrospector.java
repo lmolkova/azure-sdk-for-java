@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -87,6 +88,7 @@ public class BeanPropertyIntrospector
                 props[i++] = builder.build();
             }
         }
+
         return new POJODefinition(beanType, props, defaultCtor, stringCtor, null);
     }
 

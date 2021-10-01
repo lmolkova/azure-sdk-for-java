@@ -114,7 +114,7 @@ class ValueLocatorUtils
     public final static int SER_URI = 30;
 
     public final static int SER_ITERABLE = 31;
-    public final static int SER_UNIXTIME = 32;
+    //public final static int SER_UNIXTIME = 32;
 
     /*
     /**********************************************************************
@@ -236,9 +236,9 @@ class ValueLocatorUtils
             return SER_ITERABLE;
         }
 
-        if (UnixTime.class.isAssignableFrom(raw)) {
+        /*if (UnixTime.class.isAssignableFrom(raw)) {
             return SER_UNIXTIME;
-        }
+        }*/
         // Ok. I give up, no idea!
         return SER_UNKNOWN;
     }

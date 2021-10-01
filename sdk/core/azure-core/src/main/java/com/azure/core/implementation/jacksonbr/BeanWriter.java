@@ -7,50 +7,64 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.io.SerializedString;
 
 import java.io.IOException;
+import java.io.Writer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BeanWriter {
+public interface BeanWriter<T> {
+    void writeValue(T value, JsonGenerator g, JSONWriter context) throws IOException;
+
+    default boolean shouldWriteField(SerializedString propertyName, T value) throws IOException {
+        return value != null;
+    }
+}
+
+class BeanWriterDefault implements BeanWriter<Object> {
+    private final WriterCache _writerCache;
     private final ClassKey.BeanProperty[] _properties;
     private static final ClassKey.BeanProperty[] NO_PROPS_FOR_WRITE = new ClassKey.BeanProperty[0];
 
-    public BeanWriter(POJODefinition beanDef) {
+    public BeanWriterDefault(POJODefinition beanDef, WriterCache cache) {
+        _writerCache = cache;
         _properties = _resolveBeanForSer(beanDef);
     }
 
-    public void writeValue(JSONWriter writer, JsonGenerator g, Object value)
-        throws IOException {
-        writeBeanValue(_properties, value, writer, g);
+    @Override
+    public void writeValue(Object value, JsonGenerator g, JSONWriter context) throws IOException {
+        writeBeanValue(value, context, g);
     }
 
-    void writeBeanValue(ClassKey.BeanProperty[] props, Object bean, JSONWriter writer, JsonGenerator g) throws IOException {
-        if (props.length == 1 && props[0].name.getValue().isEmpty()) {
-            Object value = props[0].getValueFor(bean);
+    private void writeBeanValue(Object bean, JSONWriter writer, JsonGenerator g) throws IOException {
+        if (_properties.length == 1 && _properties[0].name.getValue().isEmpty()) {
+            Object value = _properties[0].getValueFor(bean);
             if (value != null) {
-                writer._writeValue(value, props[0].typeId, g);
+                writer._writeValue(value,  g);
             }
 
             return;
         }
 
         g.writeStartObject();
-        for (int i = 0, end = props.length; i < end; ++i) {
-            ClassKey.BeanProperty property = props[i];
+        for (int i = 0, end = _properties.length; i < end; ++i) {
+            ClassKey.BeanProperty property = _properties[i];
             SerializedString name = property.name;
             Object value = property.getValueFor(bean);
             if (value == null) {
                 continue;
             }
 
-            g.writeFieldName(name);
-            writer._writeValue(value, property.typeId, g);
+            BeanWriter propWriter = _writerCache.getOrAdd(property.typeId);
+            if (propWriter.shouldWriteField(name, value)) {
+                g.writeFieldName(name);
+                writer.writeValue(value, g);
+            }
         }
         g.writeEndObject();
     }
 
-    private static ClassKey.BeanProperty[] _resolveBeanForSer(POJODefinition beanDef) {
+    private ClassKey.BeanProperty[] _resolveBeanForSer(POJODefinition beanDef) {
         final POJODefinition.Prop[] rawProps = beanDef.properties();
         final int len = rawProps.length;
         List<ClassKey.BeanProperty> props = new ArrayList<ClassKey.BeanProperty>(len);
@@ -71,8 +85,8 @@ public class BeanWriter {
             } else {
                 type = rawProp.value.getClass();
             }
-            int typeId = ValueLocatorUtils._findSimpleType(type, true);
-            props.add(new ClassKey.BeanProperty(typeId, rawProp.name, f, m, value));
+
+            props.add(new ClassKey.BeanProperty(type, rawProp.name, f, m, value));
         }
         int plen = props.size();
         ClassKey.BeanProperty[] propArray = (plen == 0) ? NO_PROPS_FOR_WRITE

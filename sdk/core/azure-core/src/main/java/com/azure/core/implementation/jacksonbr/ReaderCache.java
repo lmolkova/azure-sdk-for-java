@@ -35,6 +35,22 @@ public final class ReaderCache
         _readerLock = new Object();
     }
 
+    public void registerReader(Class<?> raw, ValueReader reader)
+    {
+        ClassKey k = new ClassKey(raw, 0);
+        ValueReader vr = _knownReaders.get(k);
+        if (vr != null) {
+            return;
+        }
+        // 15-Jun-2016, tatu: Let's limit maximum number of readers to prevent
+        //   unbounded memory retention (at least wrt readers)
+        if (_knownReaders.size() >= MAX_CACHED_READERS) {
+            _knownReaders.clear();
+        }
+        _knownReaders.putIfAbsent(new ClassKey(raw, 0), reader);
+        return;
+    }
+
     public ValueReader findReader(Class<?> raw)
     {
         ClassKey k = new ClassKey(raw, 0);
@@ -167,7 +183,14 @@ public final class ReaderCache
                 _incompleteReaders.put(key, def);
                 for (Map.Entry<String, BeanPropertyReader> entry : def.propertiesByName().entrySet()) {
                     BeanPropertyReader prop = entry.getValue();
-                    entry.setValue(prop.withReader(_createReader(type, prop.rawSetterType(), prop.genericSetterType())));
+                    ValueReader vr = _knownReaders.get(new ClassKey(prop.rawSetterType(), 0));
+                    if (vr != null) {
+                        entry.setValue(prop.withReader(vr));
+                    } else {
+                        entry.setValue(prop.withReader(_createReader(type, prop.rawSetterType(), prop.genericSetterType())));
+                    }
+
+
                 }
             } finally {
                 _incompleteReaders.remove(key);

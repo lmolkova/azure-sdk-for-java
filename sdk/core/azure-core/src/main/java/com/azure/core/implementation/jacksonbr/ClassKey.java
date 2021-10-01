@@ -97,17 +97,17 @@ public final class ClassKey
 
     @Override public String toString() { return _className; }
 
-    public static final class BeanProperty
+    public static final class BeanProperty<T>
     {
         public final SerializedString name;
-        public final int typeId;
+        public final Class<T> typeId;
 
         // TODO improve
         private final Field _field;
         private final Method _method;
         private final Object _value;
 
-        public BeanProperty(int typeId, String n, Field field, Method method, Object value)
+        public BeanProperty(Class<T> typeId, String n, Field field, Method method, Object value)
         {
             this.typeId = typeId;
             name = new SerializedString(n);
