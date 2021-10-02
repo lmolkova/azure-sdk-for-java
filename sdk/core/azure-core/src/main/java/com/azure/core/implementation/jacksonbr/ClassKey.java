@@ -96,46 +96,4 @@ public final class ClassKey
     @Override public int hashCode() { return _hashCode; }
 
     @Override public String toString() { return _className; }
-
-    public static final class BeanProperty<T>
-    {
-        public final SerializedString name;
-        public final Class<T> typeId;
-
-        // TODO improve
-        private final Field _field;
-        private final Method _method;
-        private final Object _value;
-
-        public BeanProperty(Class<T> typeId, String n, Field field, Method method, Object value)
-        {
-            this.typeId = typeId;
-            name = new SerializedString(n);
-            _field = field;
-            _method = method;
-            _value = value;
-        }
-
-        public Object getValueFor(Object bean) throws IOException
-        {
-            try {
-                if (_field != null) {
-                    return _field.get(bean);
-                } else if (_method != null) {
-                    return _method.invoke(bean);
-                } else {
-                    return _value;
-                }
-
-            } catch (Exception e) {
-                final String accessorDesc = (_method != null)
-                        ? String.format("method %s()", _method.getName())
-                        : String.format("field %s", _field.getName());
-                throw new IOException(String.format(
-                        "Failed to access property '%s' (using %s); exception (%s): %s",
-                        name, e.getClass().getName(), accessorDesc, e.getMessage()), e);
-            }
-        }
-    }
-
 }

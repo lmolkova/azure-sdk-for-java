@@ -11,7 +11,9 @@ import java.io.Writer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public interface BeanWriter<T> {
     void writeValue(T value, JsonGenerator g, JSONWriter context) throws IOException;
@@ -23,12 +25,14 @@ public interface BeanWriter<T> {
 
 class BeanWriterDefault implements BeanWriter<Object> {
     private final WriterCache _writerCache;
-    private final ClassKey.BeanProperty[] _properties;
-    private static final ClassKey.BeanProperty[] NO_PROPS_FOR_WRITE = new ClassKey.BeanProperty[0];
+    private final POJODefinition  beanDef;
+    private final POJODefinition.Prop[] _properties;
+    private static final  POJODefinition.Prop[] NO_PROPS_FOR_WRITE = new  POJODefinition.Prop[0];
 
     public BeanWriterDefault(POJODefinition beanDef, WriterCache cache) {
         _writerCache = cache;
-        _properties = _resolveBeanForSer(beanDef);
+        _properties = (beanDef._properties.length == 0) ? NO_PROPS_FOR_WRITE : beanDef._properties;
+        this.beanDef = beanDef;
     }
 
     @Override
@@ -37,8 +41,8 @@ class BeanWriterDefault implements BeanWriter<Object> {
     }
 
     private void writeBeanValue(Object bean, JSONWriter writer, JsonGenerator g) throws IOException {
-        if (_properties.length == 1 && _properties[0].name.getValue().isEmpty()) {
-            Object value = _properties[0].getValueFor(bean);
+        if (_properties.length == 1 && _properties[0].serializedName.getValue().isEmpty()) {
+            Object value = _properties[0].getValue(bean);
             if (value != null) {
                 writer._writeValue(value,  g);
             }
@@ -48,49 +52,39 @@ class BeanWriterDefault implements BeanWriter<Object> {
 
         g.writeStartObject();
         for (int i = 0, end = _properties.length; i < end; ++i) {
-            ClassKey.BeanProperty property = _properties[i];
-            SerializedString name = property.name;
-            Object value = property.getValueFor(bean);
+            POJODefinition.Prop property = _properties[i];
+
+            SerializedString name = property.serializedName;
+            Object value = property.getValue(bean);
             if (value == null) {
                 continue;
             }
 
             BeanWriter propWriter = _writerCache.getOrAdd(property.typeId);
             if (propWriter.shouldWriteField(name, value)) {
-                g.writeFieldName(name);
-                writer.writeValue(value, g);
+                if (property.unwrappedProp) {
+                    if (value instanceof Map) {
+                        Map<String, Object> additionalProperties = (Map<String, Object>) value;
+                        if (!additionalProperties.isEmpty()) {
+                            for (Map.Entry<String, Object> entry : additionalProperties.entrySet()) {
+                                Object ev = entry.getValue();
+
+                                if (ev == null) {
+                                    continue;
+                                }
+
+                                g.writeFieldName(entry.getKey());
+                                writer.writeValue(ev, g);
+                            }
+                        }
+                    }
+                } else {
+                    g.writeFieldName(name);
+                    writer.writeValue(value, g);
+                }
             }
         }
         g.writeEndObject();
     }
-
-    private ClassKey.BeanProperty[] _resolveBeanForSer(POJODefinition beanDef) {
-        final POJODefinition.Prop[] rawProps = beanDef.properties();
-        final int len = rawProps.length;
-        List<ClassKey.BeanProperty> props = new ArrayList<ClassKey.BeanProperty>(len);
-
-        for (int i = 0; i < len; ++i) {
-            POJODefinition.Prop rawProp = rawProps[i];
-            Method m = rawProp.getter;
-            Field f = rawProp.field;
-            Object value = rawProp.value;
-
-            Class<?> type;
-            if (m != null) {
-                type = m.getReturnType();
-                m.setAccessible(true);
-            } else if (rawProp.field != null) {
-                type = f.getType();
-                f.setAccessible(true);
-            } else {
-                type = rawProp.value.getClass();
-            }
-
-            props.add(new ClassKey.BeanProperty(type, rawProp.name, f, m, value));
-        }
-        int plen = props.size();
-        ClassKey.BeanProperty[] propArray = (plen == 0) ? NO_PROPS_FOR_WRITE
-            : props.toArray(NO_PROPS_FOR_WRITE);
-        return propArray;
-    }
 }
+

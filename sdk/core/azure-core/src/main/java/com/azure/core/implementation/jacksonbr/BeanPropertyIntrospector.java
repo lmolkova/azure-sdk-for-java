@@ -85,7 +85,9 @@ public class BeanPropertyIntrospector
             props = new POJODefinition.Prop[len];
             int i = 0;
             for (POJODefinition.PropBuilder builder : propsByName.values()) {
-                props[i++] = builder.build();
+                props[i] = builder.build();
+                props[i].makeAccessible();
+                i++;
             }
         }
 
@@ -124,6 +126,11 @@ public class BeanPropertyIntrospector
                 }
 
                 _propFrom(props, name).withField(f);
+            } else if (f.getName().equals("additionalProperties") && f.getType().isAssignableFrom(Map.class)) {
+                // todo anygetter
+
+                String name = "additionalProperties";
+                _propFrom(props, name).withField(f).makeUnwrapped();
             }
         }
 

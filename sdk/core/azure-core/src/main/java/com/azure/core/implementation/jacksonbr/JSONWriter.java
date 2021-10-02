@@ -73,116 +73,122 @@ final public class JSONWriter {
             return;
         }
 
-        int type = ValueLocatorUtils._findSimpleType(value.getClass(), true);
+        BeanWriter writer = _writerLocator.getOrAdd(value.getClass());
 
-        switch (type) {
+        if (writer instanceof BeanWriterDefault) {
+            int type = ValueLocatorUtils._findSimpleType(value.getClass(), true);
 
-            // Structured types:
-            case SER_MAP:
-                writeMapValue((Map<?, ?>) value, generator);
-                return;
-            case SER_LIST:
-                writeListValue((List<?>) value, generator);
-                return;
-            case SER_COLLECTION:
-                writeCollectionValue((Collection<?>) value, generator);
-                return;
-            case SER_OBJECT_ARRAY:
-                writeObjectArrayValue((Object[]) value, generator);
-                return;
-            case SER_INT_ARRAY:
-                writeIntArrayValue((int[]) value, generator);
-                return;
-            case SER_LONG_ARRAY:
-                writeLongArrayValue((long[]) value, generator);
-                return;
-            case SER_BOOLEAN_ARRAY:
-                writeBooleanArrayValue((boolean[]) value, generator);
-                return;
 
-            // Textual types, related:
-            case SER_STRING:
-                generator.writeString((String) value);
-                return;
-            case SER_CHAR_ARRAY:
-                generator.writeString(new String((char[]) value));
-                return;
-            case SER_CHARACTER_SEQUENCE:
-                generator.writeString(((CharSequence) value).toString());
-                return;
-            case SER_BYTE_ARRAY:
-                generator.writeBinary((byte[]) value);
-                return;
+            switch (type) {
 
-            // Number types:
+                // Structured types:
+                case SER_MAP:
+                    writeMapValue((Map<?, ?>) value, generator);
+                    return;
+                case SER_LIST:
+                    writeListValue((List<?>) value, generator);
+                    return;
+                case SER_COLLECTION:
+                    writeCollectionValue((Collection<?>) value, generator);
+                    return;
+                case SER_OBJECT_ARRAY:
+                    writeObjectArrayValue((Object[]) value, generator);
+                    return;
+                case SER_INT_ARRAY:
+                    writeIntArrayValue((int[]) value, generator);
+                    return;
+                case SER_LONG_ARRAY:
+                    writeLongArrayValue((long[]) value, generator);
+                    return;
+                case SER_BOOLEAN_ARRAY:
+                    writeBooleanArrayValue((boolean[]) value, generator);
+                    return;
 
-            case SER_NUMBER_FLOAT: // fall through
-            case SER_NUMBER_DOUBLE:
-                generator.writeNumber(((Number) value).doubleValue());
-                return;
-            case SER_NUMBER_BYTE: // fall through
-            case SER_NUMBER_SHORT: // fall through
-            case SER_NUMBER_INTEGER:
-                generator.writeNumber(((Number) value).intValue());
-                return;
-            case SER_NUMBER_LONG:
-                generator.writeNumber(((Number) value).longValue());
-                return;
-            case SER_NUMBER_BIG_DECIMAL:
-                generator.writeNumber((BigDecimal) value);
-                return;
-            case SER_NUMBER_BIG_INTEGER:
-                generator.writeNumber((BigInteger) value);
-                return;
+                // Textual types, related:
+                case SER_STRING:
+                    generator.writeString((String) value);
+                    return;
+                case SER_CHAR_ARRAY:
+                    generator.writeString(new String((char[]) value));
+                    return;
+                case SER_CHARACTER_SEQUENCE:
+                    generator.writeString(((CharSequence) value).toString());
+                    return;
+                case SER_BYTE_ARRAY:
+                    generator.writeBinary((byte[]) value);
+                    return;
 
-            // Other scalar types:
+                // Number types:
 
-            case SER_BOOLEAN:
-                generator.writeBoolean((((Boolean) value).booleanValue()));
-                return;
-            case SER_CHAR:
-                generator.writeString((String.valueOf(value)));
-                return;
-            case SER_CALENDAR:
-                generator.writeString(dateToString(((Calendar) value).getTime()));
-                return;
-            case SER_DATE:
-                generator.writeString(dateToString((Date) value));
-                return;
+                case SER_NUMBER_FLOAT: // fall through
+                case SER_NUMBER_DOUBLE:
+                    generator.writeNumber(((Number) value).doubleValue());
+                    return;
+                case SER_NUMBER_BYTE: // fall through
+                case SER_NUMBER_SHORT: // fall through
+                case SER_NUMBER_INTEGER:
+                    generator.writeNumber(((Number) value).intValue());
+                    return;
+                case SER_NUMBER_LONG:
+                    generator.writeNumber(((Number) value).longValue());
+                    return;
+                case SER_NUMBER_BIG_DECIMAL:
+                    generator.writeNumber((BigDecimal) value);
+                    return;
+                case SER_NUMBER_BIG_INTEGER:
+                    generator.writeNumber((BigInteger) value);
+                    return;
 
-            case SER_ENUM:
-                generator.writeString(value.toString());
-                return;
-            case SER_CLASS:
-                generator.writeString(((Class<?>) value).getName());
-                return;
-            case SER_FILE:
-                generator.writeString(((File) value).getAbsolutePath());
-                return;
-            // these type should be fine using toString()
-            case SER_UUID:
-            case SER_URL:
-            case SER_URI:
-                generator.writeString(value.toString());
-                return;
+                // Other scalar types:
 
-            case SER_ITERABLE:
-                writeIterableValue((Iterable<?>) value, generator);
-                return;
+                case SER_BOOLEAN:
+                    generator.writeBoolean((((Boolean) value).booleanValue()));
+                    return;
+                case SER_CHAR:
+                    generator.writeString((String.valueOf(value)));
+                    return;
+                case SER_CALENDAR:
+                    generator.writeString(dateToString(((Calendar) value).getTime()));
+                    return;
+                case SER_DATE:
+                    generator.writeString(dateToString((Date) value));
+                    return;
+
+                case SER_ENUM:
+                    generator.writeString(value.toString());
+                    return;
+                case SER_CLASS:
+                    generator.writeString(((Class<?>) value).getName());
+                    return;
+                case SER_FILE:
+                    generator.writeString(((File) value).getAbsolutePath());
+                    return;
+                // these type should be fine using toString()
+                case SER_UUID:
+                case SER_URL:
+                case SER_URI:
+                    generator.writeString(value.toString());
+                    return;
+
+                case SER_ITERABLE:
+                    writeIterableValue((Iterable<?>) value, generator);
+                    return;
             /*case SER_UNIXTIME:
                 generator.writeNumber(value.toString());
             case SER_UNKNOWN:
                 writeUnknownValue(value, generator);
                 return;*/
+            }
+
+            if (writer == null) {
+                _badType(type, value);
+            }
         }
 
-        BeanWriter writer = _writerLocator.getOrAdd(value.getClass());
         if (writer != null) { // sanity check
             writer.writeValue(value, generator, this);
             return;
         }
-
-        _badType(type, value);
     }
 
     private void writeCollectionValue(Collection<?> v, JsonGenerator generator) throws IOException {

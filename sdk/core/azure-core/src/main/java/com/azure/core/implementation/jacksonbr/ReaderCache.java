@@ -181,13 +181,13 @@ public final class ReaderCache
             final BeanReader def = _resolveBeanForDeser(type, BeanPropertyIntrospector.instance().pojoDefinitionForDeserialization(type));
             try {
                 _incompleteReaders.put(key, def);
-                for (Map.Entry<String, BeanPropertyReader> entry : def.propertiesByName().entrySet()) {
-                    BeanPropertyReader prop = entry.getValue();
-                    ValueReader vr = _knownReaders.get(new ClassKey(prop.rawSetterType(), 0));
+                for (Map.Entry<String, ValueReader> entry : def.readersByName().entrySet()) {
+                    POJODefinition.Prop prop = def._propsByName.get(entry.getKey());
+                    ValueReader vr = _knownReaders.get(new ClassKey(prop.typeId, 0));
                     if (vr != null) {
-                        entry.setValue(prop.withReader(vr));
+                        entry.setValue(vr);
                     } else {
-                        entry.setValue(prop.withReader(_createReader(type, prop.rawSetterType(), prop.genericSetterType())));
+                        entry.setValue(_createReader(type, prop.typeId, prop.getGenericType()));
                     }
 
 
@@ -214,46 +214,7 @@ public final class ReaderCache
                 stringCtor.setAccessible(true);
             }
         }
-
-        final POJODefinition.Prop[] rawProps = beanDef.properties();
-        final int len = rawProps.length;
-        final Map<String, BeanPropertyReader> propMap;
-
-        if (len == 0) {
-            propMap = Collections.emptyMap();
-        } else {
-            propMap = new HashMap<String, BeanPropertyReader>();
-            final boolean useFields = true;
-            for (int i = 0; i < len; ++i) {
-                POJODefinition.Prop rawProp = rawProps[i];
-                Method m = rawProp.setter;
-                Field f = useFields ? rawProp.field : null;
-
-                if (m != null) {
-                    if (forceAccess) {
-                        m.setAccessible(true);
-                    } else if (!Modifier.isPublic(m.getModifiers())) {
-                        // access to non-public setters must be forced to be usable:
-                        m = null;
-                    }
-                }
-                // if no setter, field would do as well
-                if (m == null) {
-                    if (f == null) {
-                        continue;
-                    }
-                    // fields should always be public, but let's just double-check
-                    if (forceAccess) {
-                        f.setAccessible(true);
-                    } else if (!Modifier.isPublic(f.getModifiers())) {
-                        continue;
-                    }
-                }
-
-                propMap.put(rawProp.name, new BeanPropertyReader(rawProp.name, f, m));
-            }
-        }
-        return new BeanReader(raw, propMap, defaultCtor, stringCtor, fromString);
+        return new BeanReader(raw, beanDef);
     }
 
     private TypeBindings _bindings(Class<?> ctxt) {

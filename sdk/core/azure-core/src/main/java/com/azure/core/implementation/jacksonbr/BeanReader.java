@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -23,38 +24,38 @@ import java.util.TreeSet;
 public class BeanReader
     extends ValueReader // so we can chain calls for Collections, arrays
 {
-    protected final Map<String, BeanPropertyReader> _propsByName;
+    protected final Map<String, ValueReader> _readersByName;
+    protected final Map<String, POJODefinition.Prop> _propsByName;
 
-    //protected final Constructor<?> _creatorCtor;
+    private final POJODefinition beanDef;
     protected final Constructor<?> _defaultCtor;
     protected final Constructor<?> _stringCtor;
     protected final Method _fromString;
+    private final POJODefinition.Prop additionalPropertiesProp;
+    private Map<String, Object> additionalPropertiesMap;
     /**
      * Constructors used for deserialization use case
      */
-    public BeanReader(Class<?> type, Map<String, BeanPropertyReader> props,
-                      Constructor<?> defaultCtor0, Constructor<?> stringCtor0, Method fromString0)
-    {
+    public BeanReader(Class<?> type, POJODefinition beanDef) {
         super(type);
-        _propsByName = props;
-        _defaultCtor = defaultCtor0;
-        _stringCtor = stringCtor0;
-        _fromString = fromString0;
-    }
 
-    public Map<String,BeanPropertyReader> propertiesByName() { return _propsByName; }
+        _readersByName = new HashMap<String, ValueReader>();
+        _propsByName = new HashMap<String, POJODefinition.Prop>();
+        for (int i = 0; i < beanDef._properties.length; ++i) {
+            POJODefinition.Prop rawProp = beanDef._properties[i];
+            _readersByName.put(rawProp.name, null);
+            _propsByName.put(rawProp.name, rawProp);
 
-    public BeanPropertyReader findProperty(String name) {
-        BeanPropertyReader prop = _propsByName.get(name);
-        if (prop == null) {
-            return _findAlias(name);
         }
-        return prop;
+
+        _defaultCtor = beanDef.defaultCtor;
+        _stringCtor = beanDef.stringCtor;
+        _fromString = beanDef.fromString;
+        this.beanDef = beanDef;
+        additionalPropertiesProp = _propsByName.get("additionalProperties");
     }
 
-    private final BeanPropertyReader _findAlias(String name) {
-        return _propsByName.get(name);
-    }
+    public Map<String,ValueReader> readersByName() { return _readersByName; }
 
     @Override
     public Object readNext(JsonParser p) throws IOException
@@ -77,13 +78,25 @@ public class BeanReader
                     String propName;
 
                     for (; (propName = p.nextFieldName()) != null; ) {
-                        BeanPropertyReader prop = findProperty(propName);
+
+                        POJODefinition.Prop prop = _propsByName.get(propName);
+                        ValueReader vr = _readersByName.get(propName);
                         if (prop == null) {
-                            handleUnknown(p);
-                            continue;
+                            if (additionalPropertiesProp != null) {
+                                if (additionalPropertiesMap == null) {
+                                    additionalPropertiesMap = (Map<String, Object>)additionalPropertiesProp.getValue(bean);
+                                }
+
+                                if (additionalPropertiesMap != null) {
+                                    additionalPropertiesMap.put(propName, vr.readNext(p));
+                                }
+                            } else {
+                                handleUnknown(p);
+                                continue;
+                            }
                         }
-                        ValueReader vr = prop.getReader();
-                        prop.setValueFor(bean, vr.readNext(p));
+
+                        prop.setValue(bean, vr.readNext(p));
                     }
                     // also verify we are not confused...
                     if (!p.hasToken(JsonToken.END_OBJECT)) {
@@ -130,13 +143,15 @@ public class BeanReader
                     String propName;
 
                     for (; (propName = p.nextFieldName()) != null; ) {
-                        BeanPropertyReader prop = findProperty(propName);
+                        POJODefinition.Prop prop = _propsByName.get(propName);
                         if (prop == null) {
                             handleUnknown(p);
                             continue;
                         }
-                        final Object value = prop.getReader().readNext(p);
-                        prop.setValueFor(bean, value);
+                        ValueReader vr = _readersByName.get(propName);
+
+                        final Object value = vr.readNext(p);
+                        prop.setValue(bean, value);
                     }
                     // also verify we are not confused...
                     if (!p.hasToken(JsonToken.END_OBJECT)) {
