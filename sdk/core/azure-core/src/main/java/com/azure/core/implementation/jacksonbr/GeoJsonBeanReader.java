@@ -3,6 +3,15 @@
 
 package com.azure.core.implementation.jacksonbr;
 
+import com.azure.core.implementation.jacksonbr.tree.JacksonJrsTreeCodec;
+import com.azure.core.implementation.jacksonbr.tree.JrsArray;
+import com.azure.core.implementation.jacksonbr.tree.JrsBoolean;
+import com.azure.core.implementation.jacksonbr.tree.JrsMissing;
+import com.azure.core.implementation.jacksonbr.tree.JrsNull;
+import com.azure.core.implementation.jacksonbr.tree.JrsNumber;
+import com.azure.core.implementation.jacksonbr.tree.JrsObject;
+import com.azure.core.implementation.jacksonbr.tree.JrsString;
+import com.azure.core.implementation.jacksonbr.tree.JrsValue;
 import com.azure.core.models.GeoBoundingBox;
 import com.azure.core.models.GeoCollection;
 import com.azure.core.models.GeoLineString;
@@ -17,9 +26,12 @@ import com.azure.core.models.GeoPolygonCollection;
 import com.azure.core.models.GeoPosition;
 import com.azure.core.util.logging.ClientLogger;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.core.TreeNode;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,6 +40,7 @@ import java.util.Map;
 
 public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T> {
     private static final ClientLogger LOGGER = new ClientLogger(GeoJsonBeanReader.class);
+
 
     /*
      * Required GeoJSON properties.
@@ -45,13 +58,13 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
         super(type);
     }
 
-
     @Override
     public T read(JsonParser parser) throws IOException {
-        return read((TreeNode) parser.readValueAsTree());
+
+        return (T)readNode(JacksonJrsTreeCodec.SINGLETON.readTree(parser));
     }
 
-    /*private static TreeNode getRequiredProperty(TreeNode node, String name) {
+    private static TreeNode getRequiredProperty(TreeNode node, String name) {
         TreeNode requiredNode = node.get(name);
 
         if (requiredNode == null) {
@@ -60,63 +73,86 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
         }
 
         return requiredNode;
-    }*/
+    }
 
-    private T read(TreeNode node) {
+    private <R> R getRequiredProperty(TreeNode node, String name, Class<R> as) {
+        TreeNode propNode = getRequiredProperty(node, name);
+        if (as.isInstance(propNode)) {
+            return (R)propNode;
+        }
+
         return null;
-        /*String type = getRequiredProperty(node, TYPE_PROPERTY);
+    }
+
+    private GeoObject readNode(TreeNode node) {
+        String type = getRequiredProperty(node, TYPE_PROPERTY, JrsValue.class).asText();
 
         if (isGeoObjectType(type, GeoObjectType.GEOMETRY_COLLECTION)) {
             List<GeoObject> geometries = new ArrayList<>();
-            for (TreeNode geoNode : getRequiredProperty(node, GEOMETRIES_PROPERTY)) {
-                geometries.add(read(geoNode));
+            TreeNode geometriesNode = getRequiredProperty(node, GEOMETRIES_PROPERTY);
+            if (geometriesNode != null && geometriesNode.isArray()) {
+                Iterator<JrsValue> it = ((JrsArray)geometriesNode).elements();
+                while (it.hasNext()) {
+                    geometries.add(readNode(it.next()));
+                }
             }
 
             return new GeoCollection(geometries, readBoundingBox(node),
-                readProperties(node, GEOMETRIES_PROPERTY));
+                readProperties((JrsObject)node, GEOMETRIES_PROPERTY));
         }
 
-        TreeNode coordinates = getRequiredProperty(node, COORDINATES_PROPERTY);
+        JrsArray coordinatesNode = getRequiredProperty(node, COORDINATES_PROPERTY, JrsArray.class);
 
         GeoBoundingBox boundingBox = readBoundingBox(node);
-        Map<String, Object> properties = readProperties(node);
+        Map<String, Object> properties = readProperties((JrsObject)node);
 
         if (isGeoObjectType(type, GeoObjectType.POINT)) {
-            return new GeoPoint(readCoordinate(coordinates), boundingBox, properties);
+            return new GeoPoint(readCoordinate(coordinatesNode), boundingBox, properties);
         } else if (isGeoObjectType(type, GeoObjectType.LINE_STRING)) {
-            return new GeoLineString(readCoordinates(coordinates), boundingBox, properties);
+            return new GeoLineString(readCoordinates(coordinatesNode), boundingBox, properties);
         } else if (isGeoObjectType(type, GeoObjectType.POLYGON)) {
             List<GeoLinearRing> rings = new ArrayList<>();
-            coordinates.forEach(ring -> rings.add(new GeoLinearRing(readCoordinates(ring))));
-
+            Iterator<JrsValue> it = coordinatesNode.elements();
+            while (it.hasNext()) {
+                rings.add(new GeoLinearRing(readCoordinates((JrsArray) it.next())));
+            }
             return new GeoPolygon(rings, boundingBox, properties);
         } else if (isGeoObjectType(type, GeoObjectType.MULTI_POINT)) {
             List<GeoPoint> points = new ArrayList<>();
-            readCoordinates(coordinates).forEach(position -> points.add(new GeoPoint(position)));
+            readCoordinates(coordinatesNode).forEach(position -> points.add(new GeoPoint(position)));
 
             return new GeoPointCollection(points, boundingBox, properties);
         } else if (isGeoObjectType(type, GeoObjectType.MULTI_LINE_STRING)) {
             List<GeoLineString> lines = new ArrayList<>();
-            coordinates.forEach(line -> lines.add(new GeoLineString(readCoordinates(line))));
+            Iterator<JrsValue> it = coordinatesNode.elements();
+            while (it.hasNext()) {
+                lines.add(new GeoLineString(readCoordinates((JrsArray) it.next())));
+            }
 
             return new GeoLineStringCollection(lines, boundingBox, properties);
         } else if (isGeoObjectType(type, GeoObjectType.MULTI_POLYGON)) {
-            return readMultiPolygon(coordinates, boundingBox, properties);
-        }*/
+            return readMultiPolygon(coordinatesNode, boundingBox, properties);
+        }
 
-        //throw LOGGER.logExceptionAsError(new IllegalStateException(String.format("Unsupported geo type %s.", this._valueType)));
+        throw LOGGER.logExceptionAsError(new IllegalStateException(String.format("Unsupported geo type %s.", this._valueType)));
     }
 
     private static boolean isGeoObjectType(String jsonType, GeoObjectType type) {
         return type.toString().equalsIgnoreCase(jsonType);
     }
 
-    /*private static GeoPolygonCollection readMultiPolygon(TreeNode node, GeoBoundingBox boundingBox,
+    private static GeoPolygonCollection readMultiPolygon(JrsArray node, GeoBoundingBox boundingBox,
         Map<String, Object> properties) {
         List<GeoPolygon> polygons = new ArrayList<>();
-        for (TreeNode polygon : node) {
+
+        Iterator<JrsValue> it = node.elements();
+        while (it.hasNext()) {
+            JrsArray polygon = (JrsArray) it.next();
+            Iterator<JrsValue> pit = polygon.elements();
             List<GeoLinearRing> rings = new ArrayList<>();
-            polygon.forEach(ring -> rings.add(new GeoLinearRing(readCoordinates(ring))));
+            while (pit.hasNext()) {
+                rings.add(new GeoLinearRing(readCoordinates((JrsArray)pit.next())));
+            }
 
             polygons.add(new GeoPolygon(rings));
         }
@@ -125,20 +161,20 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
     }
 
 
-
     private static GeoBoundingBox readBoundingBox(TreeNode node) {
         TreeNode boundingBoxNode = node.get(BOUNDING_BOX_PROPERTY);
         if (boundingBoxNode != null) {
             switch (boundingBoxNode.size()) {
                 case 4:
-                    return new GeoBoundingBox(boundingBoxNode.get(0).asDouble(),
-                        boundingBoxNode.get(1).asDouble(), boundingBoxNode.get(2).asDouble(),
-                        boundingBoxNode.get(3).asDouble());
+                    return new GeoBoundingBox(((JrsNumber)boundingBoxNode.get(0)).getValue().doubleValue(),
+                        ((JrsNumber)boundingBoxNode.get(1)).getValue().doubleValue(), ((JrsNumber)boundingBoxNode.get(2)).getValue().doubleValue(),
+                        ((JrsNumber)boundingBoxNode.get(3)).getValue().doubleValue());
                 case 6:
-                    return new GeoBoundingBox(boundingBoxNode.get(0).asDouble(),
-                        boundingBoxNode.get(1).asDouble(), boundingBoxNode.get(3).asDouble(),
-                        boundingBoxNode.get(4).asDouble(), boundingBoxNode.get(2).asDouble(),
-                        boundingBoxNode.get(5).asDouble());
+                    return new GeoBoundingBox(
+                        ((JrsNumber)boundingBoxNode.get(0)).getValue().doubleValue(),
+                        ((JrsNumber)boundingBoxNode.get(1)).getValue().doubleValue(), ((JrsNumber)boundingBoxNode.get(3)).getValue().doubleValue(),
+                        ((JrsNumber)boundingBoxNode.get(4)).getValue().doubleValue(), ((JrsNumber)boundingBoxNode.get(2)).getValue().doubleValue(),
+                        ((JrsNumber)boundingBoxNode.get(5)).getValue().doubleValue());
                 default:
                     throw LOGGER.logExceptionAsError(
                         new IllegalStateException("Only 2 or 3 dimension bounding boxes are supported."));
@@ -148,15 +184,15 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
         return null;
     }
 
-    private static Map<String, Object> readProperties(TreeNode node) {
+    private static Map<String, Object> readProperties(JrsObject node) {
         return readProperties(node, COORDINATES_PROPERTY);
     }
 
-    private static Map<String, Object> readProperties(TreeNode node, String knownProperty) {
+    private static Map<String, Object> readProperties(JrsObject node, String knownProperty) {
         Map<String, Object> additionalProperties = null;
-        Iterator<Map.Entry<String, TreeNode>> fieldsIterator = node.fields();
+        Iterator<Map.Entry<String, JrsValue>> fieldsIterator = node.fields();
         while (fieldsIterator.hasNext()) {
-            Map.Entry<String, TreeNode> field = fieldsIterator.next();
+            Map.Entry<String, JrsValue> field = fieldsIterator.next();
             String propertyName = field.getKey();
             if (propertyName.equalsIgnoreCase(TYPE_PROPERTY)
                 || propertyName.equalsIgnoreCase(BOUNDING_BOX_PROPERTY)
@@ -174,63 +210,66 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
         return additionalProperties;
     }
 
-    private static Object readAdditionalPropertyValue(TreeNode node) {
-        switch (node.getNodeType()) {
-            case STRING:
-                return node.asText();
-            case NUMBER:
-                if (node.isInt()) {
-                    return node.asInt();
-                } else if (node.isLong()) {
-                    return node.asLong();
-                } else if (node.isFloat()) {
-                    return node.floatValue();
-                } else {
-                    return node.asDouble();
-                }
-            case BOOLEAN:
-                return node.asBoolean();
-            case NULL:
-            case MISSING:
-                return null;
-            case OBJECT:
-                Map<String, Object> object = new HashMap<>();
-                node.fields().forEachRemaining(field ->
-                    object.put(field.getKey(), readAdditionalPropertyValue(field.getValue())));
-
-                return object;
-            case ARRAY:
-                List<Object> array = new ArrayList<>();
-                node.forEach(element -> array.add(readAdditionalPropertyValue(element)));
-
-                return array;
-            default:
-                throw LOGGER.logExceptionAsError(new IllegalStateException(
-                    String.format("Unsupported additional property type %s.", node.getNodeType())));
+    private static Object readAdditionalPropertyValue(JrsValue node) {
+        if (node instanceof JrsString)  {
+            return node.asText();
         }
+        if (node instanceof JrsNumber) {
+            return ((JrsNumber) node).getValue();
+        }
+
+        if (node instanceof JrsBoolean) {
+            return ((JrsBoolean)node).booleanValue();
+        }
+
+        if (node instanceof JrsNull || node instanceof JrsMissing) {
+            return null;
+        }
+
+        if (node instanceof JrsObject) {
+            Map<String, Object> object = new HashMap<>();
+
+            ((JrsObject) node).fields().forEachRemaining(field ->
+                object.put(field.getKey(), readAdditionalPropertyValue(field.getValue())));
+
+            return object;
+        }
+        if (node instanceof JrsArray) {
+            List<Object> array = new ArrayList<>();
+            Iterator<JrsValue> it = ((JrsArray) node).elements();
+            while (it.hasNext()) {
+                array.add(readAdditionalPropertyValue(it.next()));
+            }
+            return array;
+        }
+
+        throw LOGGER.logExceptionAsError(new IllegalStateException(
+            String.format("Unsupported additional property type %s.", node.asToken().id())));
     }
 
-    private static List<GeoPosition> readCoordinates(TreeNode coordinates) {
+    private static List<GeoPosition> readCoordinates(JrsArray coordinates) {
         List<GeoPosition> positions = new ArrayList<>();
 
-        coordinates.forEach(coordinate -> positions.add(readCoordinate(coordinate)));
-
+        Iterator<JrsValue> it  = coordinates.elements();
+        while (it.hasNext()) {
+            positions.add(readCoordinate((JrsArray)it.next()));
+        }
         return positions;
     }
 
-    private static GeoPosition readCoordinate(TreeNode coordinate) {
+    private static GeoPosition readCoordinate(JrsArray coordinate) {
         int coordinateCount = coordinate.size();
 
         if (coordinateCount < 2 || coordinateCount > 3) {
             throw LOGGER.logExceptionAsError(new IllegalStateException("Only 2 or 3 element coordinates supported."));
         }
 
-        double longitude = coordinate.get(0).asDouble();
-        double latitude = coordinate.get(1).asDouble();
+        double longitude = (Double) ((JrsNumber)coordinate.get(0)).getValue();
+        double latitude = (Double) ((JrsNumber)coordinate.get(1)).getValue();
         Double altitude = null;
 
         if (coordinateCount > 2) {
-            altitude = coordinate.get(2).asDouble();
+            altitude = (Double) ((JrsNumber)coordinate.get(2)).getValue();
         }
 
         return new GeoPosition(longitude, latitude, altitude);
@@ -243,7 +282,5 @@ public final class GeoJsonBeanReader<T extends GeoObject> extends ValueReader<T>
                 return subclass.cast(p.readValueAsTree());
             }
         };
-    }*/
-
-
+    }
 }
