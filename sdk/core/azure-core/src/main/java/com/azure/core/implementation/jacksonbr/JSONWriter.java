@@ -56,9 +56,12 @@ final public class JSONWriter {
     }
 
     public void writeValue(Object value, JsonGenerator generator) throws IOException {
-        if (value == null) {
-            return;
+        if (value != null) {
+            _writeValue(value, generator);
         }
+    }
+
+    public void writeValueNullOk(Object value, JsonGenerator generator) throws IOException {
         _writeValue(value, generator);
     }
 
@@ -69,10 +72,6 @@ final public class JSONWriter {
     }
 
     void _writeValue(Object value, JsonGenerator generator) throws IOException {
-        if (value == null) {
-            return;
-        }
-
         BeanWriter writer = _writerLocator.getOrAdd(value.getClass());
 
         if (writer instanceof BeanWriterDefault) {
@@ -185,7 +184,7 @@ final public class JSONWriter {
             }
         }
 
-        if (writer != null) { // sanity check
+        if (writer != null && value != null) { // sanity check
             writer.writeValue(value, generator, this);
             return;
         }
@@ -240,7 +239,8 @@ final public class JSONWriter {
     private void writeObjectArrayValue(Object[] v, JsonGenerator generator) throws IOException {
         generator.writeStartArray();
         for (int i = 0, len = v.length; i < len; ++i) {
-            writeValue(v[i], generator);
+            if (v[i] == null) generator.writeNull();
+            else writeValue(v[i], generator);
         }
         generator.writeEndArray();
     }

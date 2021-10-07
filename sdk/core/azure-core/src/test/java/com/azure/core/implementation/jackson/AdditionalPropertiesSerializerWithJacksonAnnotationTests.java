@@ -30,7 +30,7 @@ public class AdditionalPropertiesSerializerWithJacksonAnnotationTests {
         foo.additionalProperties().put("properties.bar", "barbar");
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"newfoo\",\"bar\":\"baz\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"newfoo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class AdditionalPropertiesSerializerWithJacksonAnnotationTests {
         foo.additionalProperties().put("properties.bar", "barbar");
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"newfoochild\",\"bar\":\"baz\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"newfoochild\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test
@@ -98,7 +98,7 @@ public class AdditionalPropertiesSerializerWithJacksonAnnotationTests {
         foo.additionalProperties().put("foo", nestedNewFoo);
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"newfoo\",\"bar\":\"baz\",\"foo\":{\"name\":\"Sushi\",\"properties\":{\"bar\":\"bye.world\"}},\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"newfoo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"foo\":{\"$type\":\"newfoo\",\"name\":\"Sushi\",\"properties\":{\"bar\":\"bye.world\"}},\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test
@@ -121,7 +121,7 @@ public class AdditionalPropertiesSerializerWithJacksonAnnotationTests {
         foo.additionalPropertiesProperty().put("age", 73);
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"newfoo\",\"additionalProperties\":{\"age\":73},\"bar\":\"baz\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"newfoo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"additionalProperties\":{\"age\":73},\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test

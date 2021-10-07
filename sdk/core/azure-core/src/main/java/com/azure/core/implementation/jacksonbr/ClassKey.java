@@ -8,6 +8,8 @@ import com.fasterxml.jackson.core.io.SerializedString;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 /**
  * Key class, used as an efficient and accurate key
@@ -56,6 +58,14 @@ public final class ClassKey
         _class = clz;
         _flags = flags;
         _className = clz.getName();
+        _hashCode = _className.hashCode() + flags;
+    }
+
+    public ClassKey(Type clz, int flags)
+    {
+        _class = (Class<?>) clz;
+        _flags = flags;
+        _className = clz.getTypeName();
         _hashCode = _className.hashCode() + flags;
     }
 

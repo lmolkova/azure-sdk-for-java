@@ -1,5 +1,6 @@
 package com.azure.core.implementation.jacksonbr;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -52,6 +53,7 @@ public class BasicAdditionalPropertiesTest {
     }
 
     public static class Model {
+        @JsonProperty
         public Map<String, Object> additionalProperties = new HashMap<>();
     }
 }

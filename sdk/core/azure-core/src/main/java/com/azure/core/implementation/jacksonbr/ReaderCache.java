@@ -214,7 +214,7 @@ public final class ReaderCache
                 stringCtor.setAccessible(true);
             }
         }
-        return new BeanReader(raw, beanDef);
+        return new BeanReader(raw, beanDef, this);
     }
 
     private TypeBindings _bindings(Class<?> ctxt) {

@@ -245,7 +245,7 @@ public class JacksonAdapter implements SerializerAdapter {
         if (encoding == SerializerEncoding.XML) {
             return xmlMapper.readValue(value, type);
         } else {
-            return (T)JSON.readVal(value, (Class<?>)type);
+            return (T)JSON.readVal(value, (Class<T>)type);
         }
     }
 

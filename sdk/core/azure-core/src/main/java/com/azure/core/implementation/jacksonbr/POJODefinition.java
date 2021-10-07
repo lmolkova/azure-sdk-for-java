@@ -3,8 +3,8 @@
 
 package com.azure.core.implementation.jacksonbr;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.core.io.SerializedString;
-import com.fasterxml.jackson.databind.ObjectReader;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -12,12 +12,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
+import java.util.Map;
 
 /**
  * Definition of a single Bean-style Java class, without assumptions
@@ -32,17 +27,26 @@ public class POJODefinition<T>
 
     protected final Prop<?>[] _properties;
 
+    public final JsonSubTypes.Type[] subtypes;
+    public final String typeNameAnnotation;
+    public final String typeInfoProperty;
     public final Constructor<?> defaultCtor;
     public final Constructor<?> stringCtor;
     public final Method fromString;
 
-    public POJODefinition(Class<T> type, Prop<?>[] props,
+    public POJODefinition(Class<T> type,
+                          JsonSubTypes.Type[] subtypes,
+                          String typeNameAnnotation,
+                          String typeInfoProperty,
+                          Prop<?>[] props,
                           Constructor<T> defaultCtor0,
                           Constructor<T> stringCtor0,
-                          //Constructor<?> creatorCtor0,
                           Method fromString0)
     {
         _type = type;
+        this.subtypes = subtypes;
+        this.typeNameAnnotation = typeNameAnnotation;
+        this.typeInfoProperty = typeInfoProperty;
         _properties = props;
         defaultCtor = defaultCtor0;
         stringCtor = stringCtor0;
@@ -63,16 +67,18 @@ public class POJODefinition<T>
     public static final class Prop<T>
     {
         public final boolean unwrappedProp;
+        public final boolean flattenProp;
         public final String name;
+        public final String uniqueName;
         public final SerializedString serializedName;
         public final Class<T> typeId;
 
         public final Object getValue(T obj) throws IOException {
             try {
-                if (field != null) {
-                    return field.get(obj);
-                } else if (getter != null) {
+                if (getter != null) {
                     return getter.invoke(obj);
+                } else if (field != null) {
+                    return field.get(obj);
                 } else if (value != null) {
                     return value;
                 }
@@ -86,17 +92,41 @@ public class POJODefinition<T>
                     name, e.getClass().getName(), accessorDesc, e.getMessage()), e);
             }
 
-            throw new IOException(String.format(
-                "Failed to access property '%s'", name));
+            return null;
         }
 
         public void setValue(T obj, Object value) throws IOException
         {
             try {
-                if (field != null) {
-                    field.set(obj, value);
-                } else if (setter != null) {
+                if (setter != null) {
                     setter.invoke(obj, value);
+                } else if (field != null) {
+                    field.set(obj, value);
+                } else {
+                    throw new IOException(String.format( "Failed to set property '%s'", name));
+                }
+            } catch (Exception e) {
+                Throwable t = e;
+                if (t instanceof InvocationTargetException) {
+                    t = t.getCause();
+                }
+                final String valueTypeDesc = (value == null) ? "NULL" : value.getClass().getName();
+                throw new IOException(String.format(
+                    "Failed to set property '%s' (raw type %s) to value of type %s; exception (%s): %s",
+                    name, typeId.getName(), valueTypeDesc, e.getClass().getName(), t.getMessage()),
+                    t);
+            }
+        }
+
+        public void setAnySetter(T obj, Map<String, Object> value) throws IOException
+        {
+            try {
+                if (setter != null && this.unwrappedProp) {
+                    for (Map.Entry<String, Object> kvp : value.entrySet()) {
+                        setter.invoke(obj, kvp.getKey(), kvp.getValue());
+                    }
+                } else if (field != null) {
+                    field.set(obj, value);
                 } else {
                     throw new IOException(String.format( "Failed to set property '%s'", name));
                 }
@@ -162,16 +192,17 @@ public class POJODefinition<T>
             return Object.class; //TODO exception
         }
 
-        public static Prop<?> create(String n, Field f,
-                              Method setter0, Method getter0, String value0, boolean unwrapped) {
-            return new Prop<Object>(n, f, setter0, getter0, value0, unwrapped);
+        public static Prop<?> create(String n, String uniqueName, Field f,
+                              Method setter0, Method getter0, String value0, boolean unwrapped, boolean flatten) {
+            return new Prop<Object>(n, uniqueName, f, setter0, getter0, value0, unwrapped, flatten);
         }
 
         @SuppressWarnings("unchecked")
-        private Prop(String n, Field f,
-                Method setter0, Method getter0, String value0, boolean unwrapped)
+        private Prop(String n, String uniqueName, Field f,
+                Method setter0, Method getter0, String value0, boolean unwrapped, boolean flatten)
         {
             name = n;
+            this.uniqueName = uniqueName;
             serializedName = new SerializedString(n);
             field = f;
             setter = setter0;
@@ -179,13 +210,14 @@ public class POJODefinition<T>
             value = value0;
             typeId =  (Class<T>)getType(getter0, field, value0);
             unwrappedProp = unwrapped;
+            flattenProp = flatten;
         }
 
-        public static PropBuilder builder(String name) {
-            return new PropBuilder(name);
+        public static PropBuilder builder(String name, String uniqueName) {
+            return new PropBuilder(name, uniqueName);
         }
 
-        public boolean hasSetter() {
+        public boolean canSet() {
             return (setter != null) || (field != null);
         }
     }
@@ -197,13 +229,16 @@ public class POJODefinition<T>
         private Method _setter, _getter;
         private String _value;
         private boolean unwrapped = false;
+        private boolean flatten = false;
+        private String uniqueName;
 
-        public PropBuilder(String name) {
+        public PropBuilder(String name, String uniqueName) {
             _name = name;
+            this.uniqueName = uniqueName;
         }
 
         public Prop<?> build() {
-            return Prop.create(_name, _field, _setter, _getter, _value, unwrapped);
+            return Prop.create(_name, uniqueName, _field, _setter, _getter, _value, unwrapped, flatten);
         }
 
         public PropBuilder withField(Field f) {
@@ -226,12 +261,15 @@ public class POJODefinition<T>
             return this;
         }
 
-        public PropBuilder makeUnwrapped() {
-            unwrapped = true;
+        public PropBuilder makeUnwrapped(boolean unwrap) {
+            unwrapped = unwrap;
             return this;
         }
 
-
+        public PropBuilder makeFlat(boolean flatten) {
+            this.flatten = flatten;
+            return this;
+        }
 
     }
 }

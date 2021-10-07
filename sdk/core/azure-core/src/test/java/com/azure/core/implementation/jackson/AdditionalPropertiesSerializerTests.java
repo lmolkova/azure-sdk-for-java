@@ -30,7 +30,7 @@ public class AdditionalPropertiesSerializerTests {
         foo.additionalProperties().put("properties.bar", "barbar");
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"foo\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"foo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class AdditionalPropertiesSerializerTests {
         foo.additionalProperties().put("properties.bar", "barbar");
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"foochild\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"foochild\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
     @Test
@@ -115,6 +115,6 @@ public class AdditionalPropertiesSerializerTests {
         foo.additionalProperties().put("foo", nestedFoo);
 
         String serialized = new JacksonAdapter().serialize(foo, SerializerEncoding.JSON);
-        Assertions.assertEquals("{\"$type\":\"foo\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"bar\":\"baz\",\"foo\":{\"properties\":{\"bar\":\"bye.world\"},\"name\":\"Sushi\"},\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}", serialized);
+        Assertions.assertEquals("{\"$type\":\"foo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"foo\":{\"$type\":\"foo\",\"name\":\"Sushi\",\"properties\":{\"bar\":\"bye.world\"}},\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 }

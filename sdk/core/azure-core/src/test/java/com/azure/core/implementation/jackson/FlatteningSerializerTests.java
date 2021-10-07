@@ -64,7 +64,7 @@ public class FlatteningSerializerTests {
 
         // serialization
         String serialized = serialize(foo);
-        assertEquals("{\"$type\":\"foo\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}}}", serialized);
+        assertEquals("{\"$type\":\"foo\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
 
         // deserialization
         Foo deserialized = deserialize(serialized, Foo.class);
@@ -80,7 +80,7 @@ public class FlatteningSerializerTests {
     @Test
     public void canSerializeMapKeysWithDotAndSlash() {
         String serialized = serialize(prepareSchoolModel());
-        assertEquals("{\"teacher\":{\"students\":{\"af.B/D\":{},\"af.B/C\":{}}},\"tags\":{\"foo.aa\":\"bar\",\"x.y\":\"zz\"},\"properties\":{\"name\":\"school1\"}}", serialized);
+        assertEquals("{\"teacher\":{\"students\":{\"af.B/C\":{},\"af.B/D\":{}}},\"properties\":{\"name\":\"school1\"},\"tags\":{\"x.y\":\"zz\",\"foo.aa\":\"bar\"}}", serialized);
     }
 
     /**
@@ -599,7 +599,7 @@ public class FlatteningSerializerTests {
             .setJsonFlattenNumber(2)
             .setJsonFlattenString("string");
 
-        String expectedSerialization = "{\"jsonflatten\":{\"boolean\":true,\"decimal\":1.25,\"number\":2,\"string\":\"string\"}}";
+        String expectedSerialization = "{\"jsonflatten\":{\"number\":2,\"boolean\":true,\"string\":\"string\",\"decimal\":1.25}}";
         String actualSerialization = serialize(expected);
 
         assertEquals(expectedSerialization, actualSerialization);
@@ -633,7 +633,7 @@ public class FlatteningSerializerTests {
             .addAdditionalProperty("key1", "value1")
             .addAdditionalProperty("key2", "value2");
 
-        String expectedSerialization = "{\"flattened\":{\"string\":\"string\"},\"key1\":\"value1\",\"key2\":\"value2\"}";
+        String expectedSerialization = "{\"key1\":\"value1\",\"key2\":\"value2\",\"flattened\":{\"string\":\"string\"}}";
         String actualSerialization = serialize(expected);
 
         assertEquals(expectedSerialization, actualSerialization);
