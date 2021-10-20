@@ -25,7 +25,7 @@ public class POJODefinition<T>
 {
     protected final Class<T> _type;
 
-    protected final Prop<?>[] _properties;
+    protected final Prop[] _properties;
 
     public final JsonSubTypes.Type[] subtypes;
     public final String typeNameAnnotation;
@@ -38,7 +38,7 @@ public class POJODefinition<T>
                           JsonSubTypes.Type[] subtypes,
                           String typeNameAnnotation,
                           String typeInfoProperty,
-                          Prop<?>[] props,
+                          Prop[] props,
                           Constructor<T> defaultCtor0,
                           Constructor<T> stringCtor0,
                           Method fromString0)
@@ -54,7 +54,7 @@ public class POJODefinition<T>
         fromString = fromString0;
     }
 
-    public Prop<?>[] properties() {
+    public Prop[] properties() {
         return _properties;
     }
 
@@ -64,16 +64,16 @@ public class POJODefinition<T>
     /**********************************************************************
      */
 
-    public static final class Prop<T>
+    public static final class Prop
     {
         public final boolean unwrappedProp;
         public final boolean flattenProp;
         public final String name;
         public final String uniqueName;
         public final SerializedString serializedName;
-        public final Class<T> typeId;
+        public final Class<?> typeId;
 
-        public final Object getValue(T obj) throws IOException {
+        public final Object getValue(Object obj) throws IOException {
             try {
                 if (getter != null) {
                     return getter.invoke(obj);
@@ -95,7 +95,7 @@ public class POJODefinition<T>
             return null;
         }
 
-        public void setValue(T obj, Object value) throws IOException
+        public void setValue(Object obj, Object value) throws IOException
         {
             try {
                 if (setter != null) {
@@ -118,7 +118,7 @@ public class POJODefinition<T>
             }
         }
 
-        public void setAnySetter(T obj, Map<String, Object> value) throws IOException
+        public void setAnySetter(Object obj, Map<String, Object> value) throws IOException
         {
             try {
                 if (setter != null && this.unwrappedProp) {
@@ -192,9 +192,9 @@ public class POJODefinition<T>
             return Object.class; //TODO exception
         }
 
-        public static Prop<?> create(String n, String uniqueName, Field f,
+        public static Prop create(String n, String uniqueName, Field f,
                               Method setter0, Method getter0, String value0, boolean unwrapped, boolean flatten) {
-            return new Prop<Object>(n, uniqueName, f, setter0, getter0, value0, unwrapped, flatten);
+            return new Prop(n, uniqueName, f, setter0, getter0, value0, unwrapped, flatten);
         }
 
         @SuppressWarnings("unchecked")
@@ -208,7 +208,7 @@ public class POJODefinition<T>
             setter = setter0;
             getter = getter0;
             value = value0;
-            typeId =  (Class<T>)getType(getter0, field, value0);
+            typeId = getType(getter0, field, value0);
             unwrappedProp = unwrapped;
             flattenProp = flatten;
         }
@@ -237,7 +237,7 @@ public class POJODefinition<T>
             this.uniqueName = uniqueName;
         }
 
-        public Prop<?> build() {
+        public Prop build() {
             return Prop.create(_name, uniqueName, _field, _setter, _getter, _value, unwrapped, flatten);
         }
 
@@ -270,7 +270,6 @@ public class POJODefinition<T>
             this.flatten = flatten;
             return this;
         }
-
     }
 }
 

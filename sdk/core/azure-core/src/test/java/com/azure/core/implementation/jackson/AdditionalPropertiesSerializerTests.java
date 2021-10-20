@@ -3,13 +3,16 @@
 
 package com.azure.core.implementation.jackson;
 
+import com.azure.core.implementation.TypeUtil;
 import com.azure.core.util.serializer.JacksonAdapter;
 import com.azure.core.util.serializer.SerializerEncoding;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class AdditionalPropertiesSerializerTests {
     @Test
@@ -33,8 +36,22 @@ public class AdditionalPropertiesSerializerTests {
         Assertions.assertEquals("{\"$type\":\"foo\",\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"q\":{\"qux\":{\"a.b\":\"c.d\",\"bar.a\":\"ttyy\",\"bar.b\":\"uuzz\",\"hello\":\"world\"}},\"baz\":[\"hello\",\"hello.world\"]}}}", serialized);
     }
 
+    static class BBB {
+        @JsonProperty
+        private int a;
+
+        public BBB() {
+            a = 0;
+        }
+
+        public BBB(int a) {
+            this.a = a;
+        }
+    }
+
     @Test
     public void canDeserializeAdditionalProperties() throws Exception {
+        new JacksonAdapter().deserialize("[{\"a\":1}, {\"a\":2}, {\"a\":3}]", TypeUtil.createParameterizedType(List.class, BBB.class), SerializerEncoding.JSON);
         String wireValue = "{\"$type\":\"foo\",\"properties\":{\"bar\":\"hello.world\",\"props\":{\"baz\":[\"hello\",\"hello.world\"],\"q\":{\"qux\":{\"hello\":\"world\",\"a.b\":\"c.d\",\"bar.b\":\"uuzz\",\"bar.a\":\"ttyy\"}}}},\"bar\":\"baz\",\"a.b\":\"c.d\",\"properties.bar\":\"barbar\"}";
         Foo deserialized = new JacksonAdapter().deserialize(wireValue, Foo.class, SerializerEncoding.JSON);
         Assertions.assertNotNull(deserialized.additionalProperties());

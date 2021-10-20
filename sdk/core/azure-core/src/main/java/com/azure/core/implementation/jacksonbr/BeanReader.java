@@ -212,7 +212,7 @@ public class BeanReader
                 continue;
             } else {
                 final Object value = vr.readNext(p);
-                if (prop.getValue(bean) == null)
+                if (prop.typeId.isPrimitive() || prop.getValue(bean) == null)
                     prop.setValue(bean, value);
                 else if (additionalPropertiesMap != null) //TODO makes add prop tests happy but is wrong
                     additionalPropertiesMap.put(propName, value);
@@ -368,7 +368,6 @@ public class BeanReader
         }
 
         if (beanReader.additionalPropertiesProp != null && additionalPropertiesMap != null && !additionalPropertiesMap.isEmpty()) {
-            // anysertter works per entry - TODO
             beanReader.additionalPropertiesProp.setAnySetter(bean, additionalPropertiesMap);
         }
 

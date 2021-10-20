@@ -325,7 +325,7 @@ public class BinaryDataTest {
     public void anyTypeToByteArrayWithDefaultSerializer() {
         // Assert
         final Person actualValue = new Person().setName("John Doe").setAge(50);
-        final byte[] expectedValue = "{\"name\":\"John Doe\",\"age\":50}".getBytes(StandardCharsets.UTF_8);
+        final byte[] expectedValue = "{\"age\":50,\"name\":\"John Doe\"}".getBytes(StandardCharsets.UTF_8);
 
         // Act
         final BinaryData data = BinaryData.fromObject(actualValue);

@@ -68,6 +68,7 @@ public class JacksonAdapterTests {
     private static class MapHolder {
 
         @JsonInclude(content = JsonInclude.Include.ALWAYS)
+        @JsonProperty
         private Map<String, String> map = new HashMap<>();
         public Map<String, String> map() {
             return map;

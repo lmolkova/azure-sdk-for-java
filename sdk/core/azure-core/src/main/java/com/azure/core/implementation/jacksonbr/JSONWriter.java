@@ -3,6 +3,7 @@
 
 package com.azure.core.implementation.jacksonbr;
 
+import com.azure.core.implementation.jacksonbr.type.TypeResolver;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 import java.io.File;
@@ -42,8 +43,6 @@ import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_NUMB
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_NUMBER_SHORT;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_OBJECT_ARRAY;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_STRING;
-//import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils. SER_UNIXTIME;
-import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_UNKNOWN;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_URI;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_URL;
 import static com.azure.core.implementation.jacksonbr.ValueLocatorUtils.SER_UUID;
@@ -223,14 +222,20 @@ final public class JSONWriter {
         generator.writeStartObject();
         if (!v.isEmpty()) {
             for (Map.Entry<?, ?> entry : v.entrySet()) {
-                String key = keyToString(entry.getKey());
-                Object value = entry.getValue();
-
-                if (value == null) {
+                if (entry.getKey() == null) {
                     continue;
                 }
 
-                writeField(key, value, generator);
+                String key = keyToString(entry.getKey());
+
+                Object value = entry.getValue();
+
+                if (value == null) {
+                    generator.writeFieldName(key);
+                    generator.writeNull();
+                } else {
+                    writeField(key, value, generator);
+                }
             }
         }
         generator.writeEndObject();

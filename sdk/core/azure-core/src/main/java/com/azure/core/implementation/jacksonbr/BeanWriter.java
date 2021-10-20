@@ -3,18 +3,11 @@
 
 package com.azure.core.implementation.jacksonbr;
 
-import com.azure.core.implementation.jacksonbr.tree.JrsObject;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.io.SerializedString;
 
 import java.io.IOException;
-import java.io.Writer;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public interface BeanWriter<T> {

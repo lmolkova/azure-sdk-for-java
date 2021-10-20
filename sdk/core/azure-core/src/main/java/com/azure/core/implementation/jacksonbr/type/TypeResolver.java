@@ -85,6 +85,10 @@ public class TypeResolver implements Serializable
         return _fromAny(null, jdkType, typeBindings);
     }
 
+    public ResolvedType resolve(Type jdkType) {
+        return _fromAny(null, jdkType, TypeBindings.emptyBindings());
+    }
+
     private ResolvedType _fromAny(ClassStack context, Type mainType, TypeBindings typeBindings) {
         if (mainType instanceof Class<?>) {
             return _fromClass(context, (Class<?>) mainType, typeBindings);

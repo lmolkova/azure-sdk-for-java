@@ -19,6 +19,7 @@ import com.azure.core.implementation.jacksonbr.JSON;
 import com.azure.core.implementation.jacksonbr.OptionsBeanWriter;
 import com.azure.core.implementation.jacksonbr.UnixTimeBeanReader;
 import com.azure.core.implementation.jacksonbr.UnixTimeBeanWriter;
+import com.azure.core.implementation.jacksonbr.XML;
 import com.azure.core.models.GeoCollection;
 import com.azure.core.models.GeoLineString;
 import com.azure.core.models.GeoLineStringCollection;
@@ -126,6 +127,36 @@ public class JacksonAdapter implements SerializerAdapter {
         JSON.registerSerializer(GeoLineString.class, new GeoBeanWriter());
         JSON.registerSerializer(GeoLineStringCollection.class, new GeoBeanWriter());
 
+        XML.registerSerializer(UnixTime.class, new UnixTimeBeanWriter());
+        XML.registerDeserializer(UnixTime.class, new UnixTimeBeanReader());
+        XML.registerSerializer(OffsetDateTime.class, new DateTimeBeanWriter());
+        XML.registerDeserializer(OffsetDateTime.class, new DateTimeBeanReader());
+        XML.registerDeserializer(OffsetDateTime.class, new DateTimeBeanReader());
+        XML.registerSerializer(DateTimeRfc1123.class, new DateTimeRfc1123BeanWriter());
+        XML.registerSerializer(Duration.class, new DurationBeanWriter());
+        XML.registerSerializer(Option.class, new OptionsBeanWriter());
+        XML.registerSerializer(Base64Url.class, new Base64UrlBeanWriter());
+        XML.registerSerializer(Byte[].class, new ByteArrayBeanWriter());
+
+        XML.registerDeserializer(GeoObject.class, new GeoJsonBeanReader(GeoObject.class));
+        XML.registerDeserializer(GeoCollection.class, new GeoJsonBeanReader(GeoCollection.class));
+        XML.registerDeserializer(GeoPoint.class, new GeoJsonBeanReader(GeoPoint.class));
+        XML.registerDeserializer(GeoPointCollection.class, new GeoJsonBeanReader(GeoPointCollection.class));
+        XML.registerDeserializer(GeoPolygon.class, new GeoJsonBeanReader(GeoPolygon.class));
+        XML.registerDeserializer(GeoPolygonCollection.class, new GeoJsonBeanReader(GeoPolygonCollection.class));
+        XML.registerDeserializer(GeoLineString.class, new GeoJsonBeanReader(GeoLineString.class));
+        XML.registerDeserializer(GeoLineStringCollection.class, new GeoJsonBeanReader(GeoLineStringCollection.class));
+        XML.registerSerializer(GeoObject.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoCollection.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoPoint.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoPointCollection.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoPolygon.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoPolygonCollection.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoLineString.class, new GeoBeanWriter());
+        XML.registerSerializer(GeoLineStringCollection.class, new GeoBeanWriter());
+
+
+
         Objects.requireNonNull(configureSerialization, "'configureSerialization' cannot be null.");
         this.headerMapper = ObjectMapperShim.createHeaderMapper();
         this.xmlMapper = ObjectMapperShim.createXmlMapper();
@@ -185,7 +216,7 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if (encoding == SerializerEncoding.XML) {
-            return xmlMapper.writeValueAsString(object);
+            return XML.writeVal(object);
         } else {
             return JSON.writeVal(object);
         }
@@ -198,7 +229,7 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if (encoding == SerializerEncoding.XML) {
-            return xmlMapper.writeValueAsBytes(object);
+            return XML.writeValAsBytes(object);
         } else {
             return JSON.writeValAsBytes(object);
         }
@@ -211,7 +242,7 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if ((encoding == SerializerEncoding.XML)) {
-            xmlMapper.writeValue(outputStream, object);
+            XML.writeValAsStream(outputStream, object);
         } else {
             JSON.writeValAsStream(outputStream, object);
         }
@@ -243,9 +274,9 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if (encoding == SerializerEncoding.XML) {
-            return xmlMapper.readValue(value, type);
+            return XML.readVal(value, type);
         } else {
-            return (T)JSON.readVal(value, (Class<T>)type);
+            return JSON.readVal(value, type);
         }
     }
 
@@ -256,9 +287,9 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if (encoding == SerializerEncoding.XML) {
-            return xmlMapper.readValue(bytes, type);
+            return (T)XML.readVal(bytes, type);
         } else {
-            return (T)JSON.readVal(bytes, (Class<?>)type);
+            return (T)JSON.readVal(bytes, type);
         }
     }
 
@@ -270,9 +301,9 @@ public class JacksonAdapter implements SerializerAdapter {
         }
 
         if (encoding == SerializerEncoding.XML) {
-            return xmlMapper.readValue(inputStream, type);
+            return XML.readVal(inputStream, type);
         } else {
-            return (T)JSON.readVal(inputStream, (Class<?>)type);
+            return JSON.readVal(inputStream, type);
         }
     }
 

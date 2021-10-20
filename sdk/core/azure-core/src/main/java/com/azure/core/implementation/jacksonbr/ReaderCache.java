@@ -3,6 +3,7 @@
 
 package com.azure.core.implementation.jacksonbr;
 
+import com.azure.core.implementation.TypeUtil;
 import com.azure.core.implementation.jacksonbr.type.ResolvedType;
 import com.azure.core.implementation.jacksonbr.type.TypeBindings;
 import com.azure.core.implementation.jacksonbr.type.TypeResolver;
@@ -11,6 +12,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,20 +27,19 @@ public final class ReaderCache
     private final static int MAX_CACHED_READERS = 500;
     private final TypeResolver _typeResolver;
 
-    private final ConcurrentHashMap<ClassKey, ValueReader> _knownReaders;
+    private final ConcurrentHashMap<ResolvedType, ValueReader> _knownReaders;
     private Map<ClassKey, ValueReader> _incompleteReaders;
     private final Object _readerLock;
 
     public ReaderCache() {
         _typeResolver = new TypeResolver();
-        _knownReaders = new ConcurrentHashMap<ClassKey, ValueReader>(10, 0.75f, 2);
+        _knownReaders = new ConcurrentHashMap<ResolvedType, ValueReader>(10, 0.75f, 2);
         _readerLock = new Object();
     }
 
-    public void registerReader(Class<?> raw, ValueReader reader)
+    public void registerReader(ResolvedType raw, ValueReader reader)
     {
-        ClassKey k = new ClassKey(raw, 0);
-        ValueReader vr = _knownReaders.get(k);
+        ValueReader vr = _knownReaders.get(raw);
         if (vr != null) {
             return;
         }
@@ -47,65 +48,67 @@ public final class ReaderCache
         if (_knownReaders.size() >= MAX_CACHED_READERS) {
             _knownReaders.clear();
         }
-        _knownReaders.putIfAbsent(new ClassKey(raw, 0), reader);
+        _knownReaders.putIfAbsent(raw, reader);
         return;
     }
 
-    public ValueReader findReader(Class<?> raw)
+    public ValueReader findReader(Class<?> raw) {
+        return findReader(_typeResolver.resolve(raw));
+    }
+
+    public ValueReader findReader(ResolvedType raw)
     {
-        ClassKey k = new ClassKey(raw, 0);
-        ValueReader vr = _knownReaders.get(k);
+        ValueReader vr = _knownReaders.get(raw);
         if (vr != null) {
             return vr;
         }
-        vr = _createReader(null, raw, raw);
+        vr = _createReader(raw, raw);
         // 15-Jun-2016, tatu: Let's limit maximum number of readers to prevent
         //   unbounded memory retention (at least wrt readers)
         if (_knownReaders.size() >= MAX_CACHED_READERS) {
             _knownReaders.clear();
         }
-        _knownReaders.putIfAbsent(new ClassKey(raw, 0), vr);
+        _knownReaders.putIfAbsent(raw, vr);
         return vr;
     }
 
-    private ValueReader _createReader(Class<?> contextType, Class<?> type, Type genericType)
+    private ValueReader _createReader(ResolvedType type, ResolvedType valueType)
     {
-        if (type == Object.class) {
+        if (type.erasedType() == Object.class) {
             return AnyReader.std;
         }
         if (type.isArray()) {
-            return arrayReader(contextType, type);
+            return arrayReader(type, valueType);
         }
-        if (type.isEnum()) {
-           return enumReader(type);
+        if (type.erasedType().isEnum()) {
+           return enumReader(type.erasedType());
         }
-        if (Collection.class.isAssignableFrom(type)) {
-            return collectionReader(contextType, genericType);
-        }
-
-        if (Map.class.isAssignableFrom(type)) {
-            return mapReader(contextType, genericType);
+        if (Collection.class.isAssignableFrom(type.erasedType())) {
+            return collectionReader(type.erasedType(), valueType);
         }
 
-        int typeId = ValueLocatorUtils._findSimpleType(type, false);
+        if (Map.class.isAssignableFrom(type.erasedType())) {
+            return mapReader(type.erasedType(), valueType);
+        }
+
+        int typeId = ValueLocatorUtils._findSimpleType(type.erasedType(), false);
         if (typeId > 0) {
-            return new SimpleValueReader(type, typeId);
+            return new SimpleValueReader(type.erasedType(), typeId);
         }
         return beanReader(type);
     }
 
-    private ValueReader arrayReader(Class<?> contextType, Class<?> arrayType) {
-        // TODO: maybe allow custom array readers?
-        Class<?> elemType = arrayType.getComponentType();
+    private ValueReader arrayReader(ResolvedType type, ResolvedType valueType) {
+        Class<?> elemType = valueType.elementType().erasedType();
         if (!elemType.isPrimitive()) {
-            return new ArrayReader(arrayType, elemType,
-                    _createReader(contextType, elemType, elemType));
+            return new ArrayReader(type.erasedType(), elemType,
+                    _createReader(valueType.elementType(), valueType.elementType()));
         }
-        int typeId = ValueLocatorUtils._findSimpleType(arrayType, false);
+        int typeId = ValueLocatorUtils._findSimpleType(type.erasedType(), false);
         if (typeId > 0) {
-            return new SimpleValueReader(arrayType, typeId);
+            return new SimpleValueReader(type.erasedType(), typeId);
         }
-        throw new IllegalArgumentException("Deserialization of "+arrayType.getName()+" not (yet) supported");
+        throw new IllegalArgumentException("Deserialization of "+ type.getTypeName()+" not (yet) supported");
     }
 
     private ValueReader enumReader(Class<?> enumType) {
@@ -127,23 +130,21 @@ public final class ReaderCache
     private ValueReader collectionReader(Class<?> collectionType, ResolvedType valueType)
     {
         final Class<?> rawValueType = valueType.erasedType();
-        final ValueReader valueReader;
         if (Collection.class.isAssignableFrom(rawValueType)) {
             List<ResolvedType> params = valueType.typeParametersFor(Collection.class);
-            valueReader = collectionReader(rawValueType, params.get(0));
+            return collectionReader(rawValueType, params.get(0));
         } else if (Map.class.isAssignableFrom(rawValueType)) {
             List<ResolvedType> params = valueType.typeParametersFor(Map.class);
-            valueReader = mapReader(rawValueType, params.get(1));
-        } else {
-            valueReader = findReader(rawValueType);
+            return mapReader(rawValueType, params.get(1));
         }
 
+        final ValueReader valueReader = findReader(valueType);
         return new CollectionReader(collectionType, valueReader);
     }
 
-    private ValueReader mapReader(Class<?> contextType, Type mapType)
+    private ValueReader mapReader(Class<?> collectionType, Type mapType)
     {
-        ResolvedType t = _typeResolver.resolve(_bindings(contextType), mapType);
+        ResolvedType t = _typeResolver.resolve(_bindings(collectionType), mapType);
         List<ResolvedType> params = t.typeParametersFor(Map.class);
         return mapReader(t.erasedType(), params.get(1));
     }
@@ -151,24 +152,23 @@ public final class ReaderCache
     private ValueReader mapReader(Class<?> mapType, ResolvedType valueType)
     {
         final Class<?> rawValueType = valueType.erasedType();
-        final ValueReader valueReader;
         if (Collection.class.isAssignableFrom(rawValueType)) {
             List<ResolvedType> params = valueType.typeParametersFor(Collection.class);
-            valueReader = collectionReader(rawValueType, params.get(0));
+            return collectionReader(rawValueType, params.get(0));
         } else if (Map.class.isAssignableFrom(rawValueType)) {
             List<ResolvedType> params = valueType.typeParametersFor(Map.class);
-            valueReader = mapReader(rawValueType, params.get(1));
-        } else {
-            valueReader = findReader(rawValueType);
+            return mapReader(rawValueType, params.get(1));
         }
+
+        final ValueReader valueReader = findReader(rawValueType);
         return new MapReader(mapType, valueReader);
     }
 
-    private ValueReader beanReader(Class<?> type)
+    private ValueReader beanReader(ResolvedType type)
     {
         // NOTE: caller (must) handle custom reader lookup earlier, not done here
 
-        final ClassKey key = new ClassKey(type, 0);
+        final ClassKey key = new ClassKey(type.erasedType(), 0);
         synchronized (_readerLock) {
             if (_incompleteReaders == null) {
                 _incompleteReaders = new HashMap<ClassKey, ValueReader>();
@@ -178,16 +178,17 @@ public final class ReaderCache
                     return vr;
                 }
             }
-            final BeanReader def = _resolveBeanForDeser(type, BeanPropertyIntrospector.instance().pojoDefinitionForDeserialization(type));
+            final BeanReader def = _resolveBeanForDeser(type.erasedType(), BeanPropertyIntrospector.instance().pojoDefinitionForDeserialization(type.erasedType()));
             try {
                 _incompleteReaders.put(key, def);
                 for (Map.Entry<String, ValueReader> entry : def.readersByName().entrySet()) {
                     POJODefinition.Prop prop = def._propsByName.get(entry.getKey());
-                    ValueReader vr = _knownReaders.get(new ClassKey(prop.typeId, 0));
+                    ParameterizedType pt = TypeUtil.createParameterizedType(prop.typeId, prop.getGenericType());
+                    ValueReader vr = _knownReaders.get(_typeResolver.resolve(prop.getGenericType()));
                     if (vr != null) {
                         entry.setValue(vr);
                     } else {
-                        entry.setValue(_createReader(type, prop.typeId, prop.getGenericType()));
+                        entry.setValue(_createReader(_typeResolver.resolve(prop.typeId), _typeResolver.resolve(prop.getGenericType())));
                     }
 
 

@@ -2,7 +2,6 @@ package com.azure.core.implementation.jacksonbr;
 
 import com.azure.core.implementation.jacksonbr.type.ResolvedType;
 import com.azure.core.implementation.jacksonbr.type.TypeResolver;
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,6 +9,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SegmentedStringWriter;
 import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.dataformat.xml.XmlFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -17,13 +17,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 
-public class JSON {
-    private static final JsonFactory _jsonFactory = new JsonFactory();
+public class XML {
+    private static final XmlFactory xmlFactory = new XmlFactory();
     private static final WriterCache writerCache = new WriterCache();
     private static final ReaderCache readerCache = new ReaderCache();
+    private static JSONWriter xmlWriter = new JSONWriter(writerCache);
+    private static JSONReader xmlReader = new JSONReader(readerCache);
     private static final TypeResolver typeResolver = new TypeResolver();
-    private static JSONWriter _jsonWriter = new JSONWriter(writerCache);
-    private static JSONReader _jsonReader = new JSONReader(readerCache);
 
     public static <T> void registerSerializer(Class<T> type, BeanWriter<T> instance) {
         writerCache.registerWriter(type, instance);
@@ -33,11 +33,11 @@ public class JSON {
     }
 
     public static String writeVal(Object value) throws IOException {
-        SegmentedStringWriter sw = new SegmentedStringWriter(_jsonFactory._getBufferRecycler());
+        SegmentedStringWriter sw = new SegmentedStringWriter(xmlFactory._getBufferRecycler());
         try {
-            JsonGenerator g =  _jsonFactory.createGenerator(sw);
+            JsonGenerator g =  xmlFactory.createGenerator(sw);
             try {
-                _jsonWriter.writeValue(value, g);
+                xmlWriter.writeValue(value, g);
             } finally {
                 _close(g);
             }
@@ -50,11 +50,11 @@ public class JSON {
     public static byte[] writeValAsBytes(Object value)
         throws IOException
     {
-        ByteArrayBuilder bb = new ByteArrayBuilder(_jsonFactory._getBufferRecycler());
+        ByteArrayBuilder bb = new ByteArrayBuilder(xmlFactory._getBufferRecycler());
         try {
-            JsonGenerator g =  _jsonFactory.createGenerator(bb);
+            JsonGenerator g =  xmlFactory.createGenerator(bb);
             try {
-                _jsonWriter.writeValue(value, g);
+                xmlWriter.writeValue(value, g);
             } finally {
                 _close(g);
             }
@@ -73,9 +73,9 @@ public class JSON {
         throws IOException
     {
         try {
-            JsonGenerator g =  _jsonFactory.createGenerator(out);
+            JsonGenerator g =  xmlFactory.createGenerator(out);
             try {
-                _jsonWriter.writeValue(value, g);
+                xmlWriter.writeValue(value, g);
             } finally {
                 _close(g);
             }
@@ -84,51 +84,6 @@ public class JSON {
             throw e;
         } catch (IOException e) { // shouldn't really happen, but is declared as possibility so:
             throw JsonMappingException.fromUnexpectedIOE(e);
-        }
-    }
-
-    public static <T> T readVal(String str, ResolvedType resolvedType) throws IOException {
-
-        JsonParser p = _jsonFactory.createParser(str);
-        try {
-            JsonToken t = p.currentToken();
-            if (t == null) { // and then we must get something...
-                t = p.nextToken();
-                if (t == null) { // not cool is it?
-                    return null;
-                }
-            }
-
-            T result = _jsonReader.readBean(resolvedType, p);
-
-            return result;
-        } catch (Exception e) {
-            throw  e;
-        } finally {
-            _close(p);
-        }
-    }
-
-    public static <T> T readVal(byte[] src, ResolvedType type)
-        throws IOException
-    {
-        JsonParser p = _jsonFactory.createParser(src);
-        try {
-            JsonToken t = p.currentToken();
-            if (t == null) { // and then we must get something...
-                t = p.nextToken();
-                if (t == null) { // not cool is it?
-                    return null;
-                }
-            }
-
-            T result = _jsonReader.readBean(type, p);
-
-            return result;
-        } catch (Exception e) {
-            throw  e;
-        } finally {
-            _close(p);
         }
     }
 
@@ -160,10 +115,9 @@ public class JSON {
         return readVal(src, typeResolver.resolve(type));
     }
 
-    public static <T> T readVal(InputStream src, ResolvedType type)
-        throws IOException
-    {
-        JsonParser p = _jsonFactory.createParser(src);
+    public static <T> T readVal(String str, ResolvedType type) throws IOException {
+
+        JsonParser p = xmlFactory.createParser(str);
         try {
             JsonToken t = p.currentToken();
             if (t == null) { // and then we must get something...
@@ -173,7 +127,53 @@ public class JSON {
                 }
             }
 
-            T result = _jsonReader.readBean(type, p);
+            T result = xmlReader.readBean(type, p);
+
+            return result;
+        } catch (Exception e) {
+            throw  e;
+        } finally {
+            _close(p);
+        }
+    }
+
+    public static <T> T readVal(byte[] src, ResolvedType type)
+        throws IOException
+    {
+        JsonParser p = xmlFactory.createParser(src);
+        try {
+            JsonToken t = p.currentToken();
+            if (t == null) { // and then we must get something...
+                t = p.nextToken();
+                if (t == null) { // not cool is it?
+                    return null;
+                }
+            }
+
+            T result = xmlReader.readBean(type, p);
+
+            return result;
+        } catch (Exception e) {
+            throw  e;
+        } finally {
+            _close(p);
+        }
+    }
+
+    public static <T> T readVal(InputStream src, ResolvedType type)
+        throws IOException
+    {
+        JsonParser p = xmlFactory.createParser(src);
+        try {
+            JsonToken t = p.currentToken();
+            if (t == null) { // and then we must get something...
+                t = p.nextToken();
+                if (t == null) { // not cool is it?
+                    return null;
+                }
+            }
+
+            T result = xmlReader.readBean(type, p);
 
             return result;
         } catch (Exception e) {

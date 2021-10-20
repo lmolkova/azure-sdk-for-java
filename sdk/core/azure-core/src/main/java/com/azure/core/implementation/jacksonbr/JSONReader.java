@@ -3,12 +3,10 @@
 
 package com.azure.core.implementation.jacksonbr;
 
+import com.azure.core.implementation.jacksonbr.type.ResolvedType;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 
 public class JSONReader
 {
@@ -24,7 +22,7 @@ public class JSONReader
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T readBean(Class<T> type, JsonParser parser) throws IOException {
+    public <T> T readBean(ResolvedType type, JsonParser parser) throws IOException {
         final Object ob = _readerLocator.findReader(type)
             .read(parser);
         return (T) ob;

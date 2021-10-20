@@ -5,6 +5,7 @@ package com.azure.core.models;
 
 import com.azure.core.annotation.Immutable;
 import com.azure.core.implementation.Option;
+import com.azure.core.implementation.jacksonbr.JSON;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import java.util.Objects;
@@ -16,6 +17,10 @@ import java.util.Optional;
 @Immutable
 @JsonSerialize(using = JsonPatchOperationSerializer.class)
 final class JsonPatchOperation {
+
+    static {
+        JSON.registerSerializer(JsonPatchOperation.class, new JsonPatchOperationWriter());
+    }
     private final JsonPatchOperationKind op;
     private final String from;
     private final String path;
@@ -33,6 +38,7 @@ final class JsonPatchOperation {
      * @param value Optional value.
      */
     JsonPatchOperation(JsonPatchOperationKind op, String from, String path, Option<String> value) {
+
         this.op = op;
         this.from = from;
         this.path = path;
