@@ -11,6 +11,7 @@ import com.azure.core.http.HttpResponse;
 import com.azure.core.http.policy.AfterRetryPolicyProvider;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.implementation.HttpTraceUtil;
+import com.azure.core.tracing.opentelemetry.implementation.OpenTelemetryContextPropagator;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.DateTimeRfc1123;
 import com.azure.core.util.UrlBuilder;
@@ -22,16 +23,22 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapSetter;
+import org.reactivestreams.Publisher;
+import reactor.core.CoreSubscriber;
+import reactor.core.Scannable;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Operators;
 import reactor.core.publisher.Signal;
-import reactor.util.context.Context;
 import reactor.util.context.ContextView;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
 import static com.azure.core.util.tracing.Tracer.DISABLE_TRACING_KEY;
@@ -42,7 +49,7 @@ import static com.azure.core.util.tracing.Tracer.TRACE_CONTEXT_KEY;
  */
 public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPipelinePolicy {
 
-    private static final Method SET_REACTOR_CONTEXT_METHOD;
+    /*private static final Method SET_REACTOR_CONTEXT_METHOD;
     private static final ClientLogger LOGGER = new ClientLogger(OpenTelemetryHttpPolicy.class);
 
     static {
@@ -67,7 +74,7 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
         } else {
             LOGGER.info("ContextPropagationOperator.storeOpenTelemetryContext has unexpected return type, context propagation may not work in async scenarios");
         }
-    }
+    }*/
 
     /**
      * @return a OpenTelemetry HTTP policy.
@@ -104,12 +111,14 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
     private static final String HTTP_URL = "http.url";
     private static final String HTTP_STATUS_CODE = "http.status_code";
     private static final String REQUEST_ID = "x-ms-request-id";
+    private static final String REACTOR_TRACE_CONTEXT_KEY = "otel-context-key";
 
     // This helper class implements W3C distributed tracing protocol and injects SpanContext into the outgoing http
     // request
     private final TextMapPropagator traceContextFormat = W3CTraceContextPropagator.getInstance();
 
     @Override
+    @SuppressWarnings("unchecked")
     public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next) {
         if ((boolean) context.getData(DISABLE_TRACING_KEY).orElse(false)) {
             return next.process();
@@ -118,10 +127,15 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
         return
             next.process()
             .doOnEach(OpenTelemetryHttpPolicy::handleResponse)
-            .contextWrite(reactorContext -> startSpan(reactorContext, context));
+            .transform(Operators.lift((Scannable scan,  CoreSubscriber<? super HttpResponse> subs) -> {
+                reactor.util.context.Context reactorCtx = subs.currentContext();
+                reactorCtx = reactorCtx.put(REACTOR_TRACE_CONTEXT_KEY, startSpan(context));
+                Context traceContext = reactorCtx.getOrDefault(REACTOR_TRACE_CONTEXT_KEY, Context.current());
+                return new OpenTelemetryContextPropagator<HttpResponse>(subs, reactorCtx, traceContext);
+            }));
     }
 
-    private Context startSpan(Context reactorContext, HttpPipelineCallContext azContext) {
+    private Context startSpan(HttpPipelineCallContext azContext) {
         io.opentelemetry.context.Context parentContext = getTraceContextOrCurrent(azContext);
         HttpRequest request = azContext.getHttpRequest();
 
@@ -144,15 +158,7 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
             traceContextFormat.inject(parentContext.with(span), request, contextSetter);
         }
 
-        reactorContext = reactorContext.put("otel-context-key", parentContext.with(span));
-        if (SET_REACTOR_CONTEXT_METHOD != null) {
-            try {
-                reactorContext = (Context)SET_REACTOR_CONTEXT_METHOD.invoke(reactorContext, parentContext.with(span));
-            } catch (Throwable t) {
-                LOGGER.info("Could not find ContextPropagationOperator.storeOpenTelemetryContext method, context propagation may not work in async scenarios");
-            }
-        }
-        return reactorContext;
+        return parentContext.with(span);
     }
 
     private static void addSpanRequestAttributes(Span span, HttpRequest request,
@@ -186,7 +192,7 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
 
         // Get the context that was added to the mono, this will contain the information needed to end the span.
         ContextView context = signal.getContextView();
-        Optional<io.opentelemetry.context.Context> traceContext = context.getOrEmpty("otel-context-key");
+        Optional<io.opentelemetry.context.Context> traceContext = context.getOrEmpty(REACTOR_TRACE_CONTEXT_KEY);
         if (!traceContext.isPresent()) {
             return;
         }

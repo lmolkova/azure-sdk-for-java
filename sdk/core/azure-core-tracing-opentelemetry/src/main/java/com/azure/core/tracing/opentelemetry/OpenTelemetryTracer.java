@@ -3,7 +3,6 @@
 
 package com.azure.core.tracing.opentelemetry;
 
-import com.azure.core.implementation.ReflectionUtilsApi;
 import com.azure.core.tracing.opentelemetry.implementation.AmqpPropagationFormatUtil;
 import com.azure.core.tracing.opentelemetry.implementation.AmqpTraceUtil;
 import com.azure.core.tracing.opentelemetry.implementation.HttpTraceUtil;
