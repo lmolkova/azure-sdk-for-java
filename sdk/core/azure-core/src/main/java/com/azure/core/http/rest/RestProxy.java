@@ -125,6 +125,7 @@ public final class RestProxy implements InvocationHandler {
                 .addData("caller-method", methodParser.getFullyQualifiedMethodName())
                 .addData("azure-eagerly-read-response", shouldEagerlyReadResponse(methodParser.getReturnType()));
             context = startTracingSpan(method, context);
+            scope = TracerProxy.
 
             if (request.getBody() != null) {
                 request.setBody(validateLength(request));

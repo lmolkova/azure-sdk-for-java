@@ -12,7 +12,9 @@ import com.azure.core.http.policy.AfterRetryPolicyProvider;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.implementation.HttpTraceUtil;
 import com.azure.core.util.CoreUtils;
+import com.azure.core.util.DateTimeRfc1123;
 import com.azure.core.util.UrlBuilder;
+import com.azure.core.util.logging.ClientLogger;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
@@ -27,6 +29,8 @@ import reactor.core.publisher.Signal;
 import reactor.util.context.Context;
 import reactor.util.context.ContextView;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
@@ -37,6 +41,34 @@ import static com.azure.core.util.tracing.Tracer.TRACE_CONTEXT_KEY;
  * Pipeline policy that creates an OpenTelemetry span which traces the service request.
  */
 public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPipelinePolicy {
+
+    private static final Method SET_REACTOR_CONTEXT_METHOD;
+    private static final ClientLogger LOGGER = new ClientLogger(OpenTelemetryHttpPolicy.class);
+
+    static {
+        // OpenTelemetry context propagation in reactor requires instrumentations to populate
+        // trace context on reactor context to correlate different layers.
+        // Reactor instrumentation is not part of opentelemetry-api and we can't take dependency on it
+        // instead, we will use private reflection
+        Method setReactorContext = null;
+        try {
+            Class contextPropagationOperatorClass = Class.forName("io.opentelemetry.instrumentation.reactor.ContextPropagationOperator");
+            if (contextPropagationOperatorClass != null) {
+                setReactorContext =  contextPropagationOperatorClass.getMethod("storeOpenTelemetryContext", reactor.util.context.Context.class, io.opentelemetry.context.Context.class);
+            } else {
+                LOGGER.info("Could not find ContextPropagationOperator class, context propagation may not work in async scenarios");
+            }
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            LOGGER.info("Could not find ContextPropagationOperator.storeOpenTelemetryContext method, context propagation may not work in async scenarios");
+        }
+
+        if (setReactorContext.getReturnType() == Context.class) {
+            SET_REACTOR_CONTEXT_METHOD = setReactorContext;
+        } else {
+            LOGGER.info("ContextPropagationOperator.storeOpenTelemetryContext has unexpected return type, context propagation may not work in async scenarios");
+        }
+    }
+
     /**
      * @return a OpenTelemetry HTTP policy.
      */
@@ -112,8 +144,15 @@ public class OpenTelemetryHttpPolicy implements AfterRetryPolicyProvider, HttpPi
             traceContextFormat.inject(parentContext.with(span), request, contextSetter);
         }
 
-        // todo otel reflection
-        return reactorContext.put("otel-context-key", parentContext.with(span));
+        reactorContext = reactorContext.put("otel-context-key", parentContext.with(span));
+        if (SET_REACTOR_CONTEXT_METHOD != null) {
+            try {
+                reactorContext = (Context)SET_REACTOR_CONTEXT_METHOD.invoke(reactorContext, parentContext.with(span));
+            } catch (Throwable t) {
+                LOGGER.info("Could not find ContextPropagationOperator.storeOpenTelemetryContext method, context propagation may not work in async scenarios");
+            }
+        }
+        return reactorContext;
     }
 
     private static void addSpanRequestAttributes(Span span, HttpRequest request,

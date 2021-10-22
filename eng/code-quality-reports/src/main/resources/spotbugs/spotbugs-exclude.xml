@@ -2435,7 +2435,6 @@
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
 
-
   <!-- Buffered responses are only used when we know the response body will be deserialized into a POJO. -->
   <!-- Given that we don't want to waste resources copying the array when we return it. -->
   <!-- Additionally, we don't need to copy the array when receiving it as the process to convert the response into an array -->

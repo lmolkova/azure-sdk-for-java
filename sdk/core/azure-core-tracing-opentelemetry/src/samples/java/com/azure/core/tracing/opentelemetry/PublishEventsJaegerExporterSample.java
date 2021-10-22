@@ -89,8 +89,7 @@ public class PublishEventsJaegerExporterSample {
 
             // We will publish three events based on simple sentences.
             Flux<EventData> data = Flux.just(
-                // only attach context if not using auto-instrumentation OpenTelemtry features
-                // or if you didn't make userParentSpan current
+                // only attach trace context if not using auto-instrumentation or if you didn't make userParentSpan current
                 new EventData(body).addContext(TRACE_CONTEXT_KEY, io.opentelemetry.context.Context.current().with(userParentSpan)),
                 new EventData(body2).addContext(TRACE_CONTEXT_KEY, io.opentelemetry.context.Context.current().with(userParentSpan)));
 

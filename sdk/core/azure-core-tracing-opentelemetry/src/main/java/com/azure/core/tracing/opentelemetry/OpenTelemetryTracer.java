@@ -3,6 +3,7 @@
 
 package com.azure.core.tracing.opentelemetry;
 
+import com.azure.core.implementation.ReflectionUtilsApi;
 import com.azure.core.tracing.opentelemetry.implementation.AmqpPropagationFormatUtil;
 import com.azure.core.tracing.opentelemetry.implementation.AmqpTraceUtil;
 import com.azure.core.tracing.opentelemetry.implementation.HttpTraceUtil;
@@ -22,6 +23,7 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 
+import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +37,6 @@ import java.util.Optional;
  * requests.
  */
 public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
-
     private final Tracer tracer;
 
     /**
@@ -226,7 +227,10 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
      */
     @Override
     public AutoCloseable makeSpanCurrent(Context context) {
-        io.opentelemetry.context.Context traceContext = getTraceContextOrCurrent(context);
+        io.opentelemetry.context.Context traceContext = getTraceContextOrDefault(context, null);
+        if (traceContext == null) {
+            return NOOP_CLOSEABLE;
+        }
         return traceContext.makeCurrent();
     }
 
@@ -292,7 +296,7 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
             }
         }
 
-        return context.addData(TRACE_CONTEXT_KEY, getTraceContextOrCurrent(context).with(span));
+        return context.addData(TRACE_CONTEXT_KEY, getTraceContextOrDefault(context, io.opentelemetry.context.Context.current()).with(span));
     }
 
     /**
@@ -321,7 +325,7 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
         SpanBuilder spanBuilder = tracer.spanBuilder(spanNameKey)
             .setSpanKind(spanKind);
 
-        io.opentelemetry.context.Context parentContext =  getTraceContextOrCurrent(context);
+        io.opentelemetry.context.Context parentContext =  getTraceContextOrDefault(context, io.opentelemetry.context.Context.current());
         // if remote parent is provided, it has higher priority
         if (remoteParentContext != null) {
             spanBuilder.setParent(parentContext.with(Span.wrap(remoteParentContext)));
@@ -472,10 +476,10 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
 
     /**
      * Returns OpenTelemetry trace context from given com.azure.core.Context under TRACE_CONTEXT_KEY
-     * or PARENT_SPAN_KEY (for backward-compatibility) or {@link io.opentelemetry.context.Context#current()}
+     * or PARENT_SPAN_KEY (for backward-compatibility) or default value.
      */
     @SuppressWarnings("deprecation")
-    private io.opentelemetry.context.Context getTraceContextOrCurrent(Context azContext) {
+    private io.opentelemetry.context.Context getTraceContextOrDefault(Context azContext, io.opentelemetry.context.Context otelContext) {
         io.opentelemetry.context.Context traceContext = getOrDefault(azContext,
             TRACE_CONTEXT_KEY,
             null,
@@ -491,18 +495,14 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
                 traceContext = io.opentelemetry.context.Context.current().with(parentSpan);
             }
         }
-
-        if (traceContext == null) {
-            traceContext = io.opentelemetry.context.Context.current();
-        }
-
-        return traceContext;
+        return traceContext == null ? otelContext : traceContext;
     }
 
     /**
      * Returns OpenTelemetry trace context from given com.azure.core.Context under TRACE_CONTEXT_KEY
      * or PARENT_SPAN_KEY (for backward-compatibility) or {@link Span#current()}
      */
+    @SuppressWarnings("deprecation")
     private Span getSpanOrCurrent(Context azContext) {
         io.opentelemetry.context.Context traceContext = getOrDefault(azContext,
             TRACE_CONTEXT_KEY,
@@ -520,10 +520,7 @@ public class OpenTelemetryTracer implements com.azure.core.util.tracing.Tracer {
             }
         }
 
-        if (traceContext == null) {
-            return Span.current();
-        }
 
-        return Span.fromContext(traceContext);
+        return traceContext == null ? Span.current() : Span.fromContext(traceContext);
     }
 }

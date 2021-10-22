@@ -42,6 +42,7 @@ import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
 import static com.azure.core.util.tracing.Tracer.DIAGNOSTIC_ID_KEY;
 import static com.azure.core.util.tracing.Tracer.ENTITY_PATH_KEY;
 import static com.azure.core.util.tracing.Tracer.HOST_NAME_KEY;
+import static com.azure.core.util.tracing.Tracer.PARENT_SPAN_KEY;
 import static com.azure.core.util.tracing.Tracer.SCOPE_KEY;
 import static com.azure.core.util.tracing.Tracer.SPAN_BUILDER_KEY;
 import static com.azure.core.util.tracing.Tracer.SPAN_CONTEXT_KEY;
@@ -128,6 +129,17 @@ public class OpenTelemetryTracerTest {
         assertEquals(SpanKind.INTERNAL, recordEventsSpan.toSpanData().getKind());
         final Attributes attributeMap = recordEventsSpan.toSpanData().getAttributes();
         assertEquals(attributeMap.get(AttributeKey.stringKey(AZ_NAMESPACE_KEY)), AZ_NAMESPACE_VALUE);
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void parentSpanKeyBackwardCompatibility() {
+        // Act
+        Span parentSpan = tracer.spanBuilder(METHOD_NAME).startSpan();
+        Context updatedContext = openTelemetryTracer.start(METHOD_NAME, Context.NONE.addData(PARENT_SPAN_KEY, parentSpan));
+
+        // Assert
+        assertSpanWithExplicitParent(updatedContext, parentSpan.getSpanContext().getSpanId());
     }
 
     @Test
@@ -428,6 +440,25 @@ public class OpenTelemetryTracerTest {
                 fail();
             } finally {
                 openTelemetryTracer.end("foo", null, started);
+            }
+
+            assertSame(parentSpan, Span.current());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void startEndCurrentSpanBackwardCompatible() {
+        try (Scope parentScope = parentSpan.makeCurrent()) {
+            Span span = tracer.spanBuilder(METHOD_NAME).startSpan();
+            final Context contextWithSpanUnderDeprecatedKey = Context.NONE.addData(PARENT_SPAN_KEY, span);
+
+            try (AutoCloseable scope = openTelemetryTracer.makeSpanCurrent(contextWithSpanUnderDeprecatedKey)) {
+                assertSame(Span.current(), span);
+            } catch (Exception e) {
+                fail();
+            } finally {
+                openTelemetryTracer.end("foo", null, contextWithSpanUnderDeprecatedKey);
             }
 
             assertSame(parentSpan, Span.current());
@@ -809,5 +840,4 @@ public class OpenTelemetryTracerTest {
 
         assertTrue(expected.asMap().entrySet().stream().allMatch(e -> e.getValue().equals(actual.get(e.getKey()))));
     }
-
 }
