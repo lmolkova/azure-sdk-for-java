@@ -7,6 +7,7 @@ module com.azure.core.amqp {
     requires transitive com.microsoft.azure.qpid.protonj.extensions;
     requires transitive org.reactivestreams;
     requires transitive org.apache.qpid.proton.j;
+    requires io.opentelemetry.api;
 
     exports com.azure.core.amqp;
     exports com.azure.core.amqp.client.traits;

@@ -14,6 +14,12 @@ import com.azure.core.amqp.exception.OperationCancelledException;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
 import com.azure.core.util.AsyncCloseable;
 import com.azure.core.util.logging.ClientLogger;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.LongHistogram;
+import io.opentelemetry.api.metrics.Meter;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Binary;
 import org.apache.qpid.proton.amqp.Symbol;
@@ -73,6 +79,15 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
     private static final String DELIVERY_TAG_KEY = "deliveryTag";
     private static final String PENDING_SENDS_SIZE_KEY = "pending_sends_size";
+    private static final Meter METER = GlobalOpenTelemetry.getMeterProvider().get("azure-core-amqp:5.11.0");
+    // TODO metric name
+    static final LongHistogram LINK_SEND_DURATION_HISTOGRAM = METER.histogramBuilder("az.sdk.amqp.send-link.duration")
+        .ofLongs()
+        .setUnit("millis") // TODO consistency
+        .build();
+
+    static final LongCounter LINK_THROUGHPUT_COUNTER = METER.counterBuilder("az.sdk.amqp.send.bytes").build();
+
     private final String entityPath;
     private final Sender sender;
     private final SendLinkHandler handler;
@@ -554,9 +569,27 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                     "Entity(%s): send operation failed while advancing delivery(tag: %s).",
                     entityPath, deliveryTag), context);
 
+                Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                    AttributeKey.stringKey("entity"), entityPath,
+                    AttributeKey.stringKey("error"), getErrorCode(exception));
+
+                LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+                LINK_THROUGHPUT_COUNTER.add(sentMsgSize, attributes);
+
                 workItem.error(exception);
             }
         }
+    }
+
+    private static String getErrorCode(Throwable throwable) {
+        if (throwable instanceof AmqpException) {
+            AmqpException exception = (AmqpException) throwable;
+            return exception.getErrorCondition().getErrorCondition();
+        } else if (throwable != null) {
+            return throwable.getClass().getSimpleName();
+        }
+
+        return null;
     }
 
     private void processDeliveredMessage(Delivery delivery) {
@@ -576,6 +609,14 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
 
             return;
         } else if (workItem.isDeliveryStateProvided()) {
+
+            Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                AttributeKey.stringKey("entity"), entityPath);
+
+            LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+            LINK_THROUGHPUT_COUNTER.add(workItem.getEncodedMessageSize(), attributes);
+
+
             workItem.success(outcome);
             return;
         }
@@ -586,6 +627,12 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                 lastKnownErrorReportedAt = null;
                 retryAttempts.set(0);
             }
+
+            Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                AttributeKey.stringKey("entity"), entityPath);
+
+            LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+            LINK_THROUGHPUT_COUNTER.add(workItem.getEncodedMessageSize(), attributes);
 
             workItem.success(outcome);
         } else if (outcome instanceof Rejected) {
@@ -633,6 +680,13 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                 handler.getErrorContext(sender)));
         } else if (outcome instanceof Declared) {
             final Declared declared = (Declared) outcome;
+
+            Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                AttributeKey.stringKey("entity"), entityPath);
+
+            LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+            LINK_THROUGHPUT_COUNTER.add(workItem.getEncodedMessageSize(), attributes);
+
             workItem.success(declared);
         } else {
             cleanupFailedSend(workItem, new AmqpException(false, outcome.toString(),
@@ -653,6 +707,14 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
 
     private void cleanupFailedSend(final RetriableWorkItem workItem, final Exception exception) {
         //TODO (conniey): is there some timeout task I should handle?
+
+        Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+            AttributeKey.stringKey("entity"), entityPath,
+            AttributeKey.stringKey("error"), getErrorCode(exception));
+
+        LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+        LINK_THROUGHPUT_COUNTER.add(workItem.getEncodedMessageSize(), attributes);
+
         workItem.error(exception);
     }
 
@@ -684,7 +746,17 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                     .log("Disposing pending sends with error.");
             }
 
-            pendingSendsMap.forEach((key, value) -> value.error(error));
+            // TODO metric
+            pendingSendsMap.forEach((key, value) -> {
+                Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                    AttributeKey.stringKey("entity"), entityPath,
+                    AttributeKey.stringKey("error"), getErrorCode(error));
+
+                LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(value.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+                LINK_THROUGHPUT_COUNTER.add(value.getEncodedMessageSize(), attributes);
+
+                value.error(error);
+            });
             pendingSendsMap.clear();
             pendingSendsQueue.clear();
         }
@@ -706,7 +778,18 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                     .log("Disposing pending sends.");
             }
 
-            pendingSendsMap.forEach((key, value) -> value.error(new AmqpException(true, message, context)));
+            // TODO metric
+
+            AmqpException ex  = new AmqpException(true, message, context);
+            pendingSendsMap.forEach((key, value) -> {
+                Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                    AttributeKey.stringKey("entity"), entityPath,
+                    AttributeKey.stringKey("error"), getErrorCode(ex));
+
+                LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(value.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+                LINK_THROUGHPUT_COUNTER.add(value.getEncodedMessageSize(), attributes);
+                value.error(ex);
+            });
             pendingSendsMap.clear();
             pendingSendsQueue.clear();
         }
@@ -797,6 +880,13 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
                     String.format(Locale.US, "Entity(%s): Send operation timed out", entityPath),
                     handler.getErrorContext(sender));
             }
+
+            Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), handler.getHostname(),
+                AttributeKey.stringKey("entity"), entityPath,
+                AttributeKey.stringKey("error"), getErrorCode(exception));
+
+            LINK_SEND_DURATION_HISTOGRAM.record(Duration.between(workItem.getStartTimestamp(), Instant.now()).toMillis(), attributes);
+            LINK_THROUGHPUT_COUNTER.add(workItem.getEncodedMessageSize(), attributes);
 
             workItem.error(exception);
         }

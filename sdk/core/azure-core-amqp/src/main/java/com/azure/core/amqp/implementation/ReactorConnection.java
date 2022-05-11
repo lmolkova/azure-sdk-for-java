@@ -15,6 +15,12 @@ import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.implementation.handler.ConnectionHandler;
 import com.azure.core.amqp.implementation.handler.SessionHandler;
 import com.azure.core.util.logging.ClientLogger;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.LongUpDownCounter;
+import io.opentelemetry.api.metrics.Meter;
 import org.apache.qpid.proton.amqp.transport.ReceiverSettleMode;
 import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.BaseHandler;
@@ -63,6 +69,13 @@ public class ReactorConnection implements AmqpConnection {
     private static final String MANAGEMENT_SESSION_NAME = "mgmt-session";
     private static final String MANAGEMENT_ADDRESS = "$management";
     private static final String MANAGEMENT_LINK_NAME = "mgmt";
+
+    private static final Meter METER = GlobalOpenTelemetry.getMeterProvider().get("azure-core-amqp:5.11.0");
+    // TODO metric name
+    static final LongUpDownCounter ACTIVE_CONNECTIONS_COUNTER = METER.upDownCounterBuilder("az.sdk.amqp.connection.active")
+        .build();
+
+    static final LongCounter CONNECTIONS_CREATED_COUNTER = METER.counterBuilder("az.sdk.amqp.connection.created").build();
 
     private final ClientLogger logger;
     private final ConcurrentMap<String, SessionSubscription> sessionMap = new ConcurrentHashMap<>();
@@ -125,6 +138,7 @@ public class ReactorConnection implements AmqpConnection {
         this.senderSettleMode = senderSettleMode;
         this.receiverSettleMode = receiverSettleMode;
 
+
         this.connectionMono = Mono.fromCallable(this::getOrCreateConnection)
             .flatMap(reactorConnection -> {
                 final Mono<AmqpEndpointState> activeEndpoint = getEndpointStates()
@@ -167,6 +181,17 @@ public class ReactorConnection implements AmqpConnection {
             .cache(1);
 
         this.subscriptions = Disposables.composite(this.endpointStates.subscribe());
+    }
+
+    private static String getErrorCode(Throwable throwable) {
+        if (throwable instanceof AmqpException) {
+            AmqpException exception = (AmqpException) throwable;
+            return exception.getErrorCondition().getErrorCondition();
+        } else if (throwable != null) {
+            return throwable.getClass().getSimpleName();
+        }
+
+        return null;
     }
 
     /**
@@ -485,7 +510,10 @@ public class ReactorConnection implements AmqpConnection {
                 logger.atVerbose()
                     .addKeyValue(SIGNAL_TYPE_KEY, signalType)
                     .log("Closed reactor dispatcher.")))
-            .then(isClosedMono.asMono());
+            .then(isClosedMono.asMono())
+            .doFinally(st -> {
+                ACTIVE_CONNECTIONS_COUNTER.add(-1, Attributes.of(AttributeKey.stringKey("namespace"), getFullyQualifiedNamespace()));
+            });
     }
 
     private synchronized void closeConnectionWork() {
@@ -597,6 +625,12 @@ public class ReactorConnection implements AmqpConnection {
                 .subscribe();
 
             executor.start();
+
+            Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), getFullyQualifiedNamespace());
+            // AttributeKey.stringKey("error"), getErrorCode(signal.getThrowable())); TODO
+            ACTIVE_CONNECTIONS_COUNTER.add(1, attributes);
+            CONNECTIONS_CREATED_COUNTER.add(1, attributes);
+
         }
 
         return connection;

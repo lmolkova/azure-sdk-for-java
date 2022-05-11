@@ -24,13 +24,22 @@ import com.azure.messaging.eventhubs.implementation.EventHubConnectionProcessor;
 import com.azure.messaging.eventhubs.implementation.EventHubManagementNode;
 import com.azure.messaging.eventhubs.models.CreateBatchOptions;
 import com.azure.messaging.eventhubs.models.SendOptions;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.LongHistogram;
+import io.opentelemetry.api.metrics.Meter;
 import org.apache.qpid.proton.amqp.messaging.MessageAnnotations;
 import org.apache.qpid.proton.message.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Signal;
 import reactor.core.scheduler.Scheduler;
 
 import java.io.Closeable;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +67,7 @@ import static com.azure.messaging.eventhubs.implementation.ClientConstants.AZ_TR
 import static com.azure.messaging.eventhubs.implementation.ClientConstants.MAX_MESSAGE_LENGTH_BYTES;
 import static com.azure.messaging.eventhubs.implementation.ClientConstants.PARTITION_ID_KEY;
 import static com.azure.messaging.eventhubs.implementation.ClientConstants.PARTITION_KEY_KEY;
+import static reactor.core.publisher.SignalType.ON_ERROR;
 
 /**
  * An <b>asynchronous</b> producer responsible for transmitting {@link EventData} to a specific Event Hub, grouped
@@ -185,6 +195,18 @@ public class EventHubProducerAsyncClient implements Closeable {
     private static final CreateBatchOptions DEFAULT_BATCH_OPTIONS = new CreateBatchOptions();
 
     private static final ClientLogger LOGGER = new ClientLogger(EventHubProducerAsyncClient.class);
+    // TODO from props
+    private static final Meter METER = GlobalOpenTelemetry.getMeterProvider().get("azure-messaging-eventhubs:5.11.0");
+    // TODO metric name
+    static final LongHistogram SEND_BATCH_DURATION_HISTOGRAM = METER.histogramBuilder("az.sdk.eventhubs.send-batch.duration")
+        .ofLongs()
+        .setUnit("millis") // TODO consistency
+        .build();
+
+    static final LongCounter SEND_MESSAGES_COUNTER = METER.counterBuilder("az.sdk.eventhubs.send.messages").build();
+    // static final LongCounter LAST_MESSAGE_OFFSET_COUNTER = METER.counterBuilder("az.sdk.eventhubs.send.message.last-offset").build();
+    // static final LongCounter LAST_MESSAGE_SEQNO_COUNTER = METER.counterBuilder("az.sdk.eventhubs.send.message.last-seqno").build();
+
     private final AtomicBoolean isDisposed = new AtomicBoolean();
     private final String fullyQualifiedNamespace;
     private final String eventHubName;
@@ -533,6 +555,8 @@ public class EventHubProducerAsyncClient implements Closeable {
             ? new AtomicReference<>(Context.NONE)
             : null;
 
+        final AtomicReference<Instant> start = new AtomicReference<>();
+
         Context sharedContext = null;
         final List<Message> messages = new ArrayList<>();
 
@@ -577,11 +601,34 @@ public class EventHubProducerAsyncClient implements Closeable {
         return withRetry(sendMessage, retryOptions,
             String.format("partitionId[%s]: Sending messages timed out.", batch.getPartitionId()))
             .publishOn(scheduler)
-            .doOnEach(signal -> {
+            .doOnSubscribe(s -> start.set(Instant.now()))
+            .doOnEach(signal -> { // todo is it per try? shouldn't be
                 if (isTracingEnabled) {
                     tracerProvider.endSpan(parentContext.get(), signal);
                 }
+
+                Attributes attributes = Attributes.of(AttributeKey.stringKey("namespace"), getFullyQualifiedNamespace(),
+                    AttributeKey.stringKey("entity"), getEventHubName(),
+                    AttributeKey.stringKey("partition_id"), batch.getPartitionId(),
+                    AttributeKey.stringKey("error"), getErrorCode(signal));
+
+                SEND_BATCH_DURATION_HISTOGRAM.record(Duration.between(start.get(), Instant.now()).toMillis(), attributes);
+                SEND_MESSAGES_COUNTER.add(batch.getCount(), attributes);
             });
+    }
+
+    private static String getErrorCode(Signal<Void> signal) {
+        if (signal.getType().equals(ON_ERROR) && signal.hasError()) {
+            Throwable throwable = signal.getThrowable();
+            if (throwable instanceof AmqpException) {
+                AmqpException exception = (AmqpException) throwable;
+                return exception.getErrorCondition().getErrorCondition();
+            } else {
+                return throwable.getClass().getSimpleName();
+            }
+        }
+
+        return null;
     }
 
     private Mono<Void> sendInternal(Flux<EventData> events, SendOptions options) {

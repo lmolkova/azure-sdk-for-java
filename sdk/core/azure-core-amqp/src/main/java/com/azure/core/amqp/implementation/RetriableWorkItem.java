@@ -7,6 +7,7 @@ import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import reactor.core.publisher.MonoSink;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -20,6 +21,7 @@ class RetriableWorkItem {
     private final int messageFormat;
     private final int encodedMessageSize;
     private final DeliveryState deliveryState;
+    private final Instant start;
 
     private boolean waitingForAck;
     private Exception lastKnownException;
@@ -38,6 +40,7 @@ class RetriableWorkItem {
         this.monoSink = monoSink;
         this.timeoutTracker = timeout;
         this.deliveryState = deliveryState;
+        this.start = Instant.now();
     }
 
     byte[] getMessage() {
@@ -94,5 +97,9 @@ class RetriableWorkItem {
 
     boolean isWaitingForAck() {
         return this.waitingForAck;
+    }
+
+    Instant getStartTimestamp() {
+        return start;
     }
 }
