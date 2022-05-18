@@ -183,7 +183,7 @@ public class EventHubClientBuilder implements
     private static final Pattern HOST_PORT_PATTERN = Pattern.compile("^[^:]+:\\d+");
 
     private static final ClientLogger LOGGER = new ClientLogger(EventHubClientBuilder.class);
-    private static final AzureMeter DEFAULT_METER = AzureMeterProvider.DEFAULT_PROVIDER.createMeter("azure-messaging-eventhubs", getLibraryVersion(), new MetricsOptions());
+    private static final AzureMeter DEFAULT_METER = AzureMeterProvider.getDefaultProvider().createMeter("azure-messaging-eventhubs", getLibraryVersion(), new MetricsOptions());
 
     private final Object connectionLock = new Object();
     private final AtomicBoolean isSharedConnection = new AtomicBoolean();
@@ -821,7 +821,7 @@ public class EventHubClientBuilder implements
         if (clientOptions != null)  {
             MetricsOptions metricsOptions = clientOptions.getMetricsOptions();
             if (metricsOptions != null) {
-                meter = AzureMeterProvider.DEFAULT_PROVIDER.createMeter("azure-messaging-eventhubs", getLibraryVersion(), metricsOptions);
+                meter = AzureMeterProvider.getDefaultProvider().createMeter("azure-messaging-eventhubs", getLibraryVersion(), metricsOptions);
             }
         }
 

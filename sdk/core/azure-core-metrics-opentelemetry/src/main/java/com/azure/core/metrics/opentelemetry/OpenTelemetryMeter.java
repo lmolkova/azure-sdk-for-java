@@ -19,9 +19,10 @@ public class OpenTelemetryMeter implements AzureMeter {
     private final boolean isEnabled;
 
     public OpenTelemetryMeter(String libraryName, String libraryVersion, MetricsOptions options) {
+        Object providerObj = options == null ? null : options.getProvider();
         MeterProvider otelProvider = DEFAULT_PROVIDER;
-        if (MeterProvider.class.isAssignableFrom(options.getProvider().getClass())) {
-            otelProvider = (MeterProvider) options.getProvider();
+        if (providerObj != null && MeterProvider.class.isAssignableFrom(providerObj.getClass())) {
+            otelProvider = (MeterProvider) providerObj;
         }
 
         this.isEnabled = otelProvider != MeterProvider.noop();

@@ -90,7 +90,7 @@ class EventHubProducerAsyncClientTest {
     private static final String ENTITY_PATH = HOSTNAME + Configuration.getGlobalConfiguration()
         .get("AZURE_EVENTHUBS_ENDPOINT_SUFFIX", ".servicebus.windows.net");
     private static final ClientLogger LOGGER = new ClientLogger(EventHubProducerAsyncClient.class);
-    private static final EventHubsMetricProducerMetricHelper METRIC_HELPER = new EventHubsMetricProducerMetricHelper(AzureMeterProvider.DEFAULT_PROVIDER.createMeter("foo", null, null), "fqdn", "eventHubName");
+    private static final EventHubsMetricProducerMetricHelper METRIC_HELPER = new EventHubsMetricProducerMetricHelper(AzureMeterProvider.getDefaultProvider().createMeter("foo", null, null), "fqdn", "eventHubName");
 
     @Mock
     private AmqpSendLink sendLink;

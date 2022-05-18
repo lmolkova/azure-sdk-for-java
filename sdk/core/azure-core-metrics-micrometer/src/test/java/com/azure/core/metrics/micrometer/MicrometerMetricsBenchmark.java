@@ -41,7 +41,7 @@ public class MicrometerMetricsBenchmark {
     private static final MeterRegistry registry = new SimpleMeterRegistry();
     private final static AzureMeterProvider CLIENT_METER_PROVIDER = AzureMeterProvider.getDefaultProvider();
 
-    private final static Map<String, Object> COMMON_ATTRIBUTES = new HashMap<>() {{
+    private final static Map<String, Object> COMMON_ATTRIBUTES = new HashMap<String, Object>() {{
         put("az.messaging.destination", "fqdn");
         put("az.messaging.entity", "entityName");
     }};

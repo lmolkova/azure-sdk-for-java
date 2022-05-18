@@ -16,8 +16,9 @@ public class MicrometerMeter implements AzureMeter {
     private final MeterRegistry registry;
 
     public MicrometerMeter(String libraryName, String libraryVersion, MetricsOptions options) {
-        if (MeterRegistry.class.isAssignableFrom(options.getProvider().getClass())) {
-            registry = (MeterRegistry) options.getProvider();
+        Object providerObj = options == null ? null : options.getProvider();
+        if (providerObj != null && MeterRegistry.class.isAssignableFrom(providerObj.getClass())) {
+            registry = (MeterRegistry) providerObj;
         } else {
             registry = Metrics.globalRegistry;
         }
