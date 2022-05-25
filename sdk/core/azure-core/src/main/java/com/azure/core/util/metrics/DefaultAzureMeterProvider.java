@@ -1,16 +1,19 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package com.azure.core.util.metrics;
 
 import com.azure.core.util.MetricsOptions;
 
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.ServiceLoader;
 
-class DefaultAzureMeterProvider implements AzureMeterProvider {
-    public final static AzureMeterProvider INSTANCE = new DefaultAzureMeterProvider();
-    private static final NoopMeter NOOP_METER = new NoopMeter();
+final class DefaultAzureMeterProvider implements AzureMeterProvider {
+    public static final AzureMeterProvider INSTANCE = new DefaultAzureMeterProvider();
     private static AzureMeterProvider meterProvider;
-    private DefaultAzureMeterProvider() {
 
+    private DefaultAzureMeterProvider() {
     }
 
     static {
@@ -27,10 +30,12 @@ class DefaultAzureMeterProvider implements AzureMeterProvider {
     }
 
     public AzureMeter createMeter(String libraryName, String libraryVersion, MetricsOptions options) {
+        Objects.requireNonNull(libraryName, "'libraryName' cannot be null.");
+
         if (meterProvider != null && options.isEnabled()) {
             return meterProvider.createMeter(libraryName, libraryVersion, options);
         }
 
-        return NOOP_METER;
+        return NoopMeter.INSTANCE;
     }
 }

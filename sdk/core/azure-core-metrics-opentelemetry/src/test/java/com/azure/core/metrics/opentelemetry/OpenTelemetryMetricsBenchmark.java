@@ -40,19 +40,19 @@ import static com.azure.core.util.tracing.Tracer.PARENT_TRACE_CONTEXT_KEY;
 @State(Scope.Thread)
 public class OpenTelemetryMetricsBenchmark {
     private static final InMemoryMetricReader SDK_METER_READER = InMemoryMetricReader.create();
-    private final static AzureMeterProvider CLIENT_METER_PROVIDER = AzureMeterProvider.getDefaultProvider();
+    private static final AzureMeterProvider CLIENT_METER_PROVIDER = AzureMeterProvider.getDefaultProvider();
 
     private static final SdkMeterProvider SDK_METER_PROVIDER = SdkMeterProvider.builder()
         .registerMetricReader(SDK_METER_READER)
         .build();
 
-    private final static Map<String, Object> COMMON_ATTRIBUTES = new HashMap<String, Object>() {{
-        put("az.messaging.destination", "fqdn");
-        put("az.messaging.entity", "entityName");
-    }};
+    private static final Map<String, Object> COMMON_ATTRIBUTES = new HashMap<String, Object>() {{
+            put("az.messaging.destination", "fqdn");
+            put("az.messaging.entity", "entityName");
+        }};
 
-    private final static MetricHelper METRIC_HELPER = new MetricHelper(CLIENT_METER_PROVIDER
-        .createMeter("bench", null, new MetricsOptions().setProvider(SDK_METER_PROVIDER)),"fqdn", "entityName");
+    private static final MetricHelper METRIC_HELPER = new MetricHelper(CLIENT_METER_PROVIDER
+        .createMeter("bench", null, new MetricsOptions().setProvider(SDK_METER_PROVIDER)), "fqdn", "entityName");
 
     private static final AzureLongHistogram HISTOGRAM_WITH_ATTRIBUTES = CLIENT_METER_PROVIDER
         .createMeter("bench", null, new MetricsOptions().setProvider(SDK_METER_PROVIDER))
@@ -112,16 +112,16 @@ public class OpenTelemetryMetricsBenchmark {
     }
 
     static class MetricHelper {
-        private final static int ERROR_DIMENSIONS_LENGTH = ErrorCode.values().length + 2;
-        private final static String DURATION_METRIC_NAME = "az.messaging.producer.send.duration";
-        private final static String DURATION_METRIC_DESCRIPTION = "Duration of producer send call";
-        private final static String DURATION_METRIC_UNIT = "ms";
+        private static final int ERROR_DIMENSIONS_LENGTH = ErrorCode.values().length + 2;
+        private static final String DURATION_METRIC_NAME = "az.messaging.producer.send.duration";
+        private static final String DURATION_METRIC_DESCRIPTION = "Duration of producer send call";
+        private static final String DURATION_METRIC_UNIT = "ms";
 
         private final AzureMeter meter;
         private final String fullyQualifiedNamespace;
         private final String eventHubName;
 
-        public MetricHelper(AzureMeter meter, String fullyQualifiedNamespace, String eventHubName) {
+        MetricHelper(AzureMeter meter, String fullyQualifiedNamespace, String eventHubName) {
             this.meter = meter;
             this.fullyQualifiedNamespace = fullyQualifiedNamespace;
             this.eventHubName = eventHubName;
@@ -143,7 +143,7 @@ public class OpenTelemetryMetricsBenchmark {
 
         private SendBatchMetrics[] createMetrics(String partitionId) {
             SendBatchMetrics[] metrics = new SendBatchMetrics[ERROR_DIMENSIONS_LENGTH];
-            for (int i = 0; i < ERROR_DIMENSIONS_LENGTH - 2; i ++) {
+            for (int i = 0; i < ERROR_DIMENSIONS_LENGTH - 2; i++) {
                 metrics[i] =  new SendBatchMetrics(meter,
                     getAttributes(partitionId, ErrorCode.values()[i].name()));
             }
@@ -164,9 +164,9 @@ public class OpenTelemetryMetricsBenchmark {
         }
 
         private static class SendBatchMetrics {
-            public final AzureLongHistogram sendDuration;
+            private final AzureLongHistogram sendDuration;
 
-            public SendBatchMetrics(AzureMeter meter, Map<String, Object> attributes) {
+            SendBatchMetrics(AzureMeter meter, Map<String, Object> attributes) {
                 this.sendDuration  = meter.createLongHistogram(DURATION_METRIC_NAME, DURATION_METRIC_DESCRIPTION, DURATION_METRIC_UNIT, attributes);
             }
 

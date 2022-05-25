@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package com.azure.core.metrics.opentelemetry;
 
 import com.azure.core.util.CoreUtils;
@@ -12,28 +15,43 @@ import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.metrics.MeterProvider;
 
 import java.util.Map;
+import java.util.Objects;
 
-public class OpenTelemetryMeter implements AzureMeter {
-    private final static io.opentelemetry.api.metrics.MeterProvider DEFAULT_PROVIDER = GlobalOpenTelemetry.getMeterProvider();
+/**
+ * {@inheritDoc}
+ */
+class OpenTelemetryMeter implements AzureMeter {
+    private static final MeterProvider DEFAULT_PROVIDER = GlobalOpenTelemetry.getMeterProvider();
     private final Meter meter;
     private final boolean isEnabled;
 
-    public OpenTelemetryMeter(String libraryName, String libraryVersion, MetricsOptions options) {
-        Object providerObj = options == null ? null : options.getProvider();
+    OpenTelemetryMeter(String libraryName, String libraryVersion, MetricsOptions options) {
         MeterProvider otelProvider = DEFAULT_PROVIDER;
-        if (providerObj != null && MeterProvider.class.isAssignableFrom(providerObj.getClass())) {
-            otelProvider = (MeterProvider) providerObj;
+        if (options != null) {
+            if (options.isEnabled()) {
+                Object providerObj = options.getProvider();
+                if (providerObj != null && MeterProvider.class.isAssignableFrom(providerObj.getClass())) {
+                    otelProvider = (MeterProvider) options.getProvider();
+                }
+            }  else {
+                otelProvider = MeterProvider.noop();
+            }
         }
 
         this.isEnabled = otelProvider != MeterProvider.noop();
-
         this.meter = otelProvider.meterBuilder(libraryName)
             .setInstrumentationVersion(libraryVersion)
             .build();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public AzureLongHistogram createLongHistogram(String name, String description, String unit, Map<String, Object> attributes) {
+        Objects.requireNonNull(name, "'name' cannot be null.");
+        Objects.requireNonNull(description, "'description' cannot be null.");
+
         LongHistogramBuilder otelMetricBuilder = meter.histogramBuilder(name)
             .setDescription(description)
             .ofLongs();
@@ -44,8 +62,14 @@ public class OpenTelemetryMeter implements AzureMeter {
         return new OpenTelemetryLongHistogram(otelMetricBuilder.build(), attributes);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public AzureLongCounter createLongCounter(String name, String description, String unit, Map<String, Object> attributes) {
+        Objects.requireNonNull(name, "'name' cannot be null.");
+        Objects.requireNonNull(description, "'description' cannot be null.");
+
         LongCounterBuilder otelMetricBuilder = meter.counterBuilder(name)
             .setDescription(description);
 
@@ -56,6 +80,9 @@ public class OpenTelemetryMeter implements AzureMeter {
         return new OpenTelemetryLongCounter(otelMetricBuilder.build(), attributes);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean isEnabled() {
         return this.isEnabled;

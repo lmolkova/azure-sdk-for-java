@@ -95,7 +95,7 @@ public class ClientOptions {
      * <!-- end com.azure.core.util.ClientOptions.setHeaders#Iterable -->
      *
      * @param headers The headers.
-     * @return The updated ClientOptions object.
+     * @return The updated {@link ClientOptions} object.
      */
     public ClientOptions setHeaders(Iterable<Header> headers) {
         this.headers = headers;
@@ -114,11 +114,22 @@ public class ClientOptions {
         return headers;
     }
 
+    /**
+     * Sets {@link MetricsOptions} that are applied to each metric reported by the client.
+     * Use metrics options to enable and disable metrics or pass implementation-specific configuration.
+     *
+     * @param metricsOptions instance of {@link MetricsOptions} to set.
+     * @return The updated {@link ClientOptions} object.
+     */
     public ClientOptions setMetricsOptions(MetricsOptions metricsOptions) {
         this.metricsOptions = metricsOptions;
         return this;
     }
 
+    /**
+     * Gets {@link MetricsOptions}
+     * @return The {@link MetricsOptions} instance, if metric options weren't set previously, {@code null} is returned.
+     */
     public MetricsOptions getMetricsOptions() {
         return metricsOptions;
     }
