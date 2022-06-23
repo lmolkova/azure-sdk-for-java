@@ -21,6 +21,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.IdGenerator;
 import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SpanProcessor;
@@ -210,23 +211,20 @@ public class OpenTelemetryTracerTest {
         // Arrange
         final String parentSpanId = parentSpan.getSpanContext().getSpanId();
 
-        // Start user parent span.
-        final SpanBuilder spanBuilder = tracer.spanBuilder(METHOD_NAME)
-            .setParent(io.opentelemetry.context.Context.root().with(parentSpan))
-            .setSpanKind(SpanKind.CLIENT);
-        // Add additional metadata to spans for SEND
-        final Context traceContext = tracingContext
+        final Context withAttributes = tracingContext
             .addData(ENTITY_PATH_KEY, ENTITY_PATH_VALUE)
             .addData(HOST_NAME_KEY, HOSTNAME_VALUE)
-            .addData(SPAN_BUILDER_KEY, spanBuilder)
             .addData(AZ_TRACING_NAMESPACE_KEY, AZ_NAMESPACE_VALUE);
 
+        // Start user parent span.
+        final Context withBuilder = openTelemetryTracer.createSpanBuilder(METHOD_NAME, new StartSpanOptions(com.azure.core.util.tracing.SpanKind.CLIENT), withAttributes);
+
         // Act
-        final Context updatedContext = openTelemetryTracer.start(METHOD_NAME, traceContext, ProcessKind.SEND);
+        final Context withSpan = openTelemetryTracer.start(METHOD_NAME, withBuilder, ProcessKind.SEND);
 
         // Assert
         // verify span created with explicit parent when for Process Kind SEND
-        final ReadableSpan recordEventsSpan = assertSpanWithExplicitParent(updatedContext, parentSpanId);
+        final ReadableSpan recordEventsSpan = assertSpanWithExplicitParent(withSpan, parentSpanId);
         assertEquals(SpanKind.CLIENT, recordEventsSpan.toSpanData().getKind());
 
         // verify span attributes
@@ -302,25 +300,31 @@ public class OpenTelemetryTracerTest {
     }
 
     @Test
-    public void startProcessSpanWithRemoteParent() {
+    public void startProcessSpanWithLinks() {
         // Arrange
-        final Span testSpan = tracer.spanBuilder("child-span").startSpan();
-        final String testSpanId = testSpan.getSpanContext().getSpanId();
-        final SpanContext spanContext = SpanContext.createFromRemoteParent(
-            testSpan.getSpanContext().getTraceId(),
-            testSpan.getSpanContext().getSpanId(),
-            testSpan.getSpanContext().getTraceFlags(),
-            testSpan.getSpanContext().getTraceState());
-        final Context traceContext = tracingContext.addData(SPAN_CONTEXT_KEY, spanContext);
+        SpanContext context1 = SpanContext.create(IdGenerator.random().generateTraceId(), IdGenerator.random().generateSpanId(), TraceFlags.getSampled(), TraceState.getDefault());
+        SpanContext context2 = SpanContext.create(IdGenerator.random().generateTraceId(), IdGenerator.random().generateSpanId(), TraceFlags.getSampled(), TraceState.getDefault());
+
+        Context shared = openTelemetryTracer.createSpanBuilder("foo.bar", new StartSpanOptions(com.azure.core.util.tracing.SpanKind.CONSUMER), Context.NONE);
+        openTelemetryTracer.addLink(shared.addData(SPAN_CONTEXT_KEY, context1));
+        openTelemetryTracer.addLink(shared.addData(SPAN_CONTEXT_KEY, context2));
 
         // Act
-        final Context updatedContext = openTelemetryTracer.start(METHOD_NAME, traceContext, ProcessKind.PROCESS);
+        final Context updatedContext = openTelemetryTracer.start(METHOD_NAME, shared, ProcessKind.PROCESS);
 
         // Assert
         assertNotNull(updatedContext.getData(SCOPE_KEY).get());
-        // Assert new span created with remote parent context
-        assertSpanWithRemoteParent(updatedContext, testSpanId);
-        assertTrue(updatedContext.getData(SCOPE_KEY).isPresent());
+        final SpanData span = getSpan(updatedContext).toSpanData();
+        assertEquals("foo.bar", span.getName());
+        assertEquals(SpanKind.CONSUMER, span.getKind());
+        assertFalse(span.getParentSpanContext().isValid());
+        assertTrue(span.getEvents().isEmpty());
+        List<LinkData> links = span.getLinks();
+        assertEquals(2, links.size());
+        assertEquals(context1.getTraceId(), links.get(0).getSpanContext().getTraceId());
+        assertEquals(context1.getSpanId(), links.get(0).getSpanContext().getSpanId());
+        assertEquals(context2.getTraceId(), links.get(1).getSpanContext().getTraceId());
+        assertEquals(context2.getSpanId(), links.get(1).getSpanContext().getSpanId());
     }
 
     @Test

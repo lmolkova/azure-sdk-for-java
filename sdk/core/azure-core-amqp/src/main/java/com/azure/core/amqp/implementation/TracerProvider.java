@@ -6,6 +6,8 @@ import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.util.Context;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.tracing.ProcessKind;
+import com.azure.core.util.tracing.SpanKind;
+import com.azure.core.util.tracing.StartSpanOptions;
 import com.azure.core.util.tracing.Tracer;
 import reactor.core.publisher.Signal;
 
@@ -14,6 +16,7 @@ import java.util.Objects;
 public class TracerProvider {
     private static final ClientLogger LOGGER = new ClientLogger(TracerProvider.class);
     private Tracer tracer;
+    private static final StartSpanOptions COMMON_CLIENT_OPTIONS = new StartSpanOptions(SpanKind.CLIENT);
 
     public TracerProvider(Iterable<Tracer> tracers) {
         Objects.requireNonNull(tracers, "'tracers' cannot be null.");
@@ -39,11 +42,12 @@ public class TracerProvider {
      * @return An updated context object.
      */
     public Context startSpan(String serviceBaseName, Context context, ProcessKind processKind) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
+        Objects.requireNonNull(processKind, "'processKind' cannot be null.");
+
         if (tracer == null) {
             return context;
         }
-        Objects.requireNonNull(context, "'context' cannot be null.");
-        Objects.requireNonNull(processKind, "'processKind' cannot be null.");
         String spanName = getSpanName(serviceBaseName, processKind);
 
         return tracer.start(spanName, context, processKind);
@@ -57,11 +61,12 @@ public class TracerProvider {
      * @param signal The signal indicates the status and contains the metadata we need to end the tracing span.
      */
     public void endSpan(Context context, Signal<Void> signal) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
+        Objects.requireNonNull(signal, "'signal' cannot be null.");
+
         if (tracer == null) {
             return;
         }
-        Objects.requireNonNull(context, "'context' cannot be null.");
-        Objects.requireNonNull(signal, "'signal' cannot be null.");
 
         switch (signal.getType()) {
             case ON_COMPLETE:
@@ -94,10 +99,10 @@ public class TracerProvider {
      * @param context Additional metadata that is passed through the call stack.
      */
     public void addSpanLinks(Context context) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
         if (tracer == null) {
             return;
         }
-        Objects.requireNonNull(context, "'context' cannot be null.");
         tracer.addLink(context);
     }
 
@@ -107,11 +112,11 @@ public class TracerProvider {
      * @param diagnosticId Unique identifier of an external call from producer to the queue.
      */
     public Context extractContext(String diagnosticId, Context context) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
+        Objects.requireNonNull(diagnosticId, "'diagnosticId' cannot be null.");
         if (tracer == null) {
             return context;
         }
-        Objects.requireNonNull(context, "'context' cannot be null.");
-        Objects.requireNonNull(diagnosticId, "'diagnosticId' cannot be null.");
         return tracer.extractContext(diagnosticId, context);
     }
 
@@ -120,14 +125,34 @@ public class TracerProvider {
      *
      * @param serviceBaseName the service name to be appended to the span name.
      * @param context Additional metadata containing the span name for creating the span builder.
+     *
+     * @deprecated use {@link TracerProvider#createSpanBuilder(String, StartSpanOptions, Context)} (String, StartSpanOptions, Context)}.
      */
+    @Deprecated
     public Context getSharedSpanBuilder(String serviceBaseName, Context context) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
         if (tracer == null) {
             return context;
         }
-        Objects.requireNonNull(context, "'context' cannot be null.");
+
         String spanName = getSpanName(serviceBaseName, ProcessKind.SEND);
-        return tracer.getSharedSpanBuilder(spanName, context);
+        return tracer.createSpanBuilder(spanName, COMMON_CLIENT_OPTIONS, context);
+    }
+
+    /**
+     * For a plugged tracer implementation a new context containing the span builder is returned.
+     *
+     * @param spanName Span name following Class.method pattern.
+     * @param options span options.
+     * @param context Additional context.
+     */
+    public Context createSpanBuilder(String spanName, StartSpanOptions options, Context context) {
+        Objects.requireNonNull(context, "'context' cannot be null.");
+        if (tracer == null) {
+            return context;
+        }
+
+        return tracer.createSpanBuilder(spanName, options, context);
     }
 
     private void end(String statusMessage, Throwable throwable, Context context) {

@@ -5,9 +5,12 @@ package com.azure.messaging.eventhubs;
 
 import com.azure.core.amqp.implementation.TracerProvider;
 import com.azure.core.util.Context;
+import com.azure.core.util.CoreUtils;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.logging.LogLevel;
 import com.azure.core.util.tracing.ProcessKind;
+import com.azure.core.util.tracing.SpanKind;
+import com.azure.messaging.eventhubs.implementation.ClientConstants;
 import com.azure.messaging.eventhubs.implementation.PartitionProcessor;
 import com.azure.messaging.eventhubs.implementation.PartitionProcessorException;
 import com.azure.messaging.eventhubs.models.Checkpoint;
@@ -29,10 +32,10 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -284,28 +287,22 @@ class PartitionPumpManager {
         Context processSpanContext = null;
         EventData eventData = eventContext.getEventData();
         if (eventData != null) {
-            processSpanContext = startProcessTracingSpan(eventData, eventHubConsumer.getEventHubName(),
+            processSpanContext = startProcessTracingSpan(Collections.singletonList(eventData), eventHubConsumer.getEventHubName(),
                 eventHubConsumer.getFullyQualifiedNamespace());
-            if (processSpanContext.getData(SPAN_CONTEXT_KEY).isPresent()) {
-                eventData.addContext(SPAN_CONTEXT_KEY, processSpanContext);
-            }
         }
         try {
-            if (LOGGER.canLogAtLevel(LogLevel.VERBOSE)) {
+            LOGGER.atVerbose()
+                .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
+                .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
+                .log("Processing event.");
 
-                LOGGER.atVerbose()
-                    .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
-                    .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
-                    .log("Processing event.");
-            }
             partitionProcessor.processEvent(new EventContext(partitionContext, eventData, checkpointStore,
                 eventContext.getLastEnqueuedEventProperties()));
-            if (LOGGER.canLogAtLevel(LogLevel.VERBOSE)) {
-                LOGGER.atVerbose()
-                    .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
-                    .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
-                    .log("Completed processing event.");
-            }
+            LOGGER.atVerbose()
+                .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
+                .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
+                .log("Completed processing event.");
+
             endProcessTracingSpan(processSpanContext, Signal.complete());
         } catch (Throwable throwable) {
             /* user code for event processing threw an exception - log and bubble up */
@@ -318,6 +315,7 @@ class PartitionPumpManager {
     private void processEvents(PartitionContext partitionContext, PartitionProcessor partitionProcessor,
         PartitionPump partitionPump, EventHubConsumerAsyncClient eventHubConsumer,
         List<PartitionEvent> partitionEventBatch) {
+        Context processSpanContext = null;
         try {
             if (batchReceiveMode) {
                 LastEnqueuedEventProperties[] lastEnqueuedEventProperties = new LastEnqueuedEventProperties[1];
@@ -328,6 +326,9 @@ class PartitionPumpManager {
                     })
                     .collect(Collectors.toList());
 
+                processSpanContext = startProcessTracingSpan(eventDataList, eventHubConsumer.getEventHubName(),
+                    eventHubConsumer.getFullyQualifiedNamespace());
+
                 // It's possible when using windowTimeout that in the timeframe, there weren't any events received.
                 LastEnqueuedEventProperties enqueuedEventProperties =
                     updateOrGetLastEnqueuedEventProperties(partitionPump, lastEnqueuedEventProperties[0]);
@@ -335,21 +336,19 @@ class PartitionPumpManager {
                 EventBatchContext eventBatchContext = new EventBatchContext(partitionContext, eventDataList,
                     checkpointStore, enqueuedEventProperties);
 
-                if (LOGGER.canLogAtLevel(LogLevel.VERBOSE)) {
-                    LOGGER.atVerbose()
-                        .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
-                        .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
-                        .log("Processing event batch.");
-                }
+                LOGGER.atVerbose()
+                    .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
+                    .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
+                    .log("Processing event batch.");
 
                 partitionProcessor.processEventBatch(eventBatchContext);
 
-                if (LOGGER.canLogAtLevel(LogLevel.VERBOSE)) {
-                    LOGGER.atVerbose()
-                        .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
-                        .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
-                        .log("Completed processing event batch.");
-                }
+                LOGGER.atVerbose()
+                    .addKeyValue(PARTITION_ID_KEY, partitionContext.getPartitionId())
+                    .addKeyValue(ENTITY_PATH_KEY, partitionContext.getEventHubName())
+                    .log("Completed processing event batch.");
+
+                endProcessTracingSpan(processSpanContext, Signal.complete());
             } else {
                 EventData eventData = (partitionEventBatch.size() == 1
                     ? partitionEventBatch.get(0).getData() : null);
@@ -366,6 +365,7 @@ class PartitionPumpManager {
                 processEvent(partitionContext, partitionProcessor, eventHubConsumer, eventContext);
             }
         } catch (Throwable throwable) {
+            endProcessTracingSpan(processSpanContext, Signal.error(throwable));
             /* user code for event processing threw an exception - log and bubble up */
             throw LOGGER.logExceptionAsError(new PartitionProcessorException("Error in event processing callback",
                 throwable));
@@ -418,21 +418,43 @@ class PartitionPumpManager {
     /*
      * Starts a new process tracing span and attaches the returned context to the EventData object for users.
      */
-    private Context startProcessTracingSpan(EventData eventData, String eventHubName, String fullyQualifiedNamespace) {
-        Object diagnosticId = eventData.getProperties().get(DIAGNOSTIC_ID_KEY);
-        if (tracerProvider == null || !tracerProvider.isEnabled()) {
+    private Context startProcessTracingSpan(List<EventData> events, String eventHubName, String fullyQualifiedNamespace) {
+        if (tracerProvider == null || !tracerProvider.isEnabled() || CoreUtils.isNullOrEmpty(events)) {
             return Context.NONE;
         }
 
-        Context spanContext = Objects.isNull(diagnosticId) ? Context.NONE : tracerProvider.extractContext(diagnosticId.toString(), Context.NONE);
-        spanContext = spanContext
+        Context sharedContext = tracerProvider.cre(ClientConstants.AZ_TRACING_SERVICE_NAME, SpanKind.CONSUMER, Context.NONE);
+        sharedContext = spanBuilder(events, sharedContext)
             .addData(ENTITY_PATH_KEY, eventHubName)
             .addData(HOST_NAME_KEY, fullyQualifiedNamespace)
             .addData(AZ_TRACING_NAMESPACE_KEY, AZ_NAMESPACE_VALUE);
-        spanContext = eventData.getEnqueuedTime() == null
-            ? spanContext
-            : spanContext.addData(MESSAGE_ENQUEUED_TIME, eventData.getEnqueuedTime().getEpochSecond());
-        return tracerProvider.startSpan(AZ_TRACING_SERVICE_NAME, spanContext, ProcessKind.PROCESS);
+
+        return tracerProvider.startSpan(AZ_TRACING_SERVICE_NAME, sharedContext, ProcessKind.PROCESS);
+    }
+
+    private Context spanBuilder(List<EventData> events, Context sharedContext) {
+        double avgEnqueuedTime = 0;
+        int count = 0;
+        for (EventData eventData : events) {
+            if (eventData.getEnqueuedTime() != null) {
+                avgEnqueuedTime += eventData.getEnqueuedTime().getEpochSecond();
+                count ++;
+            }
+
+            Object diagnosticId = eventData.getProperties().get(DIAGNOSTIC_ID_KEY);
+            if (diagnosticId != null) {
+                Context eventSpanContext =  tracerProvider.extractContext(diagnosticId.toString(), Context.NONE);
+                // TODO (lmolkova) we need better addSpanLinks - https://github.com/Azure/azure-sdk-for-java/issues/28953
+                tracerProvider.addSpanLinks(sharedContext.addData(SPAN_CONTEXT_KEY, eventSpanContext));
+            }
+        }
+
+        if (count > 0) {
+            sharedContext = sharedContext
+                .addData(MESSAGE_ENQUEUED_TIME, (long)(avgEnqueuedTime/count));
+        }
+
+        return sharedContext;
     }
 
     /*

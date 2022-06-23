@@ -350,8 +350,10 @@ public interface Tracer {
      * <!-- src_embed com.azure.core.util.tracing.getSpanBuilder#string-context -->
      * <pre>
      * &#47;&#47; Returns a span builder with the provided name
-     * Context spanContext = tracer.getSharedSpanBuilder&#40;&quot;message-span&quot;, Context.NONE&#41;;
-     * System.out.printf&#40;&quot;Builder of current span being built: %s%n&quot;, spanContext.getData&#40;SPAN_BUILDER_KEY&#41;.get&#40;&#41;&#41;;
+     * StartSpanOptions options = new StartSpanOptions&#40;SpanKind.CLIENT&#41;
+     *     .setAttribute&#40;&quot;additional-attribute-name&quot;, &quot;value&quot;&#41;;
+     * Context spanBuilderContext = tracer.createSpanBuilder&#40;&quot;message-span&quot;, options, Context.NONE&#41;;
+     * System.out.printf&#40;&quot;Builder of current span being built: %s%n&quot;, spanBuilderContext.getData&#40;SPAN_BUILDER_KEY&#41;.get&#40;&#41;&#41;;
      * </pre>
      * <!-- end com.azure.core.util.tracing.getSpanBuilder#string-context -->
      *
@@ -359,8 +361,38 @@ public interface Tracer {
      * @param context Additional metadata that is passed through the call stack.
      * @return The updated {@link Context} object containing the span builder.
      * @throws NullPointerException if {@code context} or {@code spanName} is {@code null}.
+     *
+     * @deprecated use {@link Tracer#createSpanBuilder(String, StartSpanOptions, Context)} instead.
      */
+    @Deprecated
     default Context getSharedSpanBuilder(String spanName, Context context) {
+        return createSpanBuilder(spanName, new StartSpanOptions(SpanKind.CLIENT), context);
+    }
+
+    /**
+     * Returns a span builder with the provided name in {@link Context}.
+     *
+     * <p><strong>Code samples</strong></p>
+     *
+     * <p>Returns a builder with the provided span name.</p>
+     * <!-- src_embed com.azure.core.util.tracing.getSpanBuilder#string-context -->
+     * <pre>
+     * &#47;&#47; Returns a span builder with the provided name
+     * StartSpanOptions options = new StartSpanOptions&#40;SpanKind.CLIENT&#41;
+     *     .setAttribute&#40;&quot;additional-attribute-name&quot;, &quot;value&quot;&#41;;
+     * Context spanBuilderContext = tracer.createSpanBuilder&#40;&quot;message-span&quot;, options, Context.NONE&#41;;
+     * System.out.printf&#40;&quot;Builder of current span being built: %s%n&quot;, spanBuilderContext.getData&#40;SPAN_BUILDER_KEY&#41;.get&#40;&#41;&#41;;
+     * </pre>
+     * <!-- end com.azure.core.util.tracing.getSpanBuilder#string-context -->
+     *
+     * @param spanName Name to give the span for the created builder.
+     * @param startOptions Span options to use.
+     * @param context Additional metadata that is passed through the call stack.
+     *
+     * @return The updated {@link Context} object containing the span builder.
+     * @throws NullPointerException if {@code context} or {@code spanName} is {@code null}.
+     */
+    default Context createSpanBuilder(String spanName, StartSpanOptions startOptions, Context context) {
         // no-op
         return Context.NONE;
     }

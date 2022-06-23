@@ -7,11 +7,15 @@ import com.azure.core.amqp.exception.AmqpErrorCondition;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.util.Context;
 import com.azure.core.util.tracing.ProcessKind;
+import com.azure.core.util.tracing.SpanKind;
+import com.azure.core.util.tracing.StartSpanOptions;
 import com.azure.core.util.tracing.Tracer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -21,6 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -188,6 +195,7 @@ public class TracerProviderTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void getSpanBuilderReturnsUpdatedContext() {
         // Arrange
         final String spanBuilderKey = "spanBuilder-key";
@@ -195,15 +203,51 @@ public class TracerProviderTest {
 
         final Context startingContext = Context.NONE;
 
-        when(tracer.getSharedSpanBuilder(anyString(), any())).thenAnswer(
+        when(tracer.createSpanBuilder(anyString(), any(), any())).thenAnswer(
             invocation -> {
-                Context passed = invocation.getArgument(1, Context.class);
+                Context passed = invocation.getArgument(2, Context.class);
+                StartSpanOptions passedOptions = invocation.getArgument(1, StartSpanOptions.class);
+                assertEquals(SpanKind.CLIENT, passedOptions.getSpanKind());
+                assertNull(passedOptions.getAttributes());
                 return passed.addData(spanBuilderKey, spanBuilderValue);
             }
         );
 
         // Act
         final Context updatedContext = tracerProvider.getSharedSpanBuilder(SERVICE_BASE_NAME, startingContext);
+
+        // Assert
+        final Optional<Object> spanBuilderData = updatedContext.getData(spanBuilderKey);
+        Assertions.assertTrue(spanBuilderData.isPresent());
+        Assertions.assertEquals(spanBuilderValue, spanBuilderData.get());
+    }
+
+    @ParameterizedTest
+    @EnumSource(SpanKind.class)
+    public void getSpanBuilderReturnsUpdatedContextWithKind(SpanKind kind) {
+        // Arrange
+        final String spanBuilderKey = "spanBuilder-key";
+        final String spanBuilderValue = "spanBuilder-value";
+
+        final Context startingContext = Context.NONE;
+
+        when(tracer.createSpanBuilder(anyString(), any(), any())).thenAnswer(
+            invocation -> {
+                Context passed = invocation.getArgument(2, Context.class);
+
+                StartSpanOptions passedOptions = invocation.getArgument(1, StartSpanOptions.class);
+                assertEquals(kind, passedOptions.getSpanKind());
+                assertNotNull(passedOptions.getAttributes());
+                assertEquals(1, passedOptions.getAttributes().size());
+                assertEquals("bar", passedOptions.getAttributes().get("foo"));
+
+                return passed.addData(spanBuilderKey, spanBuilderValue);
+            }
+        );
+
+        // Act
+        final StartSpanOptions options = new StartSpanOptions(kind).setAttribute("foo", "bar");
+        final Context updatedContext = tracerProvider.createSpanBuilder(SERVICE_BASE_NAME, options, startingContext);
 
         // Assert
         final Optional<Object> spanBuilderData = updatedContext.getData(spanBuilderKey);
