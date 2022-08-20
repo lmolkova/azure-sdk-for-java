@@ -52,7 +52,7 @@ public class ReceiveLinkHandler extends LinkHandler {
     private final String entityPath;
 
     public ReceiveLinkHandler(String connectionId, String hostname, String linkName, String entityPath) {
-        this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(hostname, entityPath));
+        this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(null, hostname, entityPath));
     }
 
     public ReceiveLinkHandler(String connectionId, String hostname, String linkName, String entityPath, AmqpMetricsProvider metricsProvider) {
@@ -70,7 +70,7 @@ public class ReceiveLinkHandler extends LinkHandler {
     }
 
     /**
-     * Closes the handler by completing the completing the queued deliveries and deliveries then publishes {@link
+     * Closes the handler by completing the queued deliveries and deliveries then publishes {@link
      * EndpointState#CLOSED}. {@link #getEndpointStates()} is completely closed when {@link #onLinkRemoteClose(Event)},
      * {@link #onLinkRemoteDetach(Event)}, or {@link #onLinkFinal(Event)} is called.
      */

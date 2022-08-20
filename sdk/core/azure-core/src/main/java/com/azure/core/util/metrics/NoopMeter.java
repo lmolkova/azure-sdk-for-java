@@ -8,7 +8,6 @@ import com.azure.core.util.TelemetryAttributes;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * {@inheritDoc}
@@ -32,18 +31,6 @@ final class NoopMeter implements Meter {
     private static final LongCounter NOOP_LONG_COUNTER = new LongCounter() {
         @Override
         public void add(long value, TelemetryAttributes attributes, Context context) {
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return false;
-        }
-    };
-
-    static final LongGauge NOOP_GAUGE = new LongGauge() {
-        @Override
-        public AutoCloseable setCallback(Supplier<Long> measurementSupplier, TelemetryAttributes attributes) {
-            return NOOP_CLOSEABLE;
         }
 
         @Override

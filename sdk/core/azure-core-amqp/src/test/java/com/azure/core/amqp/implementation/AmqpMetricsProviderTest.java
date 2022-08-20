@@ -12,11 +12,16 @@ import com.azure.core.util.metrics.Meter;
 import com.azure.core.util.metrics.MeterProvider;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Symbol;
+import org.apache.qpid.proton.amqp.messaging.AmqpValue;
+import org.apache.qpid.proton.amqp.messaging.MessageAnnotations;
 import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
+import org.apache.qpid.proton.message.Message;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -119,15 +124,15 @@ public class AmqpMetricsProviderTest {
         TestMeasurement<Double> measurement1 = histogram.getMeasurements().get(0);
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, null);
-        assertEquals("Rejected", measurement1.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("rejected", measurement1.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
         assertTrue(100 <= measurement1.getValue());
         assertTrue(end - start >= measurement1.getValue());
 
         TestMeasurement<Double> measurement2 = histogram.getMeasurements().get(1);
-        assertEquals("Accepted", measurement2.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("accepted", measurement2.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
 
         TestMeasurement<Double> measurement3 = histogram.getMeasurements().get(2);
-        assertEquals("unknown_error", measurement3.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("unknown", measurement3.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
     }
 
     @Test
@@ -161,10 +166,10 @@ public class AmqpMetricsProviderTest {
         assertEquals(-1, activeCounter.getMeasurements().get(4).getValue());
 
         TestMeasurement<Long> closed1 = closedCounter.getMeasurements().get(0);
-        assertEquals("ok", closed1.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("ok", closed1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
 
         TestMeasurement<Long> closed2 = closedCounter.getMeasurements().get(1);
-        assertEquals("com.microsoft:timeout", closed2.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("com.microsoft:timeout", closed2.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
     }
 
     @Test
@@ -172,19 +177,36 @@ public class AmqpMetricsProviderTest {
         TestMeter meter = new TestMeter();
         AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
 
-        provider.recordReceivedMessage(Proton.message());
-        provider.recordReceivedMessage(Proton.message());
+        Instant now = Instant.now();
+        MessageAnnotations futureEnqueuedDate = new MessageAnnotations(Collections.singletonMap(Symbol.valueOf("x-opt-enqueued-time"), Date.from(now.plusSeconds(100))));
 
-        assertTrue(meter.getCounters().containsKey("messaging.az.amqp.consumer.messages.received"));
-        TestCounter counter = meter.getCounters().get("messaging.az.amqp.consumer.messages.received");
+        provider.recordReceivedMessage(createMessage(Date.from(now.plusSeconds(100))));
+        provider.recordReceivedMessage(createMessage(Date.from(now.minusSeconds(100))));
 
-        assertEquals(2, counter.getMeasurements().size());
-        TestMeasurement<Long> measurement1 = counter.getMeasurements().get(0);
-        assertEquals(1, measurement1.getValue());
+        provider.recordReceivedMessage(Proton.message());
+        provider.recordReceivedMessage(createMessage("not a date"));
+
+        assertTrue(meter.getHistograms().containsKey("messaging.az.amqp.consumer.lag"));
+        TestHistogram histogram = meter.getHistograms().get("messaging.az.amqp.consumer.lag");
+
+        assertEquals(2, histogram.getMeasurements().size());
+        TestMeasurement<Double> measurement1 = histogram.getMeasurements().get(0);
+
+        // negative delta becomes 0
+        assertEquals(0, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
 
-        assertEquals(1, counter.getMeasurements().get(1).getValue());
+        assertEquals(100, histogram.getMeasurements().get(1).getValue(), 10);
+    }
+
+    private Message createMessage(Object enqueuedTime) {
+        Message msg = Proton.message();
+        MessageAnnotations annotations = new MessageAnnotations(Collections.singletonMap(Symbol.valueOf("x-opt-enqueued-time"), enqueuedTime));
+        msg.setMessageAnnotations(annotations);
+        msg.setBody(new AmqpValue("body"));
+
+        return msg;
     }
 
     @Test
@@ -203,7 +225,7 @@ public class AmqpMetricsProviderTest {
         assertEquals(1, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
-        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
     }
 
     @Test
@@ -222,7 +244,7 @@ public class AmqpMetricsProviderTest {
         assertEquals(1, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
-        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
     }
 
     public void assertCommonAttributes(Map<String, Object> actual, String expectedNamespace, String expectedEntityName, String expectedEntityPath) {

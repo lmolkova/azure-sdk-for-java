@@ -270,7 +270,7 @@ public class WebSocketsConnectionHandlerTest {
 
         assertEquals(HOSTNAME, activeConnections.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(HOSTNAME, closedConnections.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals("com.microsoft:server-busy", closedConnections.get(0).getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
-        assertEquals("ok", closedConnections.get(1).getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("com.microsoft:server-busy", closedConnections.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals("ok", closedConnections.get(1).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
     }
 }

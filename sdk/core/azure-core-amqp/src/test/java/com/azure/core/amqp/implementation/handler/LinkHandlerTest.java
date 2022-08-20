@@ -263,7 +263,7 @@ public class LinkHandlerTest {
         List<TestMeasurement<Long>> errors = meter.getCounters().get("messaging.az.amqp.client.link.errors").getMeasurements();
         assertEquals(1, errors.size());
         assertEquals(1, errors.get(0).getValue());
-        assertEquals("amqp:link:stolen", errors.get(0).getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("amqp:link:stolen", errors.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
         assertEquals(HOSTNAME, errors.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, errors.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
         assertEquals(ENTITY_PATH, errors.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));

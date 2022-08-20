@@ -325,7 +325,7 @@ public class ReactorSessionTest {
         List<TestMeasurement<Long>> errors = meter.getCounters().get("messaging.az.amqp.client.session.errors").getMeasurements();
         assertEquals(1, errors.size());
         assertEquals(1, errors.get(0).getValue());
-        assertEquals("amqp:resource-limit-exceeded", errors.get(0).getAttributes().get(ClientConstants.AMQP_ERROR_KEY));
+        assertEquals("amqp:resource-limit-exceeded", errors.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
         assertEquals(HOST, errors.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_PATH, errors.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
     }

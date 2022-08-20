@@ -4,11 +4,12 @@
 package com.azure.core.amqp.implementation;
 
 import com.azure.core.util.Context;
+import com.azure.core.util.CoreUtils;
 import com.azure.core.util.MetricsOptions;
 import com.azure.core.util.TelemetryAttributes;
+import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.metrics.DoubleHistogram;
 import com.azure.core.util.metrics.LongCounter;
-import com.azure.core.util.metrics.LongGauge;
 import com.azure.core.util.metrics.Meter;
 import com.azure.core.util.metrics.MeterProvider;
 import org.apache.qpid.proton.amqp.Symbol;
@@ -22,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 import static com.azure.core.amqp.AmqpMessageConstant.ENQUEUED_TIME_UTC_ANNOTATION_NAME;
 
@@ -31,36 +31,46 @@ import static com.azure.core.amqp.AmqpMessageConstant.ENQUEUED_TIME_UTC_ANNOTATI
  * meter configured by client SDK when metrics are disabled.
  */
 public class AmqpMetricsProvider {
+    private static final ClientLogger LOGGER = new ClientLogger(AmqpMetricsProvider.class);
+    private static final AmqpMetricsProvider NOOP = new AmqpMetricsProvider();
+    private static final Symbol ENQUEUED_TIME_ANNOTATION = Symbol.valueOf(ENQUEUED_TIME_UTC_ANNOTATION_NAME.getValue());
+
+    private static final String AZURE_CORE_AMQP_PROPERTIES_NAME = "azure-core.properties";
+    private static final String AZURE_CORE_AMQP_PROPERTIES_VERSION_KEY = "version";
+
+    private static final String AZURE_CORE_VERSION = CoreUtils
+        .getProperties(AZURE_CORE_AMQP_PROPERTIES_NAME)
+        .getOrDefault(AZURE_CORE_AMQP_PROPERTIES_VERSION_KEY, null);
+
+    private static final Meter DEFAULT_METER = MeterProvider.getDefaultProvider().createMeter("azure-core-amqp", AZURE_CORE_VERSION, new MetricsOptions());
+
     private final boolean isEnabled;
+    private final Meter meter;
+    private Map<String, Object> commonAttributesMap;
     private DoubleHistogram sendDuration = null;
     private LongCounter activeConnections = null;
     private LongCounter closedConnections = null;
     private LongCounter sessionErrors = null;
     private LongCounter linkErrors = null;
-    private LongCounter receivedMessages = null;
     private DoubleHistogram receivedLag = null;
-    private LongGauge receivedSequenceNumber = null;
     private LongCounter addCredits = null;
     private AttributeCache sendDeliveryAttributeCache = null;
     private AttributeCache amqpErrorAttributeCache = null;
     private TelemetryAttributes commonAttributes = null;
-    private static final Meter DEFAULT_METER = MeterProvider.getDefaultProvider().createMeter("azure-core-amqp", null, new MetricsOptions());
-    private static final AmqpMetricsProvider NOOP = new AmqpMetricsProvider();
-    private static final AutoCloseable NOOP_CLOSEABLE = () -> {
-    };
+
     private AmqpMetricsProvider() {
-        isEnabled = false;
+        this.isEnabled = false;
+        this.meter = null;
     }
 
     public AmqpMetricsProvider(Meter meter, String namespace, String entityPath) {
         Objects.requireNonNull(namespace, "'namespace' cannot be null");
-        if (meter == null) {
-            meter = DEFAULT_METER;
-        }
 
-        isEnabled = meter.isEnabled();
+        this.meter = meter != null ? meter : DEFAULT_METER;
+        this.isEnabled = this.meter.isEnabled();
+
         if (isEnabled) {
-            Map<String, Object> commonAttributesMap = new HashMap<>();
+            this.commonAttributesMap = new HashMap<>();
             commonAttributesMap.put(ClientConstants.HOSTNAME_KEY, namespace);
 
             if (entityPath != null) {
@@ -73,23 +83,17 @@ public class AmqpMetricsProvider {
                 }
             }
 
-            this.commonAttributes = meter.createAttributes(commonAttributesMap);
-            this.sendDeliveryAttributeCache = new AttributeCache(meter, ClientConstants.AMQP_ERROR_KEY, commonAttributesMap);
-            this.amqpErrorAttributeCache = new AttributeCache(meter, ClientConstants.AMQP_ERROR_KEY, commonAttributesMap);
-            this.sendDuration = meter.createDoubleHistogram("messaging.az.amqp.client.duration", "AMQP request client call duration", "ms");
-            this.activeConnections = meter.createLongUpDownCounter("messaging.az.amqp.client.connections.usage", "Active connections", "connections");
-            this.closedConnections = meter.createLongCounter("messaging.az.amqp.client.connections.closed", "Closed connections", "connections");
-            this.sessionErrors = meter.createLongCounter("messaging.az.amqp.client.session.errors", "AMQP session errors", "errors");
-            this.linkErrors = meter.createLongCounter("messaging.az.amqp.client.link.errors", "AMQP link errors", "errors");
-            this.receivedMessages = meter.createLongCounter("messaging.az.amqp.consumer.messages.received", "Number of received messages", "messages");
-            this.addCredits = meter.createLongCounter("messaging.az.amqp.consumer.credits.requested", "Number of requested credits", "credits");
-            this.receivedLag = meter.createDoubleHistogram("messaging.az.amqp.consumer.lag", "Approximate lag between time message was received and time it was enqueued on the broker.", "sec");
-            this.receivedSequenceNumber = meter.createLongGauge("messaging.az.amqp.consumer.sequence_number", "Last received requesnce number.", "sequence number");
+            this.commonAttributes = this.meter.createAttributes(commonAttributesMap);
+            this.sendDeliveryAttributeCache = new AttributeCache(ClientConstants.DELIVERY_STATE_KEY);
+            this.amqpErrorAttributeCache = new AttributeCache(ClientConstants.ERROR_CONDITION_KEY);
+            this.sendDuration = this.meter.createDoubleHistogram("messaging.az.amqp.client.duration", "AMQP request client call duration", "ms");
+            this.activeConnections = this.meter.createLongUpDownCounter("messaging.az.amqp.client.connections.usage", "Active connections", "connections");
+            this.closedConnections = this.meter.createLongCounter("messaging.az.amqp.client.connections.closed", "Closed connections", "connections");
+            this.sessionErrors = this.meter.createLongCounter("messaging.az.amqp.client.session.errors", "AMQP session errors", "errors");
+            this.linkErrors = this.meter.createLongCounter("messaging.az.amqp.client.link.errors", "AMQP link errors", "errors");
+            this.addCredits = this.meter.createLongCounter("messaging.az.amqp.consumer.credits.requested", "Number of requested credits", "credits");
+            this.receivedLag = this.meter.createDoubleHistogram("messaging.az.amqp.consumer.lag", "Approximate lag between time message was received and time it was enqueued on the broker.", "sec");
         }
-    }
-
-    public AmqpMetricsProvider(String namespace, String entityPath) {
-        this(null, namespace, entityPath);
     }
 
     public static AmqpMetricsProvider noop() {
@@ -97,11 +101,18 @@ public class AmqpMetricsProvider {
     }
 
     /**
+     * Checks if record delivers is enabled (for micro-optimizations).
+     */
+    public boolean isSendDeliveryEnabled() {
+        return isEnabled && sendDuration.isEnabled();
+    }
+
+    /**
      * Records duration of AMQP send call.
      */
     public void recordSendDelivery(long start, DeliveryState.DeliveryStateType deliveryState) {
         if (isEnabled && sendDuration.isEnabled()) {
-            String deliveryStateStr = deliveryState != null ? deliveryState.toString() : "unknown_error";
+            String deliveryStateStr = deliveryStateToLowerCaseString(deliveryState);
             TelemetryAttributes attributes = sendDeliveryAttributeCache.getOrCreate(deliveryStateStr);
             sendDuration.record(Instant.now().toEpochMilli() - start, attributes, Context.NONE);
         }
@@ -137,42 +148,25 @@ public class AmqpMetricsProvider {
      * Records the message was received.
      */
     public void recordReceivedMessage(Message message) {
-        if (!isEnabled) {
-            return;
-        }
-
-        if (receivedMessages.isEnabled()) {
-            receivedMessages.add(1, commonAttributes, Context.NONE);
-        }
-
-        if (message.getMessageAnnotations() == null || message.getMessageAnnotations().getValue() == null) {
+        if (!isEnabled || !receivedLag.isEnabled()
+            || message == null
+            || message.getMessageAnnotations() == null
+            || message.getBody() == null) {
             return;
         }
 
         Map<Symbol, Object> properties = message.getMessageAnnotations().getValue();
-        if (receivedLag.isEnabled()) {
-            Object enqueuedTimeDate = properties.get(Symbol.valueOf(ENQUEUED_TIME_UTC_ANNOTATION_NAME.getValue()));
-            if (enqueuedTimeDate instanceof Date) {
-                Instant enqueuedTime = ((Date) enqueuedTimeDate).toInstant();
-                long deltaMs = Instant.now().toEpochMilli() - enqueuedTime.toEpochMilli();
-                if (deltaMs < 0) {
-                    deltaMs = 0;
-                }
-                receivedLag.record(deltaMs / 1000d, commonAttributes, Context.NONE);
+        Object enqueuedTimeDate = properties != null ? properties.get(ENQUEUED_TIME_ANNOTATION) : null;
+        if (enqueuedTimeDate instanceof Date) {
+            Instant enqueuedTime = ((Date) enqueuedTimeDate).toInstant();
+            long deltaMs = Instant.now().toEpochMilli() - enqueuedTime.toEpochMilli();
+            if (deltaMs < 0) {
+                deltaMs = 0;
             }
+            receivedLag.record(deltaMs / 1000d, commonAttributes, Context.NONE);
+        } else {
+            LOGGER.verbose("Received message has unexpected `x-opt-enqueued-time` annotation value - `{}`. Ignoring it.", enqueuedTimeDate);
         }
-    }
-
-
-    /**
-     * Records the message was received.
-     */
-    public AutoCloseable setSequenceNumberCallback(Supplier<Long> supplier) {
-        if (this.isEnabled) {
-            return receivedSequenceNumber.setCallback(supplier, this.commonAttributes);
-        }
-
-        return NOOP_CLOSEABLE;
     }
 
     /**
@@ -206,25 +200,46 @@ public class AmqpMetricsProvider {
         }
     }
 
-    private static class AttributeCache {
-        private final Map<String, TelemetryAttributes> attr;
-        private final Map<String, Object> commonAttributesMap;
-        private final String dimensionName;
-        private final Meter meter;
+    private static String deliveryStateToLowerCaseString(DeliveryState.DeliveryStateType state) {
+        if (state == null) {
+            return "unknown";
+        }
 
-        AttributeCache(Meter meter, String dimensionName, Map<String, Object> commonAttributesMap) {
-            this.attr = new ConcurrentHashMap<>();
-            this.meter = meter;
-            this.commonAttributesMap = commonAttributesMap;
+        switch (state) {
+            case Accepted:
+                return "accepted";
+            case Declared:
+                return "declared";
+            case Modified:
+                return "modified";
+            case Received:
+                return "received";
+            case Rejected:
+                return "rejected";
+            case Released:
+                return "released";
+            case Transactional:
+                return "transactional";
+            default:
+                return "unknown";
+        }
+    }
+
+    private class AttributeCache {
+        private final Map<String, TelemetryAttributes> attr = new ConcurrentHashMap<>();
+        private final String dimensionName;
+        AttributeCache(String dimensionName) {
             this.dimensionName = dimensionName;
         }
 
         public TelemetryAttributes getOrCreate(String value) {
-            return attr.computeIfAbsent(value, v ->  {
-                Map<String, Object> attributes = new HashMap<>(commonAttributesMap);
-                attributes.put(dimensionName, value);
-                return meter.createAttributes(attributes);
-            });
+            return attr.computeIfAbsent(value, this::create);
+        }
+
+        private TelemetryAttributes create(String value) {
+            Map<String, Object> attributes = new HashMap<>(commonAttributesMap);
+            attributes.put(dimensionName, value);
+            return meter.createAttributes(attributes);
         }
     }
 }

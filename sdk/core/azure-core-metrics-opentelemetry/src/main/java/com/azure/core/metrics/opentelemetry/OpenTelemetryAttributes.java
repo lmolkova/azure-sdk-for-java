@@ -22,9 +22,10 @@ class OpenTelemetryAttributes implements TelemetryAttributes {
         Map<String, String> mappings = new HashMap<>();
         // messaging mapping, attributes are defined in com.azure.core.amqp.implementation.ClientConstants
         mappings.put("entityName", "messaging.destination");
-        mappings.put("entityPath", "messaging.az.destination.path");
+        mappings.put("entityPath", "messaging.az.entity.path");
         mappings.put("hostName", "net.peer.name");
-        mappings.put("amqpError", "amqp.error_code");
+        mappings.put("errorCondition", "amqp.error_code");
+        mappings.put("deliveryState", "amqp.delivery_state");
 
         return Collections.unmodifiableMap(mappings);
     }

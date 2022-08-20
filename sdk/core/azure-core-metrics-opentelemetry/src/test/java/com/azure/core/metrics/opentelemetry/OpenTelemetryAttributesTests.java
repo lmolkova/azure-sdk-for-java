@@ -65,23 +65,25 @@ public class OpenTelemetryAttributesTests {
                 put("hostName", "host");
                 put("entityName", "entity");
                 put("entityPath", "path");
-                put("amqpError", "amqp::error::code");
+                put("errorCondition", "amqp::error::code");
+                put("deliveryState", "rejected");
             }});
 
         assertEquals(OpenTelemetryAttributes.class, attributeCollection.getClass());
         Attributes attributes = ((OpenTelemetryAttributes) attributeCollection).get();
 
-        assertEquals(5, attributes.size());
+        assertEquals(6, attributes.size());
         assertEquals("value", attributes.get(AttributeKey.stringKey("foobar")));
         assertEquals("host", attributes.get(AttributeKey.stringKey("net.peer.name")));
         assertEquals("entity", attributes.get(AttributeKey.stringKey("messaging.destination")));
-        assertEquals("path", attributes.get(AttributeKey.stringKey("messaging.az.destination.path")));
+        assertEquals("path", attributes.get(AttributeKey.stringKey("messaging.az.entity.path")));
         assertEquals("amqp::error::code", attributes.get(AttributeKey.stringKey("amqp.error_code")));
+        assertEquals("rejected", attributes.get(AttributeKey.stringKey("amqp.delivery_state")));
     }
 
     @Test
     public void attributeLongMappings() {
-        TelemetryAttributes attributeCollection = METER.createAttributes(Collections.singletonMap("amqpError", 42));
+        TelemetryAttributes attributeCollection = METER.createAttributes(Collections.singletonMap("errorCondition", 42));
 
         assertEquals(OpenTelemetryAttributes.class, attributeCollection.getClass());
         Attributes attributes = ((OpenTelemetryAttributes) attributeCollection).get();

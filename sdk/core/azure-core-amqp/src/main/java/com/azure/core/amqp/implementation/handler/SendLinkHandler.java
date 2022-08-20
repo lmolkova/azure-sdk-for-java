@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.azure.core.amqp.implementation.AmqpLoggingUtils.addSignalTypeAndResult;
+import static com.azure.core.amqp.implementation.ClientConstants.DELIVERY_STATE_KEY;
 import static com.azure.core.amqp.implementation.ClientConstants.EMIT_RESULT_KEY;
 import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_PATH_KEY;
 import static com.azure.core.amqp.implementation.ClientConstants.LINK_NAME_KEY;
@@ -174,7 +175,7 @@ public class SendLinkHandler extends LinkHandler {
                 .addKeyValue(LINK_NAME_KEY, getLinkName())
                 .addKeyValue("unsettled", sender.getUnsettled())
                 .addKeyValue("credit", sender.getRemoteCredit())
-                .addKeyValue("deliveryState", delivery.getRemoteState())
+                .addKeyValue(DELIVERY_STATE_KEY, delivery.getRemoteState())
                 .addKeyValue("delivery.isBuffered", delivery.isBuffered())
                 .addKeyValue("delivery.id", deliveryTag)
                 .log("onDelivery");

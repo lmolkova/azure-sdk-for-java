@@ -105,6 +105,7 @@ public class RequestResponseChannel implements AsyncCloseable {
     private final ReactorProvider provider;
 
     private final AmqpMetricsProvider metricsProvider;
+    private static final String START_SEND_TIME_CONTEXT_KEY = "send-start-time";
 
     /**
      * Creates a new instance of {@link RequestResponseChannel} to send and receive responses from the {@code
@@ -324,7 +325,7 @@ public class RequestResponseChannel implements AsyncCloseable {
             receiveLinkHandler.getEndpointStates().takeUntil(x -> x == EndpointState.ACTIVE));
 
         return RetryUtil.withRetry(onActiveEndpoints, retryOptions, activeEndpointTimeoutMessage)
-            .then(trackSendMetric(Mono.create(sink -> {
+            .then(captureStartTime(Mono.create(sink -> {
                 try {
                     logger.atVerbose()
                         .addKeyValue("messageId", message.getCorrelationId())
@@ -360,15 +361,10 @@ public class RequestResponseChannel implements AsyncCloseable {
                         sendLink.advance();
                     });
                 } catch (IOException | RejectedExecutionException e) {
+                    recordDelivery(sink.contextView(), null);
                     sink.error(e);
                 }
             })));
-    }
-
-    // TODO (limolkova): tests
-    private Mono<Message> trackSendMetric(Mono<Message> publisher) {
-        return publisher
-            .contextWrite(Context.of("start", Instant.now().toEpochMilli()));
     }
 
     /**
@@ -410,15 +406,6 @@ public class RequestResponseChannel implements AsyncCloseable {
 
         recordDelivery(sink.contextView(), deliveryState);
         sink.success(message);
-    }
-
-    private void recordDelivery(ContextView context, DeliveryState deliveryState) {
-        Object startTimestamp = context.getOrDefault("start", null);
-        if (startTimestamp instanceof Long && deliveryState != null) {
-            Long startEpoch = (Long) startTimestamp;
-            DeliveryState.DeliveryStateType type = deliveryState.getType();
-            metricsProvider.recordSendDelivery(startEpoch, type);
-        }
     }
 
     private void handleError(Throwable error, String message) {
@@ -508,5 +495,31 @@ public class RequestResponseChannel implements AsyncCloseable {
         // The below log can also help debug if the external code that error() calls into never return.
         logger.atVerbose()
             .log("completed the termination of {} unconfirmed sends (reason: {}).",  count, error.getMessage());
+    }
+
+    /**
+     * Captures current time in mono context - used to report send metric
+     */
+    private Mono<Message> captureStartTime(Mono<Message> publisher) {
+        // TODO (limolkova): tests
+        if (metricsProvider.isSendDeliveryEnabled()) {
+            return publisher.contextWrite(Context.of(START_SEND_TIME_CONTEXT_KEY, Instant.now()));
+        }
+
+        return publisher;
+    }
+
+    /**
+     * Records send call duration metric.
+     **/
+    private void recordDelivery(ContextView context, DeliveryState deliveryState) {
+        if (metricsProvider.isSendDeliveryEnabled()) {
+            Object startTimestamp = context.getOrDefault(START_SEND_TIME_CONTEXT_KEY, null);
+            if (startTimestamp instanceof Instant) {
+                metricsProvider.recordSendDelivery(
+                    ((Instant) startTimestamp).toEpochMilli(),
+                    deliveryState != null ? deliveryState.getType() : null);
+            }
+        }
     }
 }

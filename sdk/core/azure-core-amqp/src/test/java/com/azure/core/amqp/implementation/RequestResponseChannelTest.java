@@ -11,8 +11,11 @@ import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
+import com.azure.core.test.utils.metrics.TestMeasurement;
+import com.azure.core.test.utils.metrics.TestMeter;
 import org.apache.qpid.proton.amqp.Binary;
 import org.apache.qpid.proton.amqp.UnsignedLong;
+import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.amqp.transaction.TransactionalState;
 import org.apache.qpid.proton.amqp.transport.ReceiverSettleMode;
 import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
@@ -34,6 +37,9 @@ import reactor.test.publisher.TestPublisher;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,7 +62,8 @@ class RequestResponseChannelTest {
     private static final String CONNECTION_ID = "some-id";
     private static final String NAMESPACE = "test fqdn";
     private static final String LINK_NAME = "test-link-name";
-    private static final String ENTITY_PATH = "test-entity-path";
+    private static final String ENTITY_NAME = "test";
+    private static final String ENTITY_PATH = ENTITY_NAME + "/entity/path";
     private static final Duration TRY_TIMEOUT = Duration.ofSeconds(23);
 
     private final AmqpRetryOptions retryOptions = new AmqpRetryOptions().setTryTimeout(TRY_TIMEOUT);
@@ -406,6 +413,146 @@ class RequestResponseChannelTest {
         verify(sender).send(any(), eq(0), eq(encodedSize));
         verify(sender).advance();
     }
+
+    /**
+     * Verifies a message send duration is recorded.
+     */
+    @Test
+    void sendMessageWithMetrics() {
+        // Arrange
+        // This message was copied from one that was received.
+        final byte[] messageBytes = new byte[]{0, 83, 115, -64, 15, 13, 64, 64, 64, 64, 64, 83, 1, 64, 64, 64, 64, 64,
+            64, 64, 0, 83, 116, -63, 49, 4, -95, 11, 115, 116, 97, 116, 117, 115, 45, 99, 111, 100, 101, 113, 0, 0, 0,
+            -54, -95, 18, 115, 116, 97, 116, 117, 115, 45, 100, 101, 115, 99, 114, 105, 112, 116, 105, 111, 110, -95, 8,
+            65, 99, 99, 101, 112, 116, 101, 100};
+
+        TestMeter meter = new TestMeter();
+        final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
+            LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+
+        final UnsignedLong messageId = UnsignedLong.valueOf(1);
+        final Message message = mock(Message.class);
+        final int encodedSize = 143;
+        when(serializer.getSize(message)).thenReturn(150);
+        when(message.encode(any(), eq(0), anyInt())).thenReturn(encodedSize);
+        when(message.getCorrelationId()).thenReturn(messageId);
+
+        // Creating delivery for sending.
+        final Delivery deliveryToSend = mock(Delivery.class);
+        doNothing().when(deliveryToSend).setMessageFormat(anyInt());
+        when(sender.delivery(any(byte[].class))).thenReturn(deliveryToSend);
+
+        // Creating a received message because we decodeDelivery calls implementation details for proton-j.
+        final Delivery delivery = mock(Delivery.class);
+        when(delivery.pending()).thenReturn(messageBytes.length);
+        when(delivery.getLocalState()).thenReturn(Accepted.getInstance());
+
+        when(receiver.recv(any(), eq(0), eq(messageBytes.length))).thenAnswer(invocation -> {
+            final byte[] buffer = invocation.getArgument(0);
+            System.arraycopy(messageBytes, 0, buffer, 0, messageBytes.length);
+            return messageBytes.length;
+        });
+
+        receiveEndpoints.next(EndpointState.ACTIVE);
+        sendEndpoints.next(EndpointState.ACTIVE);
+
+        long start = Instant.now().toEpochMilli();
+        // Act
+        StepVerifier.create(channel.sendWithAck(message))
+            .then(() -> deliveryProcessor.next(delivery))
+            .assertNext(received -> assertEquals(messageId, received.getCorrelationId()))
+            .expectComplete()
+            .verify(VERIFY_TIMEOUT);
+
+        // Assert
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        assertEquals(1, durations.size());
+        assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
+        assertTrue(durations.get(0).getValue() > 0);
+        assertEquals("accepted", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
+    }
+
+    /**
+     * Verifies a message send duration is recorded when exception is thrown during send
+     */
+    @Test
+    void sendMessageSendErrorWithMetrics() {
+        // Arrange
+        TestMeter meter = new TestMeter();
+        final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
+            LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+
+        final UnsignedLong messageId = UnsignedLong.valueOf(1);
+        final Message message = mock(Message.class);
+        final int encodedSize = 143;
+        when(serializer.getSize(message)).thenReturn(150);
+        when(message.encode(any(), eq(0), anyInt())).thenReturn(encodedSize);
+        when(message.getCorrelationId()).thenReturn(messageId);
+        when(sender.delivery(any(byte[].class))).thenThrow(new RejectedExecutionException("test"));
+
+        receiveEndpoints.next(EndpointState.ACTIVE);
+        sendEndpoints.next(EndpointState.ACTIVE);
+
+        long start = Instant.now().toEpochMilli();
+        // Act
+        StepVerifier.create(channel.sendWithAck(message))
+            .expectErrorMessage("test")
+            .verify(VERIFY_TIMEOUT);
+        // Assert
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        assertEquals(1, durations.size());
+        assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
+        assertTrue(durations.get(0).getValue() > 0);
+        assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
+    }
+
+    /**
+     * Verifies a message send duration is recorded.
+     */
+    @Test
+    void sendMessageEndpointErrorWithMetrics() {
+        // Arrange
+        TestMeter meter = new TestMeter();
+        final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
+            LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+
+        final AmqpException error = new AmqpException(true, "Message", new AmqpErrorContext("some-context"));
+        final Message message = mock(Message.class);
+        when(serializer.getSize(message)).thenReturn(150);
+        when(message.encode(any(), eq(0), anyInt())).thenReturn(143);
+
+        receiveEndpoints.next(EndpointState.ACTIVE);
+        sendEndpoints.next(EndpointState.ACTIVE);
+        long start = Instant.now().toEpochMilli();
+
+        // Act
+        StepVerifier.create(channel.sendWithAck(message))
+            .then(() -> sendEndpoints.error(error))
+            .expectError(AmqpException.class)
+            .verify(VERIFY_TIMEOUT);
+
+        // Assert
+
+        // Assert
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        assertEquals(1, durations.size());
+        assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
+        assertTrue(durations.get(0).getValue() > 0);
+        assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
+    }
+
 
     @Test
     void clearMessagesOnError() {

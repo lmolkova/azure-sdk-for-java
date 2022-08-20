@@ -19,7 +19,7 @@ public final class ClientConstants {
     public static final String ENTITY_NAME_KEY = "entityName";
     public static final String SESSION_NAME_KEY = "sessionName";
     public static final String FULLY_QUALIFIED_NAMESPACE_KEY = "namespace";
-    public static final String AMQP_ERROR_KEY = "amqpError";
+    public static final String DELIVERY_STATE_KEY = "deliveryState";
     public static final String ERROR_CONDITION_KEY = "errorCondition";
     public static final String ERROR_DESCRIPTION_KEY = "errorDescription";
     public static final String EMIT_RESULT_KEY = "emitResult";

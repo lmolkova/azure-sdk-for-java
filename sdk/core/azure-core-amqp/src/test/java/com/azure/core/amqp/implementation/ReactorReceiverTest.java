@@ -45,6 +45,7 @@ import reactor.test.publisher.TestPublisher;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -769,6 +770,10 @@ class ReactorReceiverTest {
             111, 102, 102, 115, 101, 116, -95, 1, 48, -93, 19, 120, 45, 111, 112, 116, 45, 101, 110, 113, 117, 101, 117,
             101, 100, 45, 116, 105, 109, 101, -125, 0, 0, 1, 112, -54, 124, -41, 90, 0, 83, 117, -96, 12, 80, 111, 115,
             105, 116, 105, 111, 110, 53, 58, 32, 48};
+
+        // change if changing message above
+        long messageEnqueuedTime = 1583945144154L;
+
         final Link link = mock(Link.class);
         final Delivery delivery = mock(Delivery.class);
 
@@ -817,10 +822,10 @@ class ReactorReceiverTest {
             .verify(VERIFY_TIMEOUT);
 
         // Assert
-        List<TestMeasurement<Long>> receivedMessages = meter.getCounters().get("messaging.az.amqp.consumer.messages.received").getMeasurements();
-        assertEquals(1, receivedMessages.size());
-        TestMeasurement<Long> measurement = receivedMessages.get(0);
-        assertEquals(1, measurement.getValue());
+        List<TestMeasurement<Double>> receivedLag = meter.getHistograms().get("messaging.az.amqp.consumer.lag").getMeasurements();
+        assertEquals(1, receivedLag.size());
+        TestMeasurement<Double> measurement = receivedLag.get(0);
+        assertEquals((Instant.now().toEpochMilli() - messageEnqueuedTime) / 1000d, measurement.getValue(), 100);
         assertEquals(Context.NONE, measurement.getContext());
         assertEquals("namespace", measurement.getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals("name", measurement.getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
