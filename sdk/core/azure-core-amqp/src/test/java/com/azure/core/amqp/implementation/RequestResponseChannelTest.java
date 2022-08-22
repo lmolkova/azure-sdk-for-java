@@ -469,7 +469,7 @@ class RequestResponseChannelTest {
         List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
-        assertTrue(durations.get(0).getValue() > 0);
+        assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
         assertEquals("accepted", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
@@ -507,7 +507,7 @@ class RequestResponseChannelTest {
         List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
-        assertTrue(durations.get(0).getValue() > 0);
+        assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
         assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
@@ -546,7 +546,7 @@ class RequestResponseChannelTest {
         List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
-        assertTrue(durations.get(0).getValue() > 0);
+        assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
         assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
