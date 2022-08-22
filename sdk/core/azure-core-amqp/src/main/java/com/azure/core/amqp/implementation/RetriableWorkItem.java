@@ -61,10 +61,6 @@ class RetriableWorkItem {
         return timeoutTracker;
     }
 
-    int incrementRetryAttempts() {
-        return retryAttempts.incrementAndGet();
-    }
-
     void success(DeliveryState deliveryState) {
         reportMetrics(deliveryState);
         monoSink.success(deliveryState);
@@ -73,6 +69,10 @@ class RetriableWorkItem {
     void error(Throwable error, DeliveryState deliveryState) {
         reportMetrics(deliveryState);
         monoSink.error(error);
+    }
+
+    int incrementRetryAttempts() {
+        return retryAttempts.incrementAndGet();
     }
 
     void beforeTry() {
