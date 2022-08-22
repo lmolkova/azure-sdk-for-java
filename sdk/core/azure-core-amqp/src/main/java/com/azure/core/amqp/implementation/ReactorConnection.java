@@ -107,9 +107,9 @@ public class ReactorConnection implements AmqpConnection {
      * @param receiverSettleMode to set as {@link ReceiverSettleMode} on receiver.
      */
     public ReactorConnection(String connectionId, ConnectionOptions connectionOptions, ReactorProvider reactorProvider,
-                             ReactorHandlerProvider handlerProvider, TokenManagerProvider tokenManagerProvider,
-                             MessageSerializer messageSerializer, SenderSettleMode senderSettleMode,
-                             ReceiverSettleMode receiverSettleMode) {
+        ReactorHandlerProvider handlerProvider, TokenManagerProvider tokenManagerProvider,
+        MessageSerializer messageSerializer, SenderSettleMode senderSettleMode,
+        ReceiverSettleMode receiverSettleMode) {
 
         this.connectionOptions = connectionOptions;
         this.reactorProvider = reactorProvider;
@@ -619,7 +619,7 @@ public class ReactorConnection implements AmqpConnection {
                     .log("onReactorError: Disposing.");
 
                 closeAsync(new AmqpShutdownSignal(false, false,
-                    "onReactorError:" + exception))
+                    "onReactorError: " + exception.toString()))
                     .subscribe();
             }
         }

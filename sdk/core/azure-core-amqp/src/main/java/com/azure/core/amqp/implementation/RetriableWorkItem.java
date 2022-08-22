@@ -61,8 +61,8 @@ class RetriableWorkItem {
         return timeoutTracker;
     }
 
-    private void reportMetrics(DeliveryState deliveryState) {
-        metricsProvider.recordSendDelivery(tryStartTime, deliveryState != null ? deliveryState.getType() : null);
+    int incrementRetryAttempts() {
+        return retryAttempts.incrementAndGet();
     }
 
     void success(DeliveryState deliveryState) {
@@ -75,13 +75,14 @@ class RetriableWorkItem {
         monoSink.error(error);
     }
 
-    void startTry() {
-        this.tryStartTime = Instant.now().toEpochMilli();
-        retryAttempts.incrementAndGet();
+    void beforeTry() {
+        if (metricsProvider.isSendDeliveryEnabled()) {
+            this.tryStartTime = Instant.now().toEpochMilli();
+        }
     }
 
     boolean hasBeenRetried() {
-        return retryAttempts.get() < 2;
+        return retryAttempts.get() == 0;
     }
 
     int getEncodedMessageSize() {
@@ -106,5 +107,11 @@ class RetriableWorkItem {
 
     boolean isWaitingForAck() {
         return this.waitingForAck;
+    }
+
+    private void reportMetrics(DeliveryState deliveryState) {
+        if (metricsProvider.isSendDeliveryEnabled()) {
+            metricsProvider.recordSendDelivery(tryStartTime, deliveryState != null ? deliveryState.getType() : null);
+        }
     }
 }

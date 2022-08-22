@@ -56,7 +56,7 @@ public class WebSocketsProxyConnectionHandler extends WebSocketsConnectionHandle
      * @throws IllegalStateException if a proxy address is unavailable for the given {@code proxyOptions}.
      */
     public WebSocketsProxyConnectionHandler(String connectionId, ConnectionOptions connectionOptions,
-                                            ProxyOptions proxyOptions, SslPeerDetails peerDetails, AmqpMetricsProvider metricsProvider) {
+        ProxyOptions proxyOptions, SslPeerDetails peerDetails, AmqpMetricsProvider metricsProvider) {
         super(connectionId, connectionOptions, peerDetails, metricsProvider);
 
         this.proxyOptions = Objects.requireNonNull(proxyOptions, "'proxyConfiguration' cannot be null.");

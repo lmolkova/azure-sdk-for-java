@@ -51,6 +51,10 @@ public class ReceiveLinkHandler extends LinkHandler {
     private final Set<Delivery> queuedDeliveries = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final String entityPath;
 
+    /**
+     * @deprecated use {@link ReceiveLinkHandler#ReceiveLinkHandler(String, String, String, String, AmqpMetricsProvider)} instead.
+     */
+    @Deprecated
     public ReceiveLinkHandler(String connectionId, String hostname, String linkName, String entityPath) {
         this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(null, hostname, entityPath));
     }

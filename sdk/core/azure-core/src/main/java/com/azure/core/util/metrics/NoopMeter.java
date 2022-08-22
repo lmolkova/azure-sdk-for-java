@@ -14,8 +14,6 @@ import java.util.Objects;
  */
 final class NoopMeter implements Meter {
     public static final Meter INSTANCE = new NoopMeter();
-    private static final AutoCloseable NOOP_CLOSEABLE = () -> {
-    };
 
     private static final DoubleHistogram NOOP_LONG_HISTOGRAM = new DoubleHistogram() {
         @Override

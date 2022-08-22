@@ -30,7 +30,7 @@ public class SessionHandler extends Handler {
     private final AmqpMetricsProvider metricsProvider;
 
     public SessionHandler(String connectionId, String hostname, String sessionName, ReactorDispatcher reactorDispatcher,
-                          Duration openTimeout, AmqpMetricsProvider metricProvider) {
+        Duration openTimeout, AmqpMetricsProvider metricProvider) {
         super(connectionId, hostname);
         this.sessionName = sessionName;
         this.openTimeout = openTimeout;
@@ -141,7 +141,6 @@ public class SessionHandler extends Handler {
         addErrorCondition(logger.atInfo(), condition)
             .addKeyValue(SESSION_NAME_KEY, sessionName)
             .log("onSessionFinal.");
-
         close();
     }
 

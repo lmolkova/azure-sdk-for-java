@@ -501,7 +501,6 @@ public class RequestResponseChannel implements AsyncCloseable {
      * Captures current time in mono context - used to report send metric
      */
     private Mono<Message> captureStartTime(Mono<Message> publisher) {
-        // TODO (limolkova): tests
         if (metricsProvider.isSendDeliveryEnabled()) {
             return publisher.contextWrite(Context.of(START_SEND_TIME_CONTEXT_KEY, Instant.now()));
         }

@@ -167,6 +167,11 @@ public class ReactorHandlerProvider {
         return new ReceiveLinkHandler(connectionId, hostname, receiverName, entityPath, getMetricProvider(receiverName, entityPath));
     }
 
+    /**
+     * Returns cached {@link AmqpMetricsProvider} (or creates one) for given meter and entity.
+     * It's recommended to keep returned value in instance variable and to avoid calling
+     * this method extensively.
+     */
     AmqpMetricsProvider getMetricProvider(String namespace, String entityPath) {
         if (meter != null && !meter.isEnabled()) {
             return AmqpMetricsProvider.noop();

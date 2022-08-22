@@ -121,8 +121,8 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
      * @param scheduler Scheduler to schedule send timeout.
      */
     ReactorSender(AmqpConnection amqpConnection, String entityPath, Sender sender, SendLinkHandler handler,
-                  ReactorProvider reactorProvider, TokenManager tokenManager, MessageSerializer messageSerializer,
-                  AmqpRetryOptions retryOptions, Scheduler scheduler, AmqpMetricsProvider metricsProvider) {
+        ReactorProvider reactorProvider, TokenManager tokenManager, MessageSerializer messageSerializer,
+        AmqpRetryOptions retryOptions, Scheduler scheduler, AmqpMetricsProvider metricsProvider) {
         this.entityPath = Objects.requireNonNull(entityPath, "'entityPath' cannot be null.");
         this.sender = Objects.requireNonNull(sender, "'sender' cannot be null.");
         this.handler = Objects.requireNonNull(handler, "'handler' cannot be null.");
@@ -515,7 +515,7 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
             Exception sendException = null;
 
             try {
-                workItem.startTry();
+                workItem.beforeTry();
                 delivery = sender.delivery(deliveryTag.getBytes(UTF_8));
                 delivery.setMessageFormat(workItem.getMessageFormat());
 
@@ -569,7 +569,6 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
     private void processDeliveredMessage(Delivery delivery) {
         final DeliveryState outcome = delivery.getRemoteState();
         final String deliveryTag = new String(delivery.getTag(), UTF_8);
-
         logger.atVerbose()
             .addKeyValue(DELIVERY_TAG_KEY, deliveryTag)
             .log("Process delivered message.");

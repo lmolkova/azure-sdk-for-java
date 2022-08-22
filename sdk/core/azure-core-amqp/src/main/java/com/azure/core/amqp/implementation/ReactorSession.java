@@ -114,9 +114,9 @@ public class ReactorSession implements AmqpSession {
      * @param retryOptions for the session operations.
      */
     public ReactorSession(AmqpConnection amqpConnection, Session session, SessionHandler sessionHandler,
-                          String sessionName, ReactorProvider provider, ReactorHandlerProvider handlerProvider,
-                          Mono<ClaimsBasedSecurityNode> cbsNodeSupplier, TokenManagerProvider tokenManagerProvider,
-                          MessageSerializer messageSerializer, AmqpRetryOptions retryOptions) {
+        String sessionName, ReactorProvider provider, ReactorHandlerProvider handlerProvider,
+        Mono<ClaimsBasedSecurityNode> cbsNodeSupplier, TokenManagerProvider tokenManagerProvider,
+        MessageSerializer messageSerializer, AmqpRetryOptions retryOptions) {
         this.amqpConnection = amqpConnection;
         this.session = session;
         this.sessionHandler = sessionHandler;
