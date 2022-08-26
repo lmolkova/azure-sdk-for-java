@@ -7,6 +7,7 @@ import com.azure.perf.test.core.PerfStressProgram;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.instrumentation.runtimemetrics.Cpu;
+import io.opentelemetry.instrumentation.runtimemetrics.GarbageCollector;
 import io.opentelemetry.instrumentation.runtimemetrics.MemoryPools;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.metrics.InstrumentType;
@@ -21,6 +22,7 @@ import io.opentelemetry.sdk.metrics.export.MetricReader;
 import io.opentelemetry.sdk.metrics.internal.export.MetricProducer;
 import reactor.core.publisher.Mono;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Timer;
@@ -46,6 +48,7 @@ public class App {
             .build();
         OpenTelemetry otel = OpenTelemetrySdk.builder().setMeterProvider(meterProvider).buildAndRegisterGlobal();
 
+        GarbageCollector.registerObservers(otel);
         Cpu.registerObservers(otel);
         MemoryPools.registerObservers(otel);
 
@@ -79,7 +82,10 @@ public class App {
         private volatile MetricProducer metricProducer = MetricProducer.noop();
         private final ConcurrentLinkedDeque<MetricData> jvmMem = new ConcurrentLinkedDeque<>();
         private final ConcurrentLinkedDeque<MetricData> cpuUtilization = new ConcurrentLinkedDeque<>();
+        private final ConcurrentLinkedDeque<MetricData> gcc = new ConcurrentLinkedDeque<>();
+        private final ConcurrentLinkedDeque<MetricData> gct = new ConcurrentLinkedDeque<>();
         private static final AttributeKey<String> POOL_NAME = AttributeKey.stringKey("pool");
+        private static final AttributeKey<String> GC_NAME = AttributeKey.stringKey("gc");
         private static final double MB = 1024 * 1024d;
 
         public InMemoryMetricReader() {
@@ -88,43 +94,62 @@ public class App {
 
         /** Returns all metrics accumulated since the last call. */
         public void collect() {
-            if (isShutdown.get()) {
-                return;
-            }
             Collection<MetricData> metrics =  metricProducer.collectAllMetrics();
-            AtomicBoolean memfound = new AtomicBoolean(false);
-            AtomicBoolean cpufound = new AtomicBoolean(false);
-
-            metrics.stream().forEach(d -> {
+            boolean memfound = false;
+            boolean cpufound = false;
+            boolean gccfound  = false;
+            boolean gctfound  = false;
+            for (MetricData d : metrics) {
                 if (d.getName().equals("process.runtime.jvm.memory.usage")) {
-                    memfound.set(true);
+                    memfound = true;
                     jvmMem.add(d);
                 } else if (d.getName().equals("process.runtime.jvm.cpu.utilization")) {
-                    cpufound.set(true);
+                    cpufound = true;
                     cpuUtilization.add(d);
+                } else if (d.getName().equals("runtime.jvm.gc.count")) {
+                    gccfound = true;
+                    gcc.add(d);
+                } else if (d.getName().equals("runtime.jvm.gc.time")) {
+                    gctfound = true;
+                    gct.add(d);
+                } else {
+                    //System.out.println(d.getName());
                 }
-            });
+            }
 
-            if (!memfound.get()) {
+            if (!memfound) {
                 jvmMem.add(null);
             }
 
-            if (!cpufound.get()) {
+            if (!cpufound) {
                 cpuUtilization.add(null);
+            }
+
+            if (!gctfound) {
+                gct.add(null);
+            }
+
+            if (!gccfound) {
+                gcc.add(null);
             }
         }
 
         void print() {
 
-            System.out.println("| JVM memory usage: G1 Eden Space | JVM memory usage: G1 Survivor Space | JVM memory usage: G1 Old Gen | CPU | ");
-            System.out.println("|---------------------------------|-------------------------------------|------------------------------|-----|");
+            System.out.println("| JVM memory usage: G1 Eden Space | JVM memory usage: G1 Survivor Space | JVM memory usage: G1 Old Gen |   CPU    |  GC Count Old  | GC Count Young | GC Time Old | GC Time Young |");
+            System.out.println("|---------------------------------|-------------------------------------|------------------------------|----------|----------------|----------------|-------------|---------------|");
 
-            MetricData mem = jvmMem.poll(), cpu = cpuUtilization.poll();
+            MetricData mem = jvmMem.poll(), cpu = cpuUtilization.poll(), gccp = gcc.poll(), gctp = gct.poll();
             while (mem!= null && cpu != null) {
                 double maxG1Eden = 0;
                 double maxG1Surv = 0;
                 double maxG1Old = 0;
                 double cpuUt = 0;
+                long gccOld = 0;
+                long gccYoung = 0;
+
+                long gctOld = 0;
+                long gctYoung = 0;
 
                 if (mem != null) {
                     for (LongPointData p : mem.getLongSumData().getPoints()) {
@@ -153,10 +178,48 @@ public class App {
                     }
                 }
 
+                if (gctp != null) {
+                    for (LongPointData p : gctp.getLongSumData().getPoints()) {
+                        String gc = p.getAttributes().get(GC_NAME);
 
-                System.out.printf("|     %28f|     %32f|     %25f| %f |\n", maxG1Eden / MB, maxG1Surv / MB, maxG1Old / MB, cpuUt);
+                        if (gc.equals("G1 Old Generation")) {
+                            if (p.getValue() > gctOld) {
+                                gctOld = p.getValue();
+                            }
+                        } else if (gc.equals("G1 Young Generation")) {
+                            if (p.getValue() > gctYoung) {
+                                gctYoung = p.getValue();
+                            }
+                        } else {
+                            System.out.println(gc);
+                        }
+                    }
+                }
+
+                if (gccp != null) {
+                    for (LongPointData p : gccp.getLongSumData().getPoints()) {
+                        String gc = p.getAttributes().get(GC_NAME);
+
+                        if (gc.equals("G1 Old Generation")) {
+                            if (p.getValue() > gccOld) {
+                                gccOld = p.getValue();
+                            }
+                        } else if (gc.equals("G1 Young Generation")) {
+                            if (p.getValue() > gccYoung) {
+                                gccYoung = p.getValue();
+                            }
+                        }  else {
+                            System.out.println(gc);
+                        }
+                    }
+                }
+
+                System.out.printf("|     %27d |     %31d |     %24d | %8d | %14d | %14d | %12d | %12d |\n", (long)(maxG1Eden / MB), (long)(maxG1Surv / MB), (long)(maxG1Old / MB), (int)(cpuUt * 100),
+                    gccOld, gccYoung, gctOld, gctYoung);
                 mem = jvmMem.poll();
                 cpu = cpuUtilization.poll();
+                gccp = gcc.poll();
+                gctp = gct.poll();
             }
         }
 
