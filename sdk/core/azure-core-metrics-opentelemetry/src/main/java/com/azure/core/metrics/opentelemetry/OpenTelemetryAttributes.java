@@ -24,7 +24,9 @@ class OpenTelemetryAttributes implements TelemetryAttributes {
         mappings.put("entityName", "messaging.destination");
         mappings.put("entityPath", "messaging.az.entity_path");
         mappings.put("hostName", "net.peer.name");
-        mappings.put("errorCondition", "amqp.error_code");
+        mappings.put("errorCondition", "amqp.error_condition");
+        mappings.put("amqpStatusCode", "amqp.status_code");
+        mappings.put("amqpOperation", "amqp.operation");
         mappings.put("deliveryState", "amqp.delivery_state");
 
         return Collections.unmodifiableMap(mappings);

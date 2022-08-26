@@ -164,7 +164,7 @@ public class ReactorHandlerProvider {
     public ReceiveLinkHandler createReceiveLinkHandler(String connectionId, String hostname,
         String receiverName, String entityPath) {
 
-        return new ReceiveLinkHandler(connectionId, hostname, receiverName, entityPath, getMetricProvider(receiverName, entityPath));
+        return new ReceiveLinkHandler(connectionId, hostname, receiverName, entityPath, getMetricProvider(hostname, entityPath));
     }
 
     /**

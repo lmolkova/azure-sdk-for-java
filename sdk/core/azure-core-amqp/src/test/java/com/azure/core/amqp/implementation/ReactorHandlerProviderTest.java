@@ -48,7 +48,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -443,7 +446,7 @@ public class ReactorHandlerProviderTest {
         ReactorHandlerProvider providerWithMetrics = new ReactorHandlerProvider(reactorProvider, meter);
 
         AmqpMetricsProvider metricsProvider = providerWithMetrics.getMetricProvider(HOSTNAME, null);
-        metricsProvider.recordConnectionInit();
+        metricsProvider.recordConnectionClosed(null);
         assertTrue(meter.getUpDownCounters().isEmpty());
         assertTrue(meter.getCounters().isEmpty());
         assertTrue(meter.getHistograms().isEmpty());

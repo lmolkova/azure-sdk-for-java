@@ -16,6 +16,7 @@ import com.azure.core.test.utils.metrics.TestMeter;
 import org.apache.qpid.proton.amqp.Binary;
 import org.apache.qpid.proton.amqp.UnsignedLong;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
+import org.apache.qpid.proton.amqp.messaging.ApplicationProperties;
 import org.apache.qpid.proton.amqp.transaction.TransactionalState;
 import org.apache.qpid.proton.amqp.transport.ReceiverSettleMode;
 import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
@@ -38,6 +39,7 @@ import reactor.test.publisher.TestPublisher;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -466,11 +468,11 @@ class RequestResponseChannelTest {
             .verify(VERIFY_TIMEOUT);
 
         // Assert
-        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.management.request.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("accepted", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals("accepted", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
@@ -504,11 +506,11 @@ class RequestResponseChannelTest {
             .expectErrorMessage("test")
             .verify(VERIFY_TIMEOUT);
         // Assert
-        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.management.request.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals("error", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
@@ -530,6 +532,10 @@ class RequestResponseChannelTest {
         when(serializer.getSize(message)).thenReturn(150);
         when(message.encode(any(), eq(0), anyInt())).thenReturn(143);
 
+        final String operationName = AmqpConstants.VENDOR + ":renew-lock";
+        final ApplicationProperties props = new ApplicationProperties(Collections.singletonMap("operation", operationName));
+        when(message.getApplicationProperties()).thenReturn(props);
+
         receiveEndpoints.next(EndpointState.ACTIVE);
         sendEndpoints.next(EndpointState.ACTIVE);
         long start = Instant.now().toEpochMilli();
@@ -543,16 +549,16 @@ class RequestResponseChannelTest {
         // Assert
 
         // Assert
-        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.client.duration").getMeasurements();
+        List<TestMeasurement<Double>> durations = meter.getHistograms().get("messaging.az.amqp.management.request.duration").getMeasurements();
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start > durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("unknown", durations.get(0).getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals("error", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
         assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
         assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
+        assertEquals(operationName, durations.get(0).getAttributes().get(ClientConstants.OPERATION_NAME_KEY));
     }
-
 
     @Test
     void clearMessagesOnError() {

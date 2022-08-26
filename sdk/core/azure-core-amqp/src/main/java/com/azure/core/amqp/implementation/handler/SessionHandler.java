@@ -128,7 +128,7 @@ public class SessionHandler extends Handler {
                 String.format(Locale.US, "onSessionRemoteClose connectionId[%s], entityName[%s] condition[%s]",
                     id, sessionName, condition), context);
 
-            metricsProvider.recordSessionError(condition);
+            metricsProvider.recordHandlerError(AmqpMetricsProvider.ErrorSource.SESSION, condition);
             onError(exception);
         }
     }

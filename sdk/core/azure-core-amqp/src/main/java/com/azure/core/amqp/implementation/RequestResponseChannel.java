@@ -8,6 +8,7 @@ import com.azure.core.amqp.AmqpEndpointState;
 import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
+import com.azure.core.amqp.exception.AmqpResponseCode;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
 import com.azure.core.util.AsyncCloseable;
@@ -62,6 +63,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * link and {@link Receiver} link.
  */
 public class RequestResponseChannel implements AsyncCloseable {
+
+    private static final String MANAGEMENT_OPERATION_KEY = "operation";
     private final ClientLogger logger;
 
     private final Sender sendLink;
@@ -106,7 +109,7 @@ public class RequestResponseChannel implements AsyncCloseable {
 
     private final AmqpMetricsProvider metricsProvider;
     private static final String START_SEND_TIME_CONTEXT_KEY = "send-start-time";
-
+    private static final String OPERATION_CONTEXT_KEY = "amqpOperation";
     /**
      * Creates a new instance of {@link RequestResponseChannel} to send and receive responses from the {@code
      * entityPath} in the message broker.
@@ -179,13 +182,13 @@ public class RequestResponseChannel implements AsyncCloseable {
         //@formatter:off
         this.subscriptions = Disposables.composite(
             receiveLinkHandler.getDeliveredMessages()
-                .subscribe(delivery -> {
-                    Message message = decodeDelivery(delivery);
+                .map(this::decodeDelivery)
+                .subscribe(message -> {
                     logger.atVerbose()
                         .addKeyValue("messageId", message.getCorrelationId())
                         .log("Settling message.");
 
-                    settleMessage(message, delivery.getLocalState());
+                    settleMessage(message);
                 }),
 
             receiveLinkHandler.getEndpointStates().subscribe(state -> {
@@ -325,7 +328,7 @@ public class RequestResponseChannel implements AsyncCloseable {
             receiveLinkHandler.getEndpointStates().takeUntil(x -> x == EndpointState.ACTIVE));
 
         return RetryUtil.withRetry(onActiveEndpoints, retryOptions, activeEndpointTimeoutMessage)
-            .then(captureStartTime(Mono.create(sink -> {
+            .then(captureStartTime(message, Mono.create(sink -> {
                 try {
                     logger.atVerbose()
                         .addKeyValue("messageId", message.getCorrelationId())
@@ -392,7 +395,7 @@ public class RequestResponseChannel implements AsyncCloseable {
         return response;
     }
 
-    private void settleMessage(Message message, DeliveryState deliveryState) {
+    private void settleMessage(Message message) {
         final String id = String.valueOf(message.getCorrelationId());
         final UnsignedLong correlationId = UnsignedLong.valueOf(id);
         final MonoSink<Message> sink = unconfirmedSends.remove(correlationId);
@@ -404,7 +407,7 @@ public class RequestResponseChannel implements AsyncCloseable {
             return;
         }
 
-        recordDelivery(sink.contextView(), deliveryState);
+        recordDelivery(sink.contextView(), message);
         sink.success(message);
     }
 
@@ -500,9 +503,19 @@ public class RequestResponseChannel implements AsyncCloseable {
     /**
      * Captures current time in mono context - used to report send metric
      */
-    private Mono<Message> captureStartTime(Mono<Message> publisher) {
+    private Mono<Message> captureStartTime(Message toSend, Mono<Message> publisher) {
         if (metricsProvider.isSendDeliveryEnabled()) {
-            return publisher.contextWrite(Context.of(START_SEND_TIME_CONTEXT_KEY, Instant.now()));
+            String operationName = "unknown";
+            if (toSend != null && toSend.getApplicationProperties() != null && toSend.getApplicationProperties().getValue() != null) {
+                Map<String, Object> properties = toSend.getApplicationProperties().getValue();
+                Object operationObj = properties.get(MANAGEMENT_OPERATION_KEY);
+                if (operationObj instanceof String) {
+                    operationName = (String) operationObj;
+                }
+            }
+
+            return publisher.contextWrite(
+                Context.of(START_SEND_TIME_CONTEXT_KEY, Instant.now()).put(OPERATION_CONTEXT_KEY, operationName));
         }
 
         return publisher;
@@ -511,13 +524,16 @@ public class RequestResponseChannel implements AsyncCloseable {
     /**
      * Records send call duration metric.
      **/
-    private void recordDelivery(ContextView context, DeliveryState deliveryState) {
+    private void recordDelivery(ContextView context, Message response) {
         if (metricsProvider.isSendDeliveryEnabled()) {
             Object startTimestamp = context.getOrDefault(START_SEND_TIME_CONTEXT_KEY, null);
-            if (startTimestamp instanceof Instant) {
-                metricsProvider.recordSendDelivery(
+            Object operationName = context.getOrDefault(OPERATION_CONTEXT_KEY, null);
+            AmqpResponseCode responseCode = response == null ? null : RequestResponseUtils.getStatusCode(response);
+            if (startTimestamp instanceof Instant && operationName instanceof String) {
+                metricsProvider.recordRequestResponseDuration(
                     ((Instant) startTimestamp).toEpochMilli(),
-                    deliveryState != null ? deliveryState.getType() : null);
+                    (String) operationName,
+                    responseCode);
             }
         }
     }

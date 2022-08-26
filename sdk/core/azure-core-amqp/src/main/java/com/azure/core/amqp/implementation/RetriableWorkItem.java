@@ -21,7 +21,6 @@ class RetriableWorkItem {
     private final int messageFormat;
     private final int encodedMessageSize;
     private final DeliveryState deliveryState;
-
     private boolean waitingForAck;
     private Exception lastKnownException;
 
@@ -111,7 +110,7 @@ class RetriableWorkItem {
 
     private void reportMetrics(DeliveryState deliveryState) {
         if (metricsProvider.isSendDeliveryEnabled()) {
-            metricsProvider.recordSendDelivery(tryStartTime, deliveryState != null ? deliveryState.getType() : null);
+            metricsProvider.recordSend(tryStartTime, deliveryState == null ? null : deliveryState.getType());
         }
     }
 }

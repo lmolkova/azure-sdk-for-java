@@ -116,7 +116,7 @@ abstract class LinkHandler extends Handler {
         }
 
         if (condition != null && condition.getCondition() != null) {
-            metricsProvider.recordLinkError(condition);
+            metricsProvider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, condition);
             final Throwable exception = ExceptionUtil.toException(condition.getCondition().toString(),
                 condition.getDescription(), getErrorContext(link));
 

@@ -202,8 +202,6 @@ public class ConnectionHandler extends Handler {
 
         connection.setProperties(properties);
         connection.open();
-
-        metricProvider.recordConnectionInit();
     }
 
     @Override
@@ -249,6 +247,7 @@ public class ConnectionHandler extends Handler {
         addErrorCondition(logger.atWarning(), condition)
             .addKeyValue(HOSTNAME_KEY, connection != null ? connection.getHostname() : ClientConstants.NOT_APPLICABLE)
             .log("onTransportError");
+        metricProvider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, condition);
 
         if (connection != null) {
             notifyErrorContext(connection, condition);

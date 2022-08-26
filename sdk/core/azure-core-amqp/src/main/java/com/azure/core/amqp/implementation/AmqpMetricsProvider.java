@@ -3,6 +3,7 @@
 
 package com.azure.core.amqp.implementation;
 
+import com.azure.core.amqp.exception.AmqpResponseCode;
 import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.MetricsOptions;
@@ -31,8 +32,9 @@ import static com.azure.core.amqp.AmqpMessageConstant.ENQUEUED_TIME_UTC_ANNOTATI
  * meter configured by client SDK when metrics are disabled.
  */
 public class AmqpMetricsProvider {
+    public static final String STATUS_CODE_KEY = "amqpStatusCode";
+    public static final String MANAGEMENT_OPERATION_KEY = "amqpOperation";
     private static final ClientLogger LOGGER = new ClientLogger(AmqpMetricsProvider.class);
-    private static final AmqpMetricsProvider NOOP = new AmqpMetricsProvider();
     private static final Symbol ENQUEUED_TIME_ANNOTATION = Symbol.valueOf(ENQUEUED_TIME_UTC_ANNOTATION_NAME.getValue());
 
     private static final String AZURE_CORE_AMQP_PROPERTIES_NAME = "azure-core.properties";
@@ -43,29 +45,36 @@ public class AmqpMetricsProvider {
         .getOrDefault(AZURE_CORE_AMQP_PROPERTIES_VERSION_KEY, null);
 
     private static final Meter DEFAULT_METER = MeterProvider.getDefaultProvider().createMeter("azure-core-amqp", AZURE_CORE_VERSION, new MetricsOptions());
-
+    private static final AmqpMetricsProvider NOOP = new AmqpMetricsProvider();
     private final boolean isEnabled;
     private final Meter meter;
     private Map<String, Object> commonAttributesMap;
     private DoubleHistogram sendDuration = null;
-    private LongCounter activeConnections = null;
+    private DoubleHistogram requestResponseDuration = null;
     private LongCounter closedConnections = null;
     private LongCounter sessionErrors = null;
     private LongCounter linkErrors = null;
+    private LongCounter transportErrors = null;
     private DoubleHistogram receivedLag = null;
     private LongCounter addCredits = null;
-    private AttributeCache sendDeliveryAttributeCache = null;
+    private AttributeCache sendAttributeCache = null;
+    private AttributeCacheTwoDimensional requestResponseAttributeCache = null;
     private AttributeCache amqpErrorAttributeCache = null;
     private TelemetryAttributes commonAttributes = null;
 
     private AmqpMetricsProvider() {
         this.isEnabled = false;
-        this.meter = null;
+        this.meter = DEFAULT_METER;
+    }
+
+    public enum ErrorSource {
+        LINK,
+        SESSION,
+        TRANSPORT
     }
 
     public AmqpMetricsProvider(Meter meter, String namespace, String entityPath) {
         Objects.requireNonNull(namespace, "'namespace' cannot be null");
-
         this.meter = meter != null ? meter : DEFAULT_METER;
         this.isEnabled = this.meter.isEnabled();
 
@@ -84,13 +93,15 @@ public class AmqpMetricsProvider {
             }
 
             this.commonAttributes = this.meter.createAttributes(commonAttributesMap);
-            this.sendDeliveryAttributeCache = new AttributeCache(ClientConstants.DELIVERY_STATE_KEY);
+            this.requestResponseAttributeCache = new AttributeCacheTwoDimensional(STATUS_CODE_KEY, MANAGEMENT_OPERATION_KEY);
+            this.sendAttributeCache = new AttributeCache(ClientConstants.DELIVERY_STATE_KEY);
             this.amqpErrorAttributeCache = new AttributeCache(ClientConstants.ERROR_CONDITION_KEY);
-            this.sendDuration = this.meter.createDoubleHistogram("messaging.az.amqp.client.duration", "AMQP request client call duration", "ms");
-            this.activeConnections = this.meter.createLongUpDownCounter("messaging.az.amqp.client.connections.usage", "Active connections", "connections");
+            this.sendDuration = this.meter.createDoubleHistogram("messaging.az.amqp.producer.send.duration", "Duration of AMQP-level send call.", "ms");
+            this.requestResponseDuration = this.meter.createDoubleHistogram("messaging.az.amqp.management.request.duration", "Duration of AMQP request-response operation.", "ms");
             this.closedConnections = this.meter.createLongCounter("messaging.az.amqp.client.connections.closed", "Closed connections", "connections");
             this.sessionErrors = this.meter.createLongCounter("messaging.az.amqp.client.session.errors", "AMQP session errors", "errors");
             this.linkErrors = this.meter.createLongCounter("messaging.az.amqp.client.link.errors", "AMQP link errors", "errors");
+            this.transportErrors = this.meter.createLongCounter("messaging.az.amqp.client.transport.errors", "AMQP session errors", "errors");
             this.addCredits = this.meter.createLongCounter("messaging.az.amqp.consumer.credits.requested", "Number of requested credits", "credits");
             this.receivedLag = this.meter.createDoubleHistogram("messaging.az.amqp.consumer.lag", "Approximate lag between time message was received and time it was enqueued on the broker.", "sec");
         }
@@ -110,20 +121,20 @@ public class AmqpMetricsProvider {
     /**
      * Records duration of AMQP send call.
      */
-    public void recordSendDelivery(long start, DeliveryState.DeliveryStateType deliveryState) {
+    public void recordSend(long start, DeliveryState.DeliveryStateType deliveryState) {
         if (isEnabled && sendDuration.isEnabled()) {
-            String deliveryStateStr = deliveryStateToLowerCaseString(deliveryState);
-            TelemetryAttributes attributes = sendDeliveryAttributeCache.getOrCreate(deliveryStateStr);
+            TelemetryAttributes attributes = sendAttributeCache.getOrCreate(deliveryStateToLowerCaseString(deliveryState));
             sendDuration.record(Instant.now().toEpochMilli() - start, attributes, Context.NONE);
         }
     }
 
     /**
-     * Records connection init.
+     * Records duration of AMQP management call.
      */
-    public void recordConnectionInit() {
-        if (isEnabled && activeConnections.isEnabled()) {
-            activeConnections.add(1, commonAttributes, Context.NONE);
+    public void recordRequestResponseDuration(long start, String operationName, AmqpResponseCode responseCode) {
+        if (isEnabled && requestResponseDuration.isEnabled()) {
+            TelemetryAttributes attributes = requestResponseAttributeCache.getOrCreate(deliveryStateToLowerCaseString(responseCode), operationName);
+            requestResponseDuration.record(Instant.now().toEpochMilli() - start, attributes, Context.NONE);
         }
     }
 
@@ -131,16 +142,10 @@ public class AmqpMetricsProvider {
      * Records connection close.
      */
     public void recordConnectionClosed(ErrorCondition condition) {
-        if (isEnabled) {
-            if (activeConnections.isEnabled()) {
-                activeConnections.add(-1, commonAttributes, Context.NONE);
-            }
-
-            if (closedConnections.isEnabled()) {
-                Symbol conditionSymbol = condition != null ? condition.getCondition() : null;
-                String conditionStr = conditionSymbol != null ? conditionSymbol.toString() : "ok";
-                closedConnections.add(1, amqpErrorAttributeCache.getOrCreate(conditionStr), Context.NONE);
-            }
+        if (isEnabled && closedConnections.isEnabled()) {
+            Symbol conditionSymbol = condition != null ? condition.getCondition() : null;
+            String conditionStr = conditionSymbol != null ? conditionSymbol.toString() : "ok";
+            closedConnections.add(1, amqpErrorAttributeCache.getOrCreate(conditionStr), Context.NONE);
         }
     }
 
@@ -181,28 +186,34 @@ public class AmqpMetricsProvider {
     /**
      * Records link error. Noop if condition is null (no error).
      */
-    public void recordLinkError(ErrorCondition condition) {
-        if (isEnabled && linkErrors.isEnabled() && condition != null && condition.getCondition() != null) {
-            linkErrors.add(1,
-                amqpErrorAttributeCache.getOrCreate(condition.getCondition().toString()),
-                Context.NONE);
-        }
-    }
-
-    /**
-     * Records session error. Noop if condition is null (no error).
-     */
-    public void recordSessionError(ErrorCondition condition) {
-        if (isEnabled && sessionErrors.isEnabled() && condition != null && condition.getCondition() != null) {
-            sessionErrors.add(1,
-                amqpErrorAttributeCache.getOrCreate(condition.getCondition().toString()),
-                Context.NONE);
+    public void recordHandlerError(ErrorSource source, ErrorCondition condition) {
+        if (isEnabled && condition != null && condition.getCondition() != null) {
+            TelemetryAttributes attributes = amqpErrorAttributeCache.getOrCreate(condition.getCondition().toString());
+            switch (source) {
+                case LINK:
+                    if (linkErrors.isEnabled()) {
+                        linkErrors.add(1, attributes, Context.NONE);
+                    }
+                    break;
+                case SESSION:
+                    if (sessionErrors.isEnabled()) {
+                        sessionErrors.add(1, attributes, Context.NONE);
+                    }
+                    break;
+                case TRANSPORT:
+                    if (transportErrors.isEnabled()) {
+                        transportErrors.add(1, attributes, Context.NONE);
+                    }
+                    break;
+                default:
+                    LOGGER.verbose("Unexpected error source: {}", source);
+            }
         }
     }
 
     private static String deliveryStateToLowerCaseString(DeliveryState.DeliveryStateType state) {
         if (state == null) {
-            return "unknown";
+            return "error";
         }
 
         switch (state) {
@@ -225,6 +236,122 @@ public class AmqpMetricsProvider {
         }
     }
 
+    private static String deliveryStateToLowerCaseString(AmqpResponseCode response) {
+        if (response == null) {
+            return "error";
+        }
+
+        switch (response) {
+            case OK:
+                return "ok";
+            case ACCEPTED:
+                return "accepted";
+            case BAD_REQUEST:
+                return "bad_request";
+            case NOT_FOUND:
+                return "not_found";
+            case FORBIDDEN:
+                return "forbidden";
+            case INTERNAL_SERVER_ERROR:
+                return "internal_server_error";
+            case UNAUTHORIZED:
+                return "unauthorized";
+            case CONTINUE:
+                return "continue";
+            case SWITCHING_PROTOCOLS:
+                return "switching_protocols";
+            case CREATED:
+                return "created";
+            case NON_AUTHORITATIVE_INFORMATION:
+                return "not_authoritative_information";
+            case NO_CONTENT:
+                return "no_content";
+            case RESET_CONTENT:
+                return "reset_content";
+            case PARTIAL_CONTENT:
+                return "partial_content";
+            case AMBIGUOUS:
+                return "ambiguous";
+            case MULTIPLE_CHOICES:
+                return "multiple_choices";
+            case MOVED:
+                return "moved";
+            case MOVED_PERMANENTLY:
+                return "moved_permanently";
+            case FOUND:
+                return "found";
+            case REDIRECT:
+                return "redirect";
+            case REDIRECT_METHOD:
+                return "redirect_method";
+            case SEE_OTHER:
+                return "see_other";
+            case NOT_MODIFIED:
+                return "not_modified";
+            case USE_PROXY:
+                return "use_proxy";
+            case UNUSED:
+                return "unused";
+            case REDIRECT_KEEP_VERB:
+                return "redirect_keep_verb";
+            case TEMPORARY_REDIRECT:
+                return "temporary_redirect";
+            case PAYMENT_REQUIRED:
+                return "payment_required";
+            case METHOD_NOT_ALLOWED:
+                return "";
+
+            case NOT_ACCEPTABLE:
+                return "";
+
+            case PROXY_AUTHENTICATION_REQUIRED:
+                return "";
+
+            case REQUEST_TIMEOUT:
+                return "";
+
+            case CONFLICT:
+                return "";
+
+            case GONE:
+                return "";
+
+            case LENGTH_REQUIRED:
+                return "";
+
+            case PRECONDITION_FAILED:
+                return "";
+
+            case REQUEST_ENTITY_TOO_LARGE:
+                return "";
+
+            case REQUEST_URI_TOO_LONG:
+                return "";
+
+            case UNSUPPORTED_MEDIA_TYPE:
+                return "";
+
+            case REQUESTED_RANGE_NOT_SATISFIABLE:
+                return "";
+            case EXPECTATION_FAILED:
+                return "expectation_failed";
+            case UPGRADE_REQUIRED:
+                return "upgrade_required";
+            case NOT_IMPLEMENTED:
+                return "";
+            case BAD_GATEWAY:
+                return "bad_gateway";
+            case SERVICE_UNAVAILABLE:
+                return "service_unavailable";
+            case GATEWAY_TIMEOUT:
+                return "gateway_timeout";
+            case HTTP_VERSION_NOT_SUPPORTED:
+                return "http_version_not_supported";
+            default:
+                return "error";
+        }
+    }
+
     private class AttributeCache {
         private final Map<String, TelemetryAttributes> attr = new ConcurrentHashMap<>();
         private final String dimensionName;
@@ -239,6 +366,27 @@ public class AmqpMetricsProvider {
         private TelemetryAttributes create(String value) {
             Map<String, Object> attributes = new HashMap<>(commonAttributesMap);
             attributes.put(dimensionName, value);
+            return meter.createAttributes(attributes);
+        }
+    }
+
+    private class AttributeCacheTwoDimensional {
+        private final Map<String, TelemetryAttributes> attr = new ConcurrentHashMap<>();
+        private final String dimensionName1;
+        private final String dimensionName2;
+        AttributeCacheTwoDimensional(String dimension1, String dimension2) {
+            this.dimensionName1 = dimension1;
+            this.dimensionName2 = dimension2;
+        }
+
+        public TelemetryAttributes getOrCreate(String value1, String value2) {
+            return attr.computeIfAbsent(value1 + ":" + value2, Ignored -> create(value1, value2));
+        }
+
+        private TelemetryAttributes create(String value1, String value2) {
+            Map<String, Object> attributes = new HashMap<>(commonAttributesMap);
+            attributes.put(dimensionName1, value1);
+            attributes.put(dimensionName2, value2);
             return meter.createAttributes(attributes);
         }
     }
