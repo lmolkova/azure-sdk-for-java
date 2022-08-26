@@ -29,12 +29,6 @@
     </dependency>
 
     <dependency>
-      <groupId>io.opentelemetry</groupId>
-      <artifactId>opentelemetry-exporter-prometheus</artifactId>
-      <version>1.16.0-alpha</version>
-    </dependency>
-
-    <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-core</artifactId>
       <version>1.32.0-beta.1</version> <!-- {x-version-update;com.azure:azure-messaging-eventhubs-checkpointstore-blob;current} -->
@@ -46,11 +40,17 @@
       <version>2.8.0-beta.1</version> <!-- {x-version-update;com.azure:azure-messaging-eventhubs-checkpointstore-blob;current} -->
     </dependency>
 
-    <!--dependency>
+    <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-core-metrics-opentelemetry</artifactId>
       <version>1.0.0-beta.1</version>
-    </dependency -->
+    </dependency>
+
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-runtime-metrics</artifactId>
+      <version>1.16.0-alpha</version>
+    </dependency>
 
     <dependency>
       <groupId>com.azure</groupId>
@@ -99,7 +99,7 @@
             <bannedDependencies>
               <includes>
                 <include>io.opentelemetry:opentelemetry-sdk:[1.16.0]</include>
-                <include>io.opentelemetry:opentelemetry-exporter-prometheus:[1.16.0-alpha]</include>
+                <include>io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:[1.16.0-alpha]</include>
               </includes>
             </bannedDependencies>
           </rules>
