@@ -67,18 +67,22 @@ public class OpenTelemetryAttributesTests {
                 put("entityPath", "path");
                 put("errorCondition", "amqp::error::code");
                 put("deliveryState", "rejected");
+                put("amqpStatusCode", "no_content");
+                put("amqpOperation", "peek");
             }});
 
         assertEquals(OpenTelemetryAttributes.class, attributeCollection.getClass());
         Attributes attributes = ((OpenTelemetryAttributes) attributeCollection).get();
 
-        assertEquals(6, attributes.size());
+        assertEquals(8, attributes.size());
         assertEquals("value", attributes.get(AttributeKey.stringKey("foobar")));
         assertEquals("host", attributes.get(AttributeKey.stringKey("net.peer.name")));
         assertEquals("entity", attributes.get(AttributeKey.stringKey("messaging.destination")));
         assertEquals("path", attributes.get(AttributeKey.stringKey("messaging.az.entity_path")));
-        assertEquals("amqp::error::code", attributes.get(AttributeKey.stringKey("amqp.error_code")));
+        assertEquals("amqp::error::code", attributes.get(AttributeKey.stringKey("amqp.error_condition")));
         assertEquals("rejected", attributes.get(AttributeKey.stringKey("amqp.delivery_state")));
+        assertEquals("peek", attributes.get(AttributeKey.stringKey("amqp.operation")));
+        assertEquals("no_content", attributes.get(AttributeKey.stringKey("amqp.status_code")));
     }
 
     @Test
@@ -89,7 +93,7 @@ public class OpenTelemetryAttributesTests {
         Attributes attributes = ((OpenTelemetryAttributes) attributeCollection).get();
 
         assertEquals(1, attributes.size());
-        assertEquals(42, attributes.get(AttributeKey.longKey("amqp.error_code")));
+        assertEquals(42, attributes.get(AttributeKey.longKey("amqp.error_condition")));
     }
 
     @Test
