@@ -46,6 +46,14 @@ public class SendLinkHandler extends LinkHandler {
     private final Sinks.Many<Integer> creditProcessor = Sinks.many().unicast().onBackpressureBuffer();
     private final Sinks.Many<Delivery> deliveryProcessor = Sinks.many().multicast().onBackpressureBuffer();
 
+    /**
+     * @deprecated use {@link SendLinkHandler#SendLinkHandler(String, String, String, String, AmqpMetricsProvider)} instead.
+     */
+    @Deprecated
+    public SendLinkHandler(String connectionId, String hostname, String linkName, String entityPath) {
+        this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(null, hostname, null));
+    }
+
     public SendLinkHandler(String connectionId, String hostname, String linkName, String entityPath, AmqpMetricsProvider metricsProvider) {
         super(connectionId, hostname, entityPath, metricsProvider);
         this.linkName = Objects.requireNonNull(linkName, "'linkName' cannot be null.");
