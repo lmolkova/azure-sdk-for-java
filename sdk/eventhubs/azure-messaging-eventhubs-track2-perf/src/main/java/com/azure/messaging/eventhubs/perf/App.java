@@ -6,6 +6,7 @@ package com.azure.messaging.eventhubs.perf;
 import com.azure.perf.test.core.PerfStressProgram;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.exporter.prometheus.PrometheusHttpServer;
 import io.opentelemetry.instrumentation.runtimemetrics.Cpu;
 import io.opentelemetry.instrumentation.runtimemetrics.GarbageCollector;
 import io.opentelemetry.instrumentation.runtimemetrics.MemoryPools;

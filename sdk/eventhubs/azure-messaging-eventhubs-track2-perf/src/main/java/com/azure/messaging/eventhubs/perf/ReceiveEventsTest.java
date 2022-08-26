@@ -75,6 +75,10 @@ public class ReceiveEventsTest extends ServiceTest<EventHubsReceiveOptions> {
     @Override
     public Mono<Void> runAsync() {
         return receiverAsync.receiveFromPartition(options.getPartitionId(), EventPosition.earliest())
+            /*.map(pe -> {
+                System.out.println("event " + pe.getData().getOffset().toString());
+                return pe;
+            })*/
             .take(options.getCount())
             .then();
     }
