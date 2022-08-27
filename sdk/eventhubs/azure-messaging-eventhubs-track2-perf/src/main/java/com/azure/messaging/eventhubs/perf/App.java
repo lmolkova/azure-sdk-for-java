@@ -49,11 +49,12 @@ public class App {
             .build();
         OpenTelemetry otel = OpenTelemetrySdk.builder().setMeterProvider(meterProvider).buildAndRegisterGlobal();
 
+        Timer timer = new Timer();
         GarbageCollector.registerObservers(otel);
         Cpu.registerObservers(otel);
         MemoryPools.registerObservers(otel);
 
-        Timer timer = new Timer();
+
         timer.schedule(new TimerTask() {
             @Override
             public void run() {

@@ -15,6 +15,7 @@ import static com.azure.core.util.tracing.Tracer.PARENT_TRACE_CONTEXT_KEY;
 
 class OpenTelemetryUtils {
     private static final ClientLogger LOGGER = new ClientLogger(OpenTelemetryUtils.class);
+    private static final io.opentelemetry.context.Context ROOT = io.opentelemetry.context.Context.root();
 
     /**
      * Adds attribute key-value pair to OpenTelemetry {@link io.opentelemetry.api.common.AttributesBuilder}, if value type is not supported by
@@ -59,8 +60,7 @@ class OpenTelemetryUtils {
             }
         }
 
-        LOGGER.verbose("No context is found under `PARENT_TRACE_CONTEXT_KEY`, getting current context");
-        return io.opentelemetry.context.Context.current();
+        return ROOT;
     }
 
     static Attributes getAttributes(TelemetryAttributes attributesBuilder) {
