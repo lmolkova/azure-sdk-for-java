@@ -85,8 +85,12 @@ public class App {
         private final ConcurrentLinkedDeque<MetricData> cpuUtilization = new ConcurrentLinkedDeque<>();
         private final ConcurrentLinkedDeque<MetricData> gcc = new ConcurrentLinkedDeque<>();
         private final ConcurrentLinkedDeque<MetricData> gct = new ConcurrentLinkedDeque<>();
+        private final ConcurrentLinkedDeque<MetricData> sendDuration = new ConcurrentLinkedDeque<>();
+        private final ConcurrentLinkedDeque<MetricData> receivedMessages = new ConcurrentLinkedDeque<>();
         private static final AttributeKey<String> POOL_NAME = AttributeKey.stringKey("pool");
         private static final AttributeKey<String> GC_NAME = AttributeKey.stringKey("gc");
+
+
         private static final double MB = 1024 * 1024d;
 
         public InMemoryMetricReader() {
@@ -113,8 +117,10 @@ public class App {
                 } else if (d.getName().equals("runtime.jvm.gc.time")) {
                     gctfound = true;
                     gct.add(d);
-                } else {
-                    //System.out.println(d.getName());
+                } else if (d.getName().equals("messaging.az.amqp.producer.send.duration")){
+                    sendDuration.add(d);
+                } else if (d.getName().equals("messaging.az.amqp.consumer.lag")){
+                    receivedMessages.add(d);
                 }
             }
 
@@ -222,6 +228,9 @@ public class App {
                 gccp = gcc.poll();
                 gctp = gct.poll();
             }
+
+            System.out.println("Send metrics: " + sendDuration.stream().count());
+            System.out.println("Send metrics: " + receivedMessages.stream().count());
         }
 
 
