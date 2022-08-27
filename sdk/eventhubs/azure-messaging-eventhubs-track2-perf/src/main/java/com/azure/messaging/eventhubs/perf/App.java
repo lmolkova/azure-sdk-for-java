@@ -49,19 +49,6 @@ public class App {
             .build();
         OpenTelemetry otel = OpenTelemetrySdk.builder().setMeterProvider(meterProvider).buildAndRegisterGlobal();
 
-        Timer timer = new Timer();
-        GarbageCollector.registerObservers(otel);
-        Cpu.registerObservers(otel);
-        MemoryPools.registerObservers(otel);
-
-
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                reader.collect();
-            }
-        }, 1000, 1000);
-
         final Class<?>[] testClasses = new Class<?>[]{
             ReceiveEventsTest.class,
             SendEventDataTest.class,
@@ -73,9 +60,6 @@ public class App {
         };
 
         PerfStressProgram.run(testClasses, args);
-
-        timer.cancel();
-        reader.print();
     }
 
     static class InMemoryMetricReader implements MetricReader {
@@ -100,46 +84,6 @@ public class App {
 
         /** Returns all metrics accumulated since the last call. */
         public void collect() {
-            Collection<MetricData> metrics =  metricProducer.collectAllMetrics();
-            boolean memfound = false;
-            boolean cpufound = false;
-            boolean gccfound  = false;
-            boolean gctfound  = false;
-            for (MetricData d : metrics) {
-                if (d.getName().equals("process.runtime.jvm.memory.usage")) {
-                    memfound = true;
-                    jvmMem.add(d);
-                } else if (d.getName().equals("process.runtime.jvm.cpu.utilization")) {
-                    cpufound = true;
-                    cpuUtilization.add(d);
-                } else if (d.getName().equals("runtime.jvm.gc.count")) {
-                    gccfound = true;
-                    gcc.add(d);
-                } else if (d.getName().equals("runtime.jvm.gc.time")) {
-                    gctfound = true;
-                    gct.add(d);
-                } else if (d.getName().equals("messaging.az.amqp.producer.send.duration")){
-                    sendDuration.add(d);
-                } else if (d.getName().equals("messaging.az.amqp.consumer.lag")){
-                    receivedMessages.add(d);
-                }
-            }
-
-            if (!memfound) {
-                jvmMem.add(null);
-            }
-
-            if (!cpufound) {
-                cpuUtilization.add(null);
-            }
-
-            if (!gctfound) {
-                gct.add(null);
-            }
-
-            if (!gccfound) {
-                gcc.add(null);
-            }
         }
 
         void print() {
@@ -231,7 +175,7 @@ public class App {
             }
 
             System.out.println("Send metrics: " + sendDuration.stream().count());
-            System.out.println("Send metrics: " + receivedMessages.stream().count());
+            System.out.println("receive metrics: " + receivedMessages.stream().count());
         }
 
 
