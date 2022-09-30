@@ -25,6 +25,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -70,6 +71,7 @@ class VertxAsyncHttpClient implements HttpClient {
             }
 
             vertxHttpRequest.response(event -> {
+                System.out.println("--------------- response " + Instant.now().toEpochMilli() + ", " + event.succeeded());
                 if (event.succeeded()) {
                     HttpClientResponse vertxHttpResponse = event.result();
                     vertxHttpResponse.exceptionHandler(sink::error);
@@ -84,6 +86,7 @@ class VertxAsyncHttpClient implements HttpClient {
                             }
                         });
                     } else {
+                        System.out.println("--------------- success " + Instant.now().toEpochMilli());
                         sink.success(new VertxHttpAsyncResponse(request, vertxHttpResponse));
                     }
                 } else {

@@ -10,6 +10,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.ByteBuffer;
+import java.time.Instant;
 
 /**
  * Default HTTP response for Vert.x.
@@ -18,7 +19,9 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
+        System.out.println("--------------- ctor! 1" + Instant.now().toEpochMilli());
         vertxHttpResponse.pause();
+        System.out.println("--------------- ctor! 2 " + Instant.now().toEpochMilli());
     }
 
     @Override
@@ -35,15 +38,22 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
+        System.out.println("--------------- streamResponseBody " + Instant.now().toEpochMilli());
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {
             vertxHttpResponse.handler(buffer -> {
+                System.out.println("--------------- next " + Instant.now().toEpochMilli() + ", " + buffer.length());
                 sink.next(buffer.getByteBuf().nioBuffer());
             }).endHandler(event -> {
+                System.out.println("--------------- end " + Instant.now().toEpochMilli());
                 sink.complete();
-            }).exceptionHandler(sink::error);
+            }).exceptionHandler(e ->  {
+                System.out.println("--------------- ex " + Instant.now().toEpochMilli() + ", " + e.toString());
+                sink.error(e);
+            });
 
             vertxHttpResponse.resume();
+            System.out.println("--------------- resume " + Instant.now().toEpochMilli());
         });
     }
 }
