@@ -10,8 +10,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-//@Isolated
-//@Execution(ExecutionMode.SAME_THREAD)
 public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
     private static WireMockServer server;
 
@@ -20,17 +18,7 @@ public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
         server = HttpClientTestsWireMockServer.getHttpClientTestsServer();
         server.start();
     }
-/*
-    @BeforeEach
-    public void beforeEach(TestInfo testInfo) {
-        System.out.println("---------------- Before " + testInfo.getTestMethod().get().getName() +", " + testInfo.getDisplayName().toString());
-    }
 
-    @AfterEach
-    public void afterEach(TestInfo testInfo) {
-        System.out.println("---------------- Done " + testInfo.getTestMethod().get().getName() +", " + testInfo.getDisplayName().toString());
-    }
-*/
     @AfterAll
     public static void afterAll() throws Exception {
         if (server != null) {
