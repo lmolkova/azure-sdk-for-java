@@ -8,6 +8,7 @@ import com.azure.core.util.FluxUtil;
 import io.vertx.core.http.HttpClientResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 import java.nio.ByteBuffer;
 
@@ -16,33 +17,31 @@ import java.nio.ByteBuffer;
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
-    private final Flux<ByteBuffer> body;
+    private final Sinks.Many<ByteBuffer> body = Sinks.many().multicast().onBackpressureBuffer();
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
-        body = streamResponseBody(vertxHttpResponse);
+        vertxHttpResponse
+            .handler(buffer -> body.emitNext(buffer.getByteBuf().nioBuffer(), Sinks.EmitFailureHandler.FAIL_FAST))
+            .endHandler(e -> body.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST))
+            .exceptionHandler(e -> body.emitError(e, Sinks.EmitFailureHandler.FAIL_FAST));
+        vertxHttpResponse.pause();
     }
 
     @Override
     public Flux<ByteBuffer> getBody() {
-        return body;
+        return streamResponseBody();
     }
 
     @Override
     public Mono<byte[]> getBodyAsByteArray() {
-        return FluxUtil.collectBytesFromNetworkResponse(body, getHeaders())
+        return FluxUtil.collectBytesFromNetworkResponse(streamResponseBody(), getHeaders())
             .flatMap(bytes -> (bytes == null || bytes.length == 0)
                 ? Mono.empty()
                 : Mono.just(bytes));
     }
 
-    private Flux<ByteBuffer> streamResponseBody(HttpClientResponse vertxHttpResponse) {
-        return Flux.create(sink -> {
-            vertxHttpResponse
-                .handler(buffer ->  sink.next(buffer.getByteBuf().nioBuffer()))
-                .endHandler(event ->  sink.complete())
-                .exceptionHandler(sink::error);
-
-            vertxHttpResponse.resume();
-        });
+    private Flux<ByteBuffer> streamResponseBody() {
+        getVertxHttpResponse().resume();
+        return body.asFlux();
     }
 }
