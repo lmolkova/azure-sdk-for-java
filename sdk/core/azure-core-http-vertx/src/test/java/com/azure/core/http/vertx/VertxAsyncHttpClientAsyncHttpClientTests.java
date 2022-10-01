@@ -8,16 +8,10 @@ import com.azure.core.test.HttpClientTestsWireMockServer;
 import com.azure.core.test.http.HttpClientTests;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.junit.jupiter.api.parallel.Isolated;
 
-@Isolated
-@Execution(ExecutionMode.SAME_THREAD)
+//@Isolated
+//@Execution(ExecutionMode.SAME_THREAD)
 public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
     private static WireMockServer server;
 
@@ -26,7 +20,7 @@ public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
         server = HttpClientTestsWireMockServer.getHttpClientTestsServer();
         server.start();
     }
-
+/*
     @BeforeEach
     public void beforeEach(TestInfo testInfo) {
         System.out.println("---------------- Before " + testInfo.getTestMethod().get().getName() +", " + testInfo.getDisplayName().toString());
@@ -36,7 +30,7 @@ public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
     public void afterEach(TestInfo testInfo) {
         System.out.println("---------------- Done " + testInfo.getTestMethod().get().getName() +", " + testInfo.getDisplayName().toString());
     }
-
+*/
     @AfterAll
     public static void afterAll() throws Exception {
         if (server != null) {

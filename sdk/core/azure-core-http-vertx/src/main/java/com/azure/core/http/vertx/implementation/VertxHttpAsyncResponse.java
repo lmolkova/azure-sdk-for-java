@@ -20,8 +20,6 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
         System.out.println("--------------- ctor! 1" + Instant.now().toEpochMilli());
-        vertxHttpResponse.pause();
-        System.out.println("--------------- ctor! 2 " + Instant.now().toEpochMilli());
     }
 
     @Override
