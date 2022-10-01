@@ -78,6 +78,7 @@ class VertxAsyncHttpClient implements HttpClient {
                     .subscribe(vertxHttpRequest::write, sink::error, vertxHttpRequest::end);
 
                 return vertxHttpRequest.response()
+
                     .compose(vertxHttpResponse -> {
                         if (eagerlyReadResponse) {
                             return vertxHttpResponse.body()

@@ -16,25 +16,26 @@ import java.nio.ByteBuffer;
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
+    private final Flux<ByteBuffer> body;
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
+        body = streamResponseBody(vertxHttpResponse);
     }
 
     @Override
     public Flux<ByteBuffer> getBody() {
-        return streamResponseBody();
+        return body;
     }
 
     @Override
     public Mono<byte[]> getBodyAsByteArray() {
-        return FluxUtil.collectBytesFromNetworkResponse(streamResponseBody(), getHeaders())
+        return FluxUtil.collectBytesFromNetworkResponse(body, getHeaders())
             .flatMap(bytes -> (bytes == null || bytes.length == 0)
                 ? Mono.empty()
                 : Mono.just(bytes));
     }
 
-    private Flux<ByteBuffer> streamResponseBody() {
-        HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
+    private Flux<ByteBuffer> streamResponseBody(HttpClientResponse vertxHttpResponse) {
         return Flux.create(sink -> {
             vertxHttpResponse
                 .handler(buffer ->  sink.next(buffer.getByteBuf().nioBuffer()))
