@@ -17,14 +17,16 @@ import java.nio.ByteBuffer;
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
-    private final Sinks.Many<ByteBuffer> body = Sinks.many().multicast().onBackpressureBuffer();
+    private final Sinks.Many<ByteBuffer> body = Sinks.many().multicast().onBackpressureBuffer(100500);
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
+        vertxHttpResponse.pause();
         vertxHttpResponse
-            .handler(buffer -> body.emitNext(buffer.getByteBuf().nioBuffer(), Sinks.EmitFailureHandler.FAIL_FAST))
+            .handler(buffer -> {
+                body.emitNext(buffer.getByteBuf().nioBuffer(), Sinks.EmitFailureHandler.FAIL_FAST);
+            })
             .endHandler(e -> body.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST))
             .exceptionHandler(e -> body.emitError(e, Sinks.EmitFailureHandler.FAIL_FAST));
-        vertxHttpResponse.pause();
     }
 
     @Override

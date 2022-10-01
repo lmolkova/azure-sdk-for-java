@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.Charset;
 
-public abstract class VertxHttpResponseBase extends HttpResponse {
+abstract class VertxHttpResponseBase extends HttpResponse {
 
     private final HttpClientResponse vertxHttpResponse;
     private final HttpHeaders headers;

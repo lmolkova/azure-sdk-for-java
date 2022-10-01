@@ -84,7 +84,6 @@ class VertxAsyncHttpClient implements HttpClient {
                             return vertxHttpResponse.body()
                                 .map(buffer -> new BufferedVertxHttpResponse(request, vertxHttpResponse, buffer));
                         } else {
-                            vertxHttpResponse.pause();
                             return Future.succeededFuture(new VertxHttpAsyncResponse(request, vertxHttpResponse));
                         }
                     });
