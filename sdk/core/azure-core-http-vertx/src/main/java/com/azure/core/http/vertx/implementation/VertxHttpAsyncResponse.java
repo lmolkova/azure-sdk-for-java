@@ -20,7 +20,6 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     private final Sinks.Many<ByteBuffer> body = Sinks.many().multicast().onBackpressureBuffer(100500);
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
-        vertxHttpResponse.pause();
         vertxHttpResponse
             .handler(buffer -> {
                 body.emitNext(buffer.getByteBuf().nioBuffer(), Sinks.EmitFailureHandler.FAIL_FAST);
@@ -43,7 +42,6 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
-        getVertxHttpResponse().resume();
         return body.asFlux();
     }
 }
