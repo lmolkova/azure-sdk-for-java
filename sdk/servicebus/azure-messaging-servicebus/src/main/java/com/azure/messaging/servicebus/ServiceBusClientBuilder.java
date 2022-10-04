@@ -962,8 +962,9 @@ public final class ServiceBusClientBuilder implements
             }
 
             final ServiceBusSenderTracer tracer = new ServiceBusSenderTracer(ServiceBusTracer.getDefaultTracer(), connectionProcessor.getFullyQualifiedNamespace(), entityName);
+            final ServiceBusMetricsProvider meter = new ServiceBusMetricsProvider(null, connectionProcessor.getFullyQualifiedNamespace(), entityName, null);
             return new ServiceBusSenderAsyncClient(entityName, entityType, connectionProcessor, retryOptions,
-                tracer, messageSerializer, ServiceBusClientBuilder.this::onClientClose, null, clientIdentifier);
+                tracer, messageSerializer, ServiceBusClientBuilder.this::onClientClose, null, clientIdentifier, meter);
         }
 
         /**
@@ -1444,9 +1445,10 @@ public final class ServiceBusClientBuilder implements
             final ServiceBusSessionManager sessionManager = new ServiceBusSessionManager(entityPath, entityType,
                 connectionProcessor, messageSerializer, receiverOptions, clientIdentifier);
             final ServiceBusReceiverTracer tracer = new ServiceBusReceiverTracer(ServiceBusTracer.getDefaultTracer(), connectionProcessor.getFullyQualifiedNamespace(), entityPath, false);
+            final ServiceBusMetricsProvider meter = new ServiceBusMetricsProvider(null, connectionProcessor.getFullyQualifiedNamespace(), entityPath, subscriptionName);
             return new ServiceBusReceiverAsyncClient(connectionProcessor.getFullyQualifiedNamespace(), entityPath,
                 entityType, receiverOptions, connectionProcessor, ServiceBusConstants.OPERATION_TIMEOUT,
-                tracer, messageSerializer, ServiceBusClientBuilder.this::onClientClose, sessionManager);
+                tracer, messageSerializer, ServiceBusClientBuilder.this::onClientClose, sessionManager, meter);
         }
 
         /**
@@ -1963,6 +1965,7 @@ public final class ServiceBusClientBuilder implements
 
             final ServiceBusReceiverTracer tracer = new ServiceBusReceiverTracer(ServiceBusTracer.getDefaultTracer(),
                 connectionProcessor.getFullyQualifiedNamespace(), entityPath, syncConsumer);
+            final ServiceBusMetricsProvider meter = new ServiceBusMetricsProvider(null, connectionProcessor.getFullyQualifiedNamespace(), entityPath, subscriptionName);
             return new ServiceBusReceiverAsyncClient(connectionProcessor.getFullyQualifiedNamespace(), entityPath,
                 entityType, receiverOptions, connectionProcessor, ServiceBusConstants.OPERATION_TIMEOUT,
                 tracer, messageSerializer, ServiceBusClientBuilder.this::onClientClose, clientIdentifier);

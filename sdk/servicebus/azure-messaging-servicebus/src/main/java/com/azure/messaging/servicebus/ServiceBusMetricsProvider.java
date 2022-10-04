@@ -1,83 +1,83 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+package com.azure.messaging.servicebus;
 
-package com.azure.messaging.eventhubs.implementation;
-
+import com.azure.core.amqp.implementation.ClientConstants;
 import com.azure.core.util.Context;
 import com.azure.core.util.TelemetryAttributes;
 import com.azure.core.util.metrics.DoubleHistogram;
 import com.azure.core.util.metrics.LongCounter;
 import com.azure.core.util.metrics.Meter;
-import com.azure.messaging.eventhubs.EventDataBatch;
-import com.azure.messaging.eventhubs.models.PartitionEvent;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_NAME_KEY;
+import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_PATH_KEY;
 import static com.azure.core.amqp.implementation.ClientConstants.HOSTNAME_KEY;
-import static com.azure.messaging.eventhubs.implementation.ClientConstants.CONSUMER_GROUP_KEY;
-import static com.azure.messaging.eventhubs.implementation.ClientConstants.PARTITION_ID_KEY;
 
-public class EventHubsMetricsProvider {
+public class ServiceBusMetricsProvider {
     private static final String GENERIC_STATUS_KEY = "status";
     private final Meter meter;
     private final boolean isEnabled;
 
-    private AttributeCache sendAttributeCacheSuccess;
-    private AttributeCache sendAttributeCacheFailure;
-    private AttributeCache receiveAttributeCache;
-    private LongCounter sentEventsCounter;
+    private TelemetryAttributes sendAttributesSuccess;
+    private TelemetryAttributes sendAttributesFailure;
+    private TelemetryAttributes receiveAttributes;
+    private LongCounter sentMessagesCounter;
     private DoubleHistogram consumerLag;
 
-    public EventHubsMetricsProvider(Meter meter, String namespace, String entityName, String consumerGroup) {
+    public ServiceBusMetricsProvider(Meter meter, String namespace, String entityPath, String subscriptionName) {
         this.meter = meter;
         this.isEnabled = meter != null && meter.isEnabled();
         if (this.isEnabled) {
             Map<String, Object> commonAttributesMap = new HashMap<>(3);
             commonAttributesMap.put(HOSTNAME_KEY, namespace);
-            commonAttributesMap.put(ENTITY_NAME_KEY, entityName);
-            if (consumerGroup != null) {
-                commonAttributesMap.put(CONSUMER_GROUP_KEY, consumerGroup);
+            int entityNameEnd = entityPath.indexOf('/');
+            if (entityNameEnd > 0) {
+                commonAttributesMap.put(ClientConstants.ENTITY_NAME_KEY,  entityPath.substring(0, entityNameEnd));
+            } else {
+                commonAttributesMap.put(ClientConstants.ENTITY_NAME_KEY,  entityPath);
+            }
+
+            if (subscriptionName != null) {
+                commonAttributesMap.put("subscriptionName",  subscriptionName);
             }
 
             Map<String, Object> successMap = new HashMap<>(commonAttributesMap);
             successMap.put(GENERIC_STATUS_KEY, "ok");
-            this.sendAttributeCacheSuccess = new AttributeCache(PARTITION_ID_KEY,  successMap);
+            this.sendAttributesSuccess = meter.createAttributes(successMap);
 
             Map<String, Object> failureMap = new HashMap<>(commonAttributesMap);
             failureMap.put(GENERIC_STATUS_KEY, "error");
-            this.sendAttributeCacheFailure = new AttributeCache(PARTITION_ID_KEY,  failureMap);
+            this.sendAttributesFailure = new meter.createAttributes(failureMap);
 
-            this.receiveAttributeCache = new AttributeCache(PARTITION_ID_KEY,  commonAttributesMap);
-            this.sentEventsCounter = meter.createLongCounter("messaging.eventhubs.events.sent", "Number of sent events", "events");
-            this.consumerLag = meter.createDoubleHistogram("messaging.eventhubs.consumer.lag", "Difference between local time when event was received and the local time it was enqueued on broker.", "sec");
+            this.receiveAttributes = meter.createAttributes(commonAttributesMap);
+            this.sentMessagesCounter = meter.createLongCounter("messaging.servicebus.messages.sent", "Number of sent messages", "messages");
+            this.consumerLag = meter.createDoubleHistogram("messaging.servicebus.consumer.lag", "Difference between local time when event was received and the local time it was enqueued on broker.", "sec");
         }
     }
 
-    public void reportBatchSend(EventDataBatch batch, String partitionId, Throwable throwable, Context context) {
-        if (isEnabled && sentEventsCounter.isEnabled()) {
-            AttributeCache cache = throwable == null ? sendAttributeCacheSuccess : sendAttributeCacheFailure;
-            sentEventsCounter.add(batch.getCount(), cache.getOrCreate(partitionId), context);
+    public void reportBatchSend(ServiceBusMessageBatch batch, Throwable throwable, Context context) {
+        if (isEnabled && sentMessagesCounter.isEnabled()) {
+            TelemetryAttributes attributes = throwable == null ? sendAttributesSuccess : sendAttributesFailure;
+            sentMessagesCounter.add(batch.getCount(), attributes, context);
         }
     }
 
-    public void reportReceive(PartitionEvent event) {
+    public void reportReceive(ServiceBusMessageContext messageContext) {
         if (isEnabled && consumerLag.isEnabled()) {
-            Instant enqueuedTime = event.getData().getEnqueuedTime();
+            OffsetDateTime enqueuedTime = messageContext.getMessage().getEnqueuedTime();
             double diff = 0d;
             if (enqueuedTime != null) {
-                diff = Instant.now().toEpochMilli() - enqueuedTime.toEpochMilli();
+                diff = Instant.now().toEpochMilli() - enqueuedTime.toInstant().toEpochMilli();
                 if (diff < 0) {
                     // time skew on machines
                     diff = 0;
                 }
             }
-            consumerLag.record(diff / 1000d,
-                receiveAttributeCache.getOrCreate(event.getPartitionContext().getPartitionId()),
-                Context.NONE);
+            consumerLag.record(diff / 1000d, receiveAttributes, Context.NONE);
         }
     }
 
@@ -107,4 +107,5 @@ public class EventHubsMetricsProvider {
             return meter.createAttributes(attributes);
         }
     }
+
 }

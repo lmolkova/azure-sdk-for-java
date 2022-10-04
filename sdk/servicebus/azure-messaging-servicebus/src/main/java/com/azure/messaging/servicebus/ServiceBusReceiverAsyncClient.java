@@ -20,9 +20,9 @@ import com.azure.messaging.servicebus.implementation.DispositionStatus;
 import com.azure.messaging.servicebus.implementation.LockContainer;
 import com.azure.messaging.servicebus.implementation.MessagingEntityType;
 import com.azure.messaging.servicebus.implementation.ServiceBusConnectionProcessor;
-import com.azure.messaging.servicebus.implementation.ServiceBusReceiverTracer;
 import com.azure.messaging.servicebus.implementation.ServiceBusReceiveLink;
 import com.azure.messaging.servicebus.implementation.ServiceBusReceiveLinkProcessor;
+import com.azure.messaging.servicebus.implementation.ServiceBusReceiverTracer;
 import com.azure.messaging.servicebus.models.AbandonOptions;
 import com.azure.messaging.servicebus.models.CompleteOptions;
 import com.azure.messaging.servicebus.models.DeadLetterOptions;
@@ -241,6 +241,7 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
     // Starting at -1 because that is before the beginning of the stream.
     private final AtomicLong lastPeekedSequenceNumber = new AtomicLong(-1);
     private final AtomicReference<ServiceBusAsyncConsumer> consumer = new AtomicReference<>();
+    private final ServiceBusMetricsProvider metricsProvider;
 
     /**
      * Creates a receiver that listens to a Service Bus resource.
@@ -256,7 +257,8 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
      */
     ServiceBusReceiverAsyncClient(String fullyQualifiedNamespace, String entityPath, MessagingEntityType entityType,
         ReceiverOptions receiverOptions, ServiceBusConnectionProcessor connectionProcessor, Duration cleanupInterval,
-        ServiceBusReceiverTracer tracer, MessageSerializer messageSerializer, Runnable onClientClose, String identifier) {
+        ServiceBusReceiverTracer tracer, MessageSerializer messageSerializer, Runnable onClientClose, String identifier,
+        ServiceBusMetricsProvider metricsProvider) {
         this.fullyQualifiedNamespace = Objects.requireNonNull(fullyQualifiedNamespace,
             "'fullyQualifiedNamespace' cannot be null.");
         this.entityPath = Objects.requireNonNull(entityPath, "'entityPath' cannot be null.");
@@ -278,12 +280,13 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
 
         this.sessionManager = null;
         this.identifier = identifier;
+        this.metricsProvider = metricsProvider;
     }
 
     ServiceBusReceiverAsyncClient(String fullyQualifiedNamespace, String entityPath, MessagingEntityType entityType,
                                   ReceiverOptions receiverOptions, ServiceBusConnectionProcessor connectionProcessor, Duration cleanupInterval,
                                   ServiceBusReceiverTracer tracer, MessageSerializer messageSerializer, Runnable onClientClose,
-                                  ServiceBusSessionManager sessionManager) {
+                                  ServiceBusSessionManager sessionManager, ServiceBusMetricsProvider metricsProvider) {
         this.fullyQualifiedNamespace = Objects.requireNonNull(fullyQualifiedNamespace,
             "'fullyQualifiedNamespace' cannot be null.");
         this.entityPath = Objects.requireNonNull(entityPath, "'entityPath' cannot be null.");
@@ -305,6 +308,7 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
         });
 
         this.identifier = sessionManager.getIdentifier();
+        this.metricsProvider = metricsProvider;
     }
 
     /**
@@ -872,7 +876,9 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
         if (highTide > 0) {
             result = result.limitRate(highTide, 0);
         }
+
         return result
+            .doOnNext(messageContext -> metricsProvider.reportReceive(messageContext))
             .onErrorMap(throwable -> mapError(throwable, ServiceBusErrorSource.RECEIVE));
     }
 
@@ -1433,6 +1439,7 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
             if (isManagementToken(lockToken) || existingConsumer == null) {
                 updateDispositionOperation = performOnManagement;
             } else {
+
                 updateDispositionOperation = existingConsumer.updateDisposition(lockToken, dispositionStatus,
                     deadLetterReason, deadLetterErrorDescription, propertiesToModify, transactionContext)
                     .then(Mono.fromRunnable(() -> {

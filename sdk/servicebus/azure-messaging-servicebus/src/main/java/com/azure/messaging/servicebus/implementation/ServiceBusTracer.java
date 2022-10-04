@@ -11,6 +11,7 @@ import com.azure.core.util.tracing.Tracer;
 import reactor.core.publisher.Signal;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -26,9 +27,9 @@ import static com.azure.core.util.tracing.Tracer.SPAN_CONTEXT_KEY;
 import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.AZ_TRACING_NAMESPACE_VALUE;
 
 public class ServiceBusTracer {
+    public static final String REACTOR_PARENT_TRACE_CONTEXT_KEY = "otel-context-key";
     private static final ClientLogger LOGGER = new ClientLogger(ServiceBusTracer.class);
     protected static final String TRACEPARENT_KEY = "traceparent";
-    protected static final String REACTOR_PARENT_TRACE_CONTEXT_KEY = "otel-context-key";
 
     protected static final boolean IS_TRACING_DISABLED = Configuration.getGlobalConfiguration().get(Configuration.PROPERTY_AZURE_TRACING_DISABLED, false);
     protected final Tracer tracer;
@@ -111,7 +112,7 @@ public class ServiceBusTracer {
         }
 
         if (enqueuedTime != null) {
-            spanBuilder = spanBuilder.addData(MESSAGE_ENQUEUED_TIME, enqueuedTime.toInstant());
+            spanBuilder = spanBuilder.addData(MESSAGE_ENQUEUED_TIME, enqueuedTime.toInstant().atOffset(ZoneOffset.UTC).toEpochSecond());
         }
 
         if (linkContext.isPresent()) {

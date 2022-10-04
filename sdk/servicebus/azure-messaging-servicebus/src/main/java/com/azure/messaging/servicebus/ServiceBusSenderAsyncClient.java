@@ -12,6 +12,7 @@ import com.azure.core.amqp.implementation.AmqpSendLink;
 import com.azure.core.amqp.implementation.ErrorContextProvider;
 import com.azure.core.amqp.implementation.MessageSerializer;
 import com.azure.core.annotation.ServiceClient;
+import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.messaging.servicebus.implementation.MessagingEntityType;
@@ -46,6 +47,7 @@ import static com.azure.core.amqp.implementation.RetryUtil.withRetry;
 import static com.azure.core.util.FluxUtil.fluxError;
 import static com.azure.core.util.FluxUtil.monoError;
 import static com.azure.messaging.servicebus.implementation.Messages.INVALID_OPERATION_DISPOSED_SENDER;
+import static com.azure.messaging.servicebus.implementation.ServiceBusTracer.REACTOR_PARENT_TRACE_CONTEXT_KEY;
 
 /**
  * An <b>asynchronous</b> client to send messages to a Service Bus resource.
@@ -172,13 +174,15 @@ public final class ServiceBusSenderAsyncClient implements AutoCloseable {
     private final ServiceBusConnectionProcessor connectionProcessor;
     private final String viaEntityName;
     private final String identifier;
+    private final ServiceBusMetricsProvider metricsProvider;
 
     /**
      * Creates a new instance of this {@link ServiceBusSenderAsyncClient} that sends messages to a Service Bus entity.
      */
     ServiceBusSenderAsyncClient(String entityName, MessagingEntityType entityType,
         ServiceBusConnectionProcessor connectionProcessor, AmqpRetryOptions retryOptions, ServiceBusSenderTracer tracer,
-        MessageSerializer messageSerializer, Runnable onClientClose, String viaEntityName, String identifier) {
+        MessageSerializer messageSerializer, Runnable onClientClose, String viaEntityName, String identifier,
+        ServiceBusMetricsProvider metricsProvider) {
         // Caching the created link so we don't invoke another link creation.
         this.messageSerializer = Objects.requireNonNull(messageSerializer,
             "'messageSerializer' cannot be null.");
@@ -192,6 +196,7 @@ public final class ServiceBusSenderAsyncClient implements AutoCloseable {
         this.viaEntityName = viaEntityName;
         this.onClientClose = onClientClose;
         this.identifier = identifier;
+        this.metricsProvider = metricsProvider;
     }
 
     /**
@@ -775,11 +780,17 @@ public final class ServiceBusSenderAsyncClient implements AutoCloseable {
             }
         });
 
-        return tracer.traceMonoWithLinks(
-                withRetry(sendMessage, retryOptions,
-                    String.format("entityPath[%s], partitionId[%s]: Sending messages timed out.", entityName, batch.getCount())),
-                batch, "ServiceBus.send")
+        final Mono<Void> sendWithRetry = withRetry(sendMessage, retryOptions,
+            String.format("entityPath[%s], partitionId[%s]: Sending messages timed out.", entityName, batch.getCount()))
             .onErrorMap(this::mapError);
+
+        return tracer.traceMonoWithLinks(sendWithRetry
+                .doOnEach(signal -> {
+                    Object contextObj = signal.getContextView().getOrDefault(REACTOR_PARENT_TRACE_CONTEXT_KEY, null);
+                    Context span = (contextObj instanceof Context) ? (Context) contextObj : Context.NONE;
+                    metricsProvider.reportBatchSend(batch, signal.getThrowable(), span);
+                }),
+            batch, "ServiceBus.send");
     }
 
     private Mono<Void> sendInternal(Flux<ServiceBusMessage> messages, ServiceBusTransactionContext transactionContext) {
