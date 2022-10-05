@@ -26,6 +26,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.List;
 
 /**
  * {@link HttpClient} implementation for the Vert.x {@link io.vertx.core.http.HttpClient}.
