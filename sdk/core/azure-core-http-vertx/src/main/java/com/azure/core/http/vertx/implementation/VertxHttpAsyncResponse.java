@@ -35,23 +35,23 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
-        //List<String> logs = new ArrayList<>();
-        //logs.add("--------------- streamResponseBody");
+        List<String> logs = new ArrayList<>();
+        logs.add("--------------- streamResponseBody");
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {
             vertxHttpResponse.handler(buffer -> {
-                //logs.add("--------------- next " + buffer.length());
+                logs.add("--------------- next " + buffer.length());
                 sink.next(buffer.getByteBuf().nioBuffer());
             }).endHandler(event -> {
-                //logs.add("--------------- end ");
+                logs.add("--------------- end ");
                 sink.complete();
 
-                //logs.stream().forEach(System.out::println);
+                logs.stream().forEach(System.out::println);
 
             }).exceptionHandler(e ->  {
-                //logs.add("--------------- ex " + e.toString());
+                logs.add("--------------- ex " + e.toString());
                 sink.error(e);
-                //logs.stream().forEach(System.out::println);
+                logs.stream().forEach(System.out::println);
             });
 
             vertxHttpResponse.resume();

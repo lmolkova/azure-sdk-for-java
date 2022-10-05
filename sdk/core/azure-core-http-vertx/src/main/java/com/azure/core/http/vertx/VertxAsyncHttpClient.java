@@ -55,7 +55,7 @@ class VertxAsyncHttpClient implements HttpClient {
     public Mono<HttpResponse> send(HttpRequest request, Context context) {
         boolean eagerlyReadResponse = (boolean) context.getData("azure-eagerly-read-response").orElse(false);
         ProgressReporter progressReporter = Contexts.with(context).getHttpRequestProgressReporter();
-        //List<String> logs = new ArrayList<>();
+        List<String> logs = new ArrayList<>();
         return Mono.create(sink -> toVertxHttpRequest(request).subscribe(vertxHttpRequest -> {
             vertxHttpRequest.exceptionHandler(sink::error);
 
@@ -67,13 +67,13 @@ class VertxAsyncHttpClient implements HttpClient {
                     vertxHttpRequest.setChunked(true);
                 }
 
-                //logs.add("------ request content-length " + request.getHeaders().get("Content-Length"));
+                logs.add("------ request content-length " + request.getHeaders().get("Content-Length"));
             } else {
                 vertxHttpRequest.setChunked(true);
             }
 
             vertxHttpRequest.response(event -> {
-                //logs.add("--------------- response " + event.succeeded());
+                logs.add("--------------- response " + event.succeeded());
                 if (event.succeeded()) {
                     HttpClientResponse vertxHttpResponse = event.result();
                     vertxHttpResponse.exceptionHandler(sink::error);
@@ -89,7 +89,7 @@ class VertxAsyncHttpClient implements HttpClient {
                         });
                     } else {
                         sink.success(new VertxHttpAsyncResponse(request, vertxHttpResponse));
-                        //logs.stream().forEach(System.out::println);
+                        logs.stream().forEach(System.out::println);
                     }
                 } else {
                     sink.error(event.cause());
@@ -101,13 +101,13 @@ class VertxAsyncHttpClient implements HttpClient {
                 .map(Unpooled::wrappedBuffer)
                 .map(Buffer::buffer)
                 .subscribe(b -> {
-                    //logs.add("------ request chunk " + b.length());
+                    logs.add("------ request chunk " + b.length());
                     vertxHttpRequest.write(b);
                 }, e -> {
-                    //logs.add("------ request error " + e);
+                    logs.add("------ request error " + e);
                     sink.error(e);
                 }, () -> {
-                    //logs.add("------ request end ");
+                    logs.add("------ request end ");
                     vertxHttpRequest.end();
                 });
         }, sink::error));
