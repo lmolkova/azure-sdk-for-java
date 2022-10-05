@@ -10,21 +10,18 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Default HTTP response for Vert.x.
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
-    private final List<String> logs = new ArrayList<>();
+    private final ConcurrentLinkedQueue<String> logs = new ConcurrentLinkedQueue<>();
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
-        logs.add("--------------- ctor! 1" + Instant.now().toEpochMilli());
+        logs.add("--------------- before pause");
         vertxHttpResponse.pause();
-        logs.add("--------------- ctor! 2 " + Instant.now().toEpochMilli());
     }
 
     @Override
@@ -41,26 +38,26 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
-        System.out.println("--------------- streamResponseBody " + Instant.now().toEpochMilli());
+        System.out.println("--------------- streamResponseBody");
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {
             vertxHttpResponse.handler(buffer -> {
-                logs.add("--------------- next " + Instant.now().toEpochMilli() + ", " + buffer.length());
+                logs.add("--------------- next " + buffer.length());
                 sink.next(buffer.getByteBuf().nioBuffer());
             }).endHandler(event -> {
-                logs.add("--------------- end " + Instant.now().toEpochMilli());
+                logs.add("--------------- end ");
                 sink.complete();
 
                 logs.stream().forEach(System.out::println);
 
             }).exceptionHandler(e ->  {
-                logs.add("--------------- ex " + Instant.now().toEpochMilli() + ", " + e.toString());
+                logs.add("--------------- ex " + e.toString());
                 sink.error(e);
                 logs.stream().forEach(System.out::println);
             });
 
             vertxHttpResponse.resume();
-            logs.add("--------------- resume " + Instant.now().toEpochMilli());
+            logs.add("--------------- resume ");
         });
     }
 }

@@ -25,10 +25,8 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * {@link HttpClient} implementation for the Vert.x {@link io.vertx.core.http.HttpClient}.
@@ -58,7 +56,7 @@ class VertxAsyncHttpClient implements HttpClient {
     public Mono<HttpResponse> send(HttpRequest request, Context context) {
         boolean eagerlyReadResponse = (boolean) context.getData("azure-eagerly-read-response").orElse(false);
         ProgressReporter progressReporter = Contexts.with(context).getHttpRequestProgressReporter();
-        List<String> logs = new ArrayList<>();
+        ConcurrentLinkedQueue<String> logs = new ConcurrentLinkedQueue<>();
         return Mono.create(sink -> toVertxHttpRequest(request).subscribe(vertxHttpRequest -> {
             vertxHttpRequest.exceptionHandler(sink::error);
 
@@ -76,7 +74,7 @@ class VertxAsyncHttpClient implements HttpClient {
             }
 
             vertxHttpRequest.response(event -> {
-                logs.add("--------------- response " + Instant.now().toEpochMilli() + ", " + event.succeeded());
+                logs.add("--------------- response " + event.succeeded());
                 if (event.succeeded()) {
                     HttpClientResponse vertxHttpResponse = event.result();
                     vertxHttpResponse.exceptionHandler(sink::error);
@@ -91,7 +89,7 @@ class VertxAsyncHttpClient implements HttpClient {
                             }
                         });
                     } else {
-                        logs.add("--------------- success " + Instant.now().toEpochMilli());
+                        logs.add("--------------- success ");
                         sink.success(new VertxHttpAsyncResponse(request, vertxHttpResponse));
                         logs.stream().forEach(System.out::println);
                     }
@@ -105,13 +103,13 @@ class VertxAsyncHttpClient implements HttpClient {
                 .map(Unpooled::wrappedBuffer)
                 .map(Buffer::buffer)
                 .subscribe(b -> {
-                    logs.add("------ request chunk " + Instant.now().toEpochMilli() + ", " + b.length());
+                    logs.add("------ request chunk " + b.length());
                     vertxHttpRequest.write(b);
                 }, e -> {
-                    logs.add("------ request error " + Instant.now().toEpochMilli() + ", " + e);
+                    logs.add("------ request error " + e);
                     sink.error(e);
                 }, () -> {
-                    logs.add("------ request end " + Instant.now().toEpochMilli());
+                    logs.add("------ request end ");
                     vertxHttpRequest.end();
                 });
         }, sink::error));
