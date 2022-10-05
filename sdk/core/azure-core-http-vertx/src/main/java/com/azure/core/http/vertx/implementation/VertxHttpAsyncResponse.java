@@ -20,7 +20,6 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     private final ConcurrentLinkedQueue<String> logs = new ConcurrentLinkedQueue<>();
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
-        logs.add("--------------- before pause");
         vertxHttpResponse.pause();
     }
 
@@ -38,7 +37,7 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
-        System.out.println("--------------- streamResponseBody");
+        logs.add("--------------- streamResponseBody");
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {
             vertxHttpResponse.handler(buffer -> {
@@ -57,7 +56,6 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
             });
 
             vertxHttpResponse.resume();
-            logs.add("--------------- resume ");
         });
     }
 }
