@@ -11,17 +11,20 @@ import reactor.core.publisher.Mono;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Default HTTP response for Vert.x.
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
+    private final List<String> logs = new ArrayList<>();
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
-        System.out.println("--------------- ctor! 1" + Instant.now().toEpochMilli());
+        logs.add("--------------- ctor! 1" + Instant.now().toEpochMilli());
         vertxHttpResponse.pause();
-        System.out.println("--------------- ctor! 2 " + Instant.now().toEpochMilli());
+        logs.add("--------------- ctor! 2 " + Instant.now().toEpochMilli());
     }
 
     @Override
@@ -42,18 +45,22 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {
             vertxHttpResponse.handler(buffer -> {
-                System.out.println("--------------- next " + Instant.now().toEpochMilli() + ", " + buffer.length());
+                logs.add("--------------- next " + Instant.now().toEpochMilli() + ", " + buffer.length());
                 sink.next(buffer.getByteBuf().nioBuffer());
             }).endHandler(event -> {
-                System.out.println("--------------- end " + Instant.now().toEpochMilli());
+                logs.add("--------------- end " + Instant.now().toEpochMilli());
                 sink.complete();
+
+                logs.stream().forEach(System.out::println);
+
             }).exceptionHandler(e ->  {
-                System.out.println("--------------- ex " + Instant.now().toEpochMilli() + ", " + e.toString());
+                logs.add("--------------- ex " + Instant.now().toEpochMilli() + ", " + e.toString());
                 sink.error(e);
+                logs.stream().forEach(System.out::println);
             });
 
             vertxHttpResponse.resume();
-            System.out.println("--------------- resume " + Instant.now().toEpochMilli());
+            logs.add("--------------- resume " + Instant.now().toEpochMilli());
         });
     }
 }
