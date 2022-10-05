@@ -10,14 +10,14 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Default HTTP response for Vert.x.
  */
 public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
 
-    private final ConcurrentLinkedQueue<String> logs = new ConcurrentLinkedQueue<>();
     public VertxHttpAsyncResponse(HttpRequest azureHttpRequest, HttpClientResponse vertxHttpResponse) {
         super(azureHttpRequest, vertxHttpResponse);
         vertxHttpResponse.pause();
@@ -37,6 +37,7 @@ public class VertxHttpAsyncResponse extends VertxHttpResponseBase {
     }
 
     private Flux<ByteBuffer> streamResponseBody() {
+        List<String> logs = new ArrayList<>();
         logs.add("--------------- streamResponseBody");
         HttpClientResponse vertxHttpResponse = getVertxHttpResponse();
         return Flux.create(sink -> {

@@ -25,8 +25,9 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * {@link HttpClient} implementation for the Vert.x {@link io.vertx.core.http.HttpClient}.
@@ -56,7 +57,7 @@ class VertxAsyncHttpClient implements HttpClient {
     public Mono<HttpResponse> send(HttpRequest request, Context context) {
         boolean eagerlyReadResponse = (boolean) context.getData("azure-eagerly-read-response").orElse(false);
         ProgressReporter progressReporter = Contexts.with(context).getHttpRequestProgressReporter();
-        ConcurrentLinkedQueue<String> logs = new ConcurrentLinkedQueue<>();
+        List<String> logs = new ArrayList<>();
         return Mono.create(sink -> toVertxHttpRequest(request).subscribe(vertxHttpRequest -> {
             vertxHttpRequest.exceptionHandler(sink::error);
 
