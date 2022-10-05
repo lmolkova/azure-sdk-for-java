@@ -14,9 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.junit.jupiter.api.parallel.Isolated;
 
-@Isolated
+//@Isolated
 @Execution(ExecutionMode.SAME_THREAD)
 public class VertxAsyncHttpClientAsyncHttpClientTests extends HttpClientTests {
     private static WireMockServer server;
