@@ -37,7 +37,7 @@ public class HttpTraceUtilTest {
     @Test
     public void parseUnknownStatusCode() {
         // Act
-        HttpTraceUtil.setSpanStatus(parentSpan, 1, null);
+        OpenTelemetryUtils.setStatus(parentSpan, 1, null);
 
         // Assert
         verify(parentSpan, times(1))
@@ -48,20 +48,20 @@ public class HttpTraceUtilTest {
     public void parseUnauthenticatedStatusCode() {
 
         // Act
-        HttpTraceUtil.setSpanStatus(parentSpan, 401, null);
+        OpenTelemetryUtils.setStatus(parentSpan, 401, null);
 
         // Assert
         verify(parentSpan, times(1))
-            .setStatus(StatusCode.ERROR, "Unauthorized");
+            .setStatus(StatusCode.ERROR);
     }
 
     @Test
     public void parseNullError() {
         // Act
-        ReadableSpan span2 = (ReadableSpan) HttpTraceUtil.setSpanStatus(parentSpan, 504, null);
+        ReadableSpan span2 = (ReadableSpan) OpenTelemetryUtils.setStatus(parentSpan, 504, null);
 
         // Assert
         verify(parentSpan, times(1))
-            .setStatus(StatusCode.ERROR, "Gateway Timeout");
+            .setStatus(StatusCode.ERROR);
     }
 }

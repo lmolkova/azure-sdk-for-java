@@ -11,6 +11,13 @@ import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.blob.specialized.cryptography.EncryptedBlobClientBuilder;
 import com.azure.storage.blob.specialized.cryptography.EncryptionVersion;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.ReadWriteSpan;
+import io.opentelemetry.sdk.trace.ReadableSpan;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
 
 import java.util.Random;
 
@@ -25,6 +32,14 @@ public abstract class BlobTestBase<TOptions extends BlobPerfStressOptions> exten
     private static final FakeKey fakeKeyEncryptionKey;
 
     static {
+        //SdkTracerProvider provider = SdkTracerProvider.builder()
+            //.setSampler(Sampler.traceIdRatioBased(0.01))
+        //    .addSpanProcessor(new NoopProcessor())
+        //    .build();
+
+        //OpenTelemetrySdk.builder().setTracerProvider(provider).buildAndRegisterGlobal();
+
+
         Random rand = new Random(System.currentTimeMillis());
         byte[] data = new byte[256];
         rand.nextBytes(data);
@@ -33,6 +48,7 @@ public abstract class BlobTestBase<TOptions extends BlobPerfStressOptions> exten
 
     public BlobTestBase(TOptions options, String blobName) {
         super(options);
+
 
         if (options.getClientEncryption() != null) {
             EncryptionVersion version;
@@ -58,5 +74,28 @@ public abstract class BlobTestBase<TOptions extends BlobPerfStressOptions> exten
 
         blockBlobClient = blobContainerClient.getBlobClient(blobName).getBlockBlobClient();
         blockBlobAsyncClient = blobContainerAsyncClient.getBlobAsyncClient(blobName).getBlockBlobAsyncClient();
+    }
+
+    static class NoopProcessor implements SpanProcessor
+    {
+
+        @Override
+        public void onStart(Context context, ReadWriteSpan readWriteSpan) {
+        }
+
+        @Override
+        public boolean isStartRequired() {
+            return false;
+        }
+
+        @Override
+        public void onEnd(ReadableSpan readableSpan) {
+            //System.out.println(readableSpan.getName());
+        }
+
+        @Override
+        public boolean isEndRequired() {
+            return false;
+        }
     }
 }

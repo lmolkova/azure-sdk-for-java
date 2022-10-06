@@ -14,7 +14,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 
-public class AmqpTraceUtilTest {
+public class StatusTest {
 
     @Mock
     private Span parentSpan;
@@ -34,7 +34,7 @@ public class AmqpTraceUtilTest {
     @Test
     public void parseUnknownStatusMessage() {
         // Act
-        AmqpTraceUtil.parseStatusMessage(parentSpan, "", null);
+        OpenTelemetryUtils.setStatus(parentSpan, "", null);
 
         // Assert
         verify(parentSpan, times(1))
@@ -46,7 +46,7 @@ public class AmqpTraceUtilTest {
     public void parseSuccessStatusMessage() {
         // Act
 
-        AmqpTraceUtil.parseStatusMessage(parentSpan, "success", null);
+        OpenTelemetryUtils.setStatus(parentSpan, "success", null);
 
         // Assert
         verify(parentSpan, times(1))
@@ -54,11 +54,22 @@ public class AmqpTraceUtilTest {
     }
 
     @Test
+    public void parseErrorStatusMessage() {
+        // Act
+
+        OpenTelemetryUtils.setStatus(parentSpan, "error", null);
+
+        // Assert
+        verify(parentSpan, times(1))
+            .setStatus(StatusCode.ERROR);
+    }
+
+    @Test
     public void parseStatusMessageOnError() {
         Error error = new Error("testError");
 
         // Act
-        AmqpTraceUtil.parseStatusMessage(parentSpan, "", error);
+        OpenTelemetryUtils.setStatus(parentSpan, "", error);
 
         // Assert
         verify(parentSpan, times(1))

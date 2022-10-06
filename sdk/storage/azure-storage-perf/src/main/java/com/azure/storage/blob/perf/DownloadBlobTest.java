@@ -19,7 +19,6 @@ public class DownloadBlobTest extends AbstractDownloadTest<BlobPerfStressOptions
         super(options);
     }
 
-
     // Perform the API call to be tested here
     @Override
     public void run() {

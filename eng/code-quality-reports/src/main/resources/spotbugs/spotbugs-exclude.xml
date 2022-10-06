@@ -28,7 +28,10 @@
   intention that a null could be passed in. In the original code, it would have thrown a
   NullReferenceException. -->
   <Match>
-    <Class name="~com\.microsoft\.azure\.keyvault\.extensions\.KeyVaultKey\$[\w]+"/>
+    <Or>
+      <Class name="~com\.microsoft\.azure\.keyvault\.extensions\.KeyVaultKey\$[\w]+"/>
+      <Class name="com.azure.core.tracing.opentelemetry.OpenTelemetryTracer$Getter"/>
+    </Or>
     <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
   </Match>
 
@@ -674,7 +677,6 @@
     <Or>
       <Class name="com.azure.messaging.eventhubs.PartitionPumpManager"/>
       <Class name="com.azure.core.http.rest.ResponseExceptionConstructorCache"/>
-      <Class name="com.azure.core.tracing.opentelemetry.implementation.OpenTelemetrySpanSuppressionHelper"/>
     </Or>
     <Bug pattern="REC_CATCH_EXCEPTION"/>
   </Match>
@@ -1877,11 +1879,6 @@
   </Match>
 
   <!-- Exception in AutoCloseable.close is ignored -->
-  <Match>
-    <Class name="com.azure.core.tracing.opentelemetry.OpenTelemetryHttpPolicy$ScalarPropagatingMono"/>
-    <Method name="subscribe"/>
-    <Bug pattern="DE_MIGHT_IGNORE"/>
-  </Match>
   <Match>
     <Class name="com.azure.cosmos.implementation.TracerProvider"/>
     <Method name="subscribe"/>

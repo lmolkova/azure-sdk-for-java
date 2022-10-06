@@ -4,6 +4,7 @@
 package com.azure.messaging.servicebus;
 
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.core.util.tracing.Tracer;
 import com.azure.messaging.servicebus.models.DeferOptions;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -431,11 +433,10 @@ public class TracingIntegrationTests extends IntegrationTestBase {
         String message1SpanId = message.getApplicationProperties().get("traceparent").toString().substring(36, 52);
         CountDownLatch completedFound = new CountDownLatch(1);
         spanProcessor.notifyIfCondition(completedFound, span -> {
-            if (!span.getName().equals("ServiceBus.complete")) {
+            if (!span.getName().equals("ServiceBus.process")) {
                 return false;
             }
-            List<LinkData> links = span.toSpanData().getLinks();
-            return links.size() > 0 && links.get(0).getSpanContext().getSpanId().equals(message1SpanId);
+            return span.getParentSpanContext().getSpanId().equals(message1SpanId);
         });
 
         AtomicReference<Span> currentInProcess = new AtomicReference<>(Span.getInvalid());
@@ -669,7 +670,7 @@ public class TracingIntegrationTests extends IntegrationTestBase {
             String linkTraceparent = "00-" + linkContext.getTraceId() + "-" + linkContext.getSpanId() + "-01";
             assertEquals(messageTraceparent, linkTraceparent);
             // TODO (lmolkova) uncomment after otel 1.0.0-beta.29 ships
-            // assertNotNull(links.get(i).getAttributes().get(AttributeKey.longKey(Tracer.MESSAGE_ENQUEUED_TIME)));
+            assertNotNull(links.get(i).getAttributes().get(AttributeKey.longKey(Tracer.MESSAGE_ENQUEUED_TIME)));
         }
     }
 
@@ -744,8 +745,8 @@ public class TracingIntegrationTests extends IntegrationTestBase {
         @Override
         public void onEnd(ReadableSpan readableSpan) {
             assertEquals("Microsoft.ServiceBus", readableSpan.getAttribute(AttributeKey.stringKey("az.namespace")));
-            assertEquals(entityName, readableSpan.getAttribute(AttributeKey.stringKey("message_bus.destination")));
-            assertEquals(namespace, readableSpan.getAttribute(AttributeKey.stringKey("peer.address")));
+            assertEquals(entityName, readableSpan.getAttribute(AttributeKey.stringKey("messaging.destination")));
+            assertEquals(namespace, readableSpan.getAttribute(AttributeKey.stringKey("net.peer.name")));
 
             Consumer<ReadableSpan> filter = notifier.get();
             if (filter != null) {

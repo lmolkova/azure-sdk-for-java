@@ -34,6 +34,8 @@ import com.azure.core.util.CoreUtils;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.metrics.Meter;
 import com.azure.core.util.metrics.MeterProvider;
+import com.azure.core.util.tracing.Tracer;
+import com.azure.core.util.tracing.TracerProvider;
 import com.azure.messaging.servicebus.implementation.MessageUtils;
 import com.azure.messaging.servicebus.implementation.MessagingEntityType;
 import com.azure.messaging.servicebus.implementation.ServiceBusAmqpConnection;
@@ -42,7 +44,6 @@ import com.azure.messaging.servicebus.implementation.ServiceBusConstants;
 import com.azure.messaging.servicebus.implementation.ServiceBusReactorAmqpConnection;
 import com.azure.messaging.servicebus.implementation.instrumentation.ServiceBusReceiverInstrumentation;
 import com.azure.messaging.servicebus.implementation.ServiceBusSharedKeyCredential;
-import com.azure.messaging.servicebus.implementation.instrumentation.ServiceBusTracer;
 import com.azure.messaging.servicebus.implementation.ServiceBusProcessorClientOptions;
 import com.azure.messaging.servicebus.models.ServiceBusReceiveMode;
 import com.azure.messaging.servicebus.models.SubQueue;
@@ -64,6 +65,7 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_PATH_KEY;
+import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.AZ_TRACING_NAMESPACE_VALUE;
 
 /**
  * The builder to create Service Bus clients:
@@ -932,7 +934,7 @@ public final class ServiceBusClientBuilder implements
                 clientIdentifier = UUID.randomUUID().toString();
             }
 
-            final ServiceBusSenderInstrumentation instrumentation = new ServiceBusSenderInstrumentation(ServiceBusTracer.getDefaultTracer(),
+            final ServiceBusSenderInstrumentation instrumentation = new ServiceBusSenderInstrumentation(createTracer(),
                 createMeter(), connectionProcessor.getFullyQualifiedNamespace(), entityName);
 
             return new ServiceBusSenderAsyncClient(entityName, entityType, connectionProcessor, retryOptions,
@@ -1418,7 +1420,7 @@ public final class ServiceBusClientBuilder implements
                 connectionProcessor, messageSerializer, receiverOptions, clientIdentifier);
 
             final ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(
-                ServiceBusTracer.getDefaultTracer(), createMeter(), connectionProcessor.getFullyQualifiedNamespace(),
+                createTracer(), createMeter(), connectionProcessor.getFullyQualifiedNamespace(),
                 entityPath, subscriptionName, false);
             return new ServiceBusReceiverAsyncClient(connectionProcessor.getFullyQualifiedNamespace(), entityPath,
                 entityType, receiverOptions, connectionProcessor, ServiceBusConstants.OPERATION_TIMEOUT,
@@ -1494,7 +1496,7 @@ public final class ServiceBusClientBuilder implements
                 clientIdentifier = UUID.randomUUID().toString();
             }
 
-            final ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(ServiceBusTracer.getDefaultTracer(),
+            final ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(createTracer(),
                 createMeter(), connectionProcessor.getFullyQualifiedNamespace(), entityPath, subscriptionName, syncConsumer);
             return new ServiceBusSessionReceiverAsyncClient(connectionProcessor.getFullyQualifiedNamespace(),
                 entityPath, entityType, receiverOptions, connectionProcessor, instrumentation, messageSerializer,
@@ -1977,7 +1979,7 @@ public final class ServiceBusClientBuilder implements
                 clientIdentifier = UUID.randomUUID().toString();
             }
 
-            final ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(ServiceBusTracer.getDefaultTracer(),
+            final ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(createTracer(),
                 createMeter(), connectionProcessor.getFullyQualifiedNamespace(), entityPath, subscriptionName, syncConsumer);
             return new ServiceBusReceiverAsyncClient(connectionProcessor.getFullyQualifiedNamespace(), entityPath,
                 entityType, receiverOptions, connectionProcessor, ServiceBusConstants.OPERATION_TIMEOUT,
@@ -2073,5 +2075,10 @@ public final class ServiceBusClientBuilder implements
     private Meter createMeter() {
         return MeterProvider.getDefaultProvider().createMeter(LIBRARY_NAME, LIBRARY_VERSION,
                 clientOptions == null ? null : clientOptions.getMetricsOptions());
+    }
+
+    private Tracer createTracer() {
+        return TracerProvider.getDefaultProvider().createTracer(LIBRARY_NAME, LIBRARY_VERSION, AZ_TRACING_NAMESPACE_VALUE,
+            clientOptions == null ? null : clientOptions.getTracingOptions());
     }
 }

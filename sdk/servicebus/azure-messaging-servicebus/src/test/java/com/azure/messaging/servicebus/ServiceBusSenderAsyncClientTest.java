@@ -504,7 +504,7 @@ class ServiceBusSenderAsyncClientTest {
         when(tracer.start(eq("ServiceBus.send"), any(Context.class), eq(ProcessKind.SEND)))
             .thenReturn(span);
 
-        when(tracer.extractContext(any(), any(Context.class))).thenReturn(Context.NONE);
+        when(tracer.extractContext(anyString(), any(Context.class))).thenReturn(Context.NONE);
         when(tracer.start(eq("ServiceBus.message"), any(Context.class), any())).thenReturn(Context.NONE);
         when(tracer.getSharedSpanBuilder(eq("ServiceBus.send"), any(Context.class))).thenReturn(Context.NONE);
 
