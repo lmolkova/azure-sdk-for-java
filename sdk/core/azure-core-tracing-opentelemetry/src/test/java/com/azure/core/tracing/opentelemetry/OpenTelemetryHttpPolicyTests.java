@@ -168,7 +168,7 @@ public class OpenTelemetryHttpPolicyTests {
         Map<String, Object> httpAttributes = getAttributes(exportedSpans.get(0));
         assertEquals(5, httpAttributes.size());
 
-         assertEquals(response.getRequest().getHeaders().getValue("x-ms-client-request-id"), httpAttributes.get("az.client_request_id"));
+        assertEquals(response.getRequest().getHeaders().getValue("x-ms-client-request-id"), httpAttributes.get("az.client_request_id"));
         assertEquals(X_MS_REQUEST_ID_1, httpAttributes.get("az.service_request_id"));
 
         assertEquals("https://httpbin.org/hello?there#otel", httpAttributes.get("http.url"));

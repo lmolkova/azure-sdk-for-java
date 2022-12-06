@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
 package com.azure.core.tracing.opentelemetry;
 
 import com.azure.core.util.Context;
@@ -40,7 +41,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        assertFalse(((SpanContext)context.getData(SPAN_CONTEXT_KEY).get()).isValid());
+        assertFalse(((SpanContext) context.getData(SPAN_CONTEXT_KEY).get()).isValid());
     }
 
     @Test
@@ -51,7 +52,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        assertFalse(((SpanContext)context.getData(SPAN_CONTEXT_KEY).get()).isValid());
+        assertFalse(((SpanContext) context.getData(SPAN_CONTEXT_KEY).get()).isValid());
     }
 
     @Test
@@ -62,7 +63,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        SpanContext spanContext = (SpanContext)context.getData(SPAN_CONTEXT_KEY).get();
+        SpanContext spanContext = (SpanContext) context.getData(SPAN_CONTEXT_KEY).get();
         assertTrue(spanContext.isValid());
         assertEquals(spanContext.getTraceId(), "0af7651916cd43dd8448eb211c80319c");
         assertEquals(spanContext.getSpanId(), "b9c7c989f97918e1");
@@ -81,7 +82,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        SpanContext spanContext = (SpanContext)context.getData(SPAN_CONTEXT_KEY).get();
+        SpanContext spanContext = (SpanContext) context.getData(SPAN_CONTEXT_KEY).get();
         assertTrue(spanContext.isValid());
         TraceState state = spanContext.getTraceState();
 
@@ -102,7 +103,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        SpanContext spanContext = (SpanContext)context.getData(SPAN_CONTEXT_KEY).get();
+        SpanContext spanContext = (SpanContext) context.getData(SPAN_CONTEXT_KEY).get();
         assertTrue(spanContext.isValid());
         assertEquals(spanContext.getTraceId(), "0af7651916cd43dd8448eb211c80319c");
         assertEquals(spanContext.getSpanId(), "b9c7c989f97918e1");
@@ -117,7 +118,7 @@ public class ContextPropagationTests {
         // Assert
         assertNotNull(context);
         assertTrue(context.getData(SPAN_CONTEXT_KEY).isPresent());
-        SpanContext spanContext = (SpanContext)context.getData(SPAN_CONTEXT_KEY).get();
+        SpanContext spanContext = (SpanContext) context.getData(SPAN_CONTEXT_KEY).get();
         assertTrue(spanContext.isValid());
         assertEquals(spanContext.getTraceId(), "0af7651916cd43dd8448eb211c80319c");
         assertEquals(spanContext.getSpanId(), "b9c7c989f97918e1");
@@ -144,6 +145,7 @@ public class ContextPropagationTests {
     }
 
     @Test
+    @SuppressWarnings("try")
     public void injectTraceparentAndState() {
         // Arrange
         io.opentelemetry.api.trace.Tracer otelTracer = TRACER_PROVIDER.get("test");

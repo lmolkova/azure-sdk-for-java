@@ -184,7 +184,9 @@ public abstract class RestProxyBase {
             return context;
         }
 
-        return tracer.start(method.getSpanName(), context);
+        Object tracingContextObj = context.getData("TRACING_CONTEXT").orElse(null);
+        Context tracingContext = tracingContextObj instanceof Context ? (Context) tracingContextObj : context;
+        return tracer.start(method.getSpanName(), tracingContext);
     }
 
     // This handles each onX for the response mono.

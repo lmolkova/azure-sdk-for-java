@@ -17,6 +17,7 @@ final class DefaultTracerProvider implements TracerProvider {
     private static final RuntimeException ERROR;
     private static final ClientLogger LOGGER = new ClientLogger(DefaultTracerProvider.class);
     private static TracerProvider tracerProvider;
+    private static Tracer fallbackTracer;
 
     private DefaultTracerProvider() {
     }
@@ -49,7 +50,21 @@ final class DefaultTracerProvider implements TracerProvider {
             }
         } else {
             ERROR = null;
+            fallbackTracer = createFallbackTracer();
         }
+    }
+
+    private static Tracer createFallbackTracer() {
+        // backward compatibility with preview OTel plugin - it didn't have TracerProvider
+        ServiceLoader<Tracer> serviceLoader = ServiceLoader.load(Tracer.class, Tracer.class.getClassLoader());
+        Iterator<Tracer> iterator = serviceLoader.iterator();
+        if (iterator.hasNext()) {
+            Tracer tracer = iterator.next();
+            LOGGER.info("Found Tracer implementation on the classpath: {}", tracer.getClass().getName());
+            return tracer;
+        }
+
+        return null;
     }
 
     static TracerProvider getInstance() {
@@ -63,8 +78,14 @@ final class DefaultTracerProvider implements TracerProvider {
     public Tracer createTracer(String libraryName, String libraryVersion, String azNamespace, TracingOptions options) {
         Objects.requireNonNull(libraryName, "'libraryName' cannot be null.");
 
-        if (tracerProvider != null && (options == null || options.isEnabled())) {
+        if (options != null && !options.isEnabled()) {
+            return NoopTracer.INSTANCE;
+        }
+
+        if (tracerProvider != null) {
             return tracerProvider.createTracer(libraryName, libraryVersion, azNamespace, options);
+        } else if (fallbackTracer != null) {
+            return fallbackTracer;
         }
 
         return NoopTracer.INSTANCE;

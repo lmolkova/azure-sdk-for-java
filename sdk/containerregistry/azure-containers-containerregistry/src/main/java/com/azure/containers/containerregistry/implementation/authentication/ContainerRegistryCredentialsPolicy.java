@@ -10,6 +10,7 @@ import com.azure.core.http.HttpPipelineNextPolicy;
 import com.azure.core.http.HttpPipelineNextSyncPolicy;
 import com.azure.core.http.HttpResponse;
 import com.azure.core.http.policy.BearerTokenAuthenticationPolicy;
+import com.azure.core.util.FluxUtil;
 import com.azure.core.util.logging.ClientLogger;
 import reactor.core.publisher.Mono;
 
@@ -146,8 +147,9 @@ public final class ContainerRegistryCredentialsPolicy extends BearerTokenAuthent
                 if (extractedChallengeParams != null && extractedChallengeParams.containsKey(SCOPES_PARAMETER)) {
                     String scope = extractedChallengeParams.get(SCOPES_PARAMETER);
                     String serviceName = extractedChallengeParams.get(SERVICE_PARAMETER);
-                    return setAuthorizationHeader(context, new ContainerRegistryTokenRequestContext(serviceName, scope))
-                        .then(Mono.defer(() -> Mono.just(true)));
+                    // TODO HERE~!!!!!!
+                    return FluxUtil.withContext(ctx -> setAuthorizationHeader(context, new ContainerRegistryTokenRequestContext(serviceName, scope))
+                        .then(Mono.defer(() -> Mono.just(true))));
                 }
 
                 return Mono.just(false);

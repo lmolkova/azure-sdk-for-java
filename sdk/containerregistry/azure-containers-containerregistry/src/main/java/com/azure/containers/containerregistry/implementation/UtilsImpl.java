@@ -40,6 +40,7 @@ import com.azure.core.util.TracingOptions;
 import com.azure.core.util.builder.ClientBuilderUtil;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.serializer.JacksonAdapter;
+import com.azure.core.util.tracing.Tracer;
 import com.azure.core.util.tracing.TracerProvider;
 import reactor.core.publisher.Mono;
 
@@ -129,10 +130,7 @@ public final class UtilsImpl {
         policies.add(new CookiePolicy());
         policies.add(new AddDatePolicy());
         policies.add(new ContainerRegistryRedirectPolicy());
-
         policies.addAll(perRetryPolicies);
-        HttpPolicyProviders.addAfterRetryPolicies(policies);
-        HttpLoggingPolicy loggingPolicy = new HttpLoggingPolicy(logOptions);
 
         // We generally put credential policy between BeforeRetry and AfterRetry policies and put Logging policy in the end.
         // However since ACR uses the rest endpoints of the service in the credential policy,
@@ -143,6 +141,9 @@ public final class UtilsImpl {
         }
 
         ArrayList<HttpPipelinePolicy> credentialPolicies = clone(policies);
+
+        HttpLoggingPolicy loggingPolicy = new HttpLoggingPolicy(logOptions);
+        HttpPolicyProviders.addAfterRetryPolicies(credentialPolicies);
         credentialPolicies.add(loggingPolicy);
 
         if (audience == null)  {
@@ -150,7 +151,7 @@ public final class UtilsImpl {
         }
 
         TracingOptions tracingOptions = clientOptions == null ? null : clientOptions.getTracingOptions();
-
+        Tracer tracer = TracerProvider.getDefaultProvider().createTracer(CLIENT_NAME, CLIENT_VERSION, CONTAINER_REGISTRY_TRACING_NAMESPACE_VALUE, tracingOptions);
         ContainerRegistryTokenService tokenService = new ContainerRegistryTokenService(
             credential,
             audience,
@@ -159,18 +160,19 @@ public final class UtilsImpl {
             new HttpPipelineBuilder()
                 .policies(credentialPolicies.toArray(new HttpPipelinePolicy[0]))
                 .httpClient(httpClient)
+                .tracer(tracer)
                 .build(),
             JacksonAdapter.createDefaultSerializerAdapter());
 
         ContainerRegistryCredentialsPolicy credentialsPolicy = new ContainerRegistryCredentialsPolicy(tokenService);
         policies.add(credentialsPolicy);
-
+        HttpPolicyProviders.addAfterRetryPolicies(policies);
         policies.add(loggingPolicy);
         HttpPipeline httpPipeline =
             new HttpPipelineBuilder()
                 .policies(policies.toArray(new HttpPipelinePolicy[0]))
                 .httpClient(httpClient)
-                .tracer(TracerProvider.getDefaultProvider().createTracer(CLIENT_NAME, CLIENT_VERSION, CONTAINER_REGISTRY_TRACING_NAMESPACE_VALUE, tracingOptions))
+                .tracer(tracer)
                 .build();
         return httpPipeline;
     }

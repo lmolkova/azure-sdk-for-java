@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package com.azure.core.tracing.opentelemetry;
 
 import com.azure.core.http.HttpMethod;
@@ -37,9 +40,9 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
 public class OpenTelemetryTracingBenchmark {
-    private static HttpPipeline NO_TRACING_PIPELINE = createPipeline(configureTracer(false), false);
-    private static HttpPipeline DISABLED_TRACING_PIPELINE = createPipeline(configureTracer(false), true);
-    private static HttpPipeline PIPELINE = createPipeline(configureTracer(true), true);
+    private static final HttpPipeline NO_TRACING_PIPELINE = createPipeline(configureTracer(false), false);
+    private static final HttpPipeline DISABLED_TRACING_PIPELINE = createPipeline(configureTracer(false), true);
+    private static final HttpPipeline PIPELINE = createPipeline(configureTracer(true), true);
 
     @Benchmark
     public void noHttpTracing() {
@@ -84,9 +87,7 @@ public class OpenTelemetryTracingBenchmark {
             new OpenTelemetryTracingOptions().setProvider(provider));
     }
 
-    static class NoopProcessor implements SpanProcessor
-    {
-
+    static class NoopProcessor implements SpanProcessor {
         @Override
         public void onStart(Context context, ReadWriteSpan readWriteSpan) {
         }

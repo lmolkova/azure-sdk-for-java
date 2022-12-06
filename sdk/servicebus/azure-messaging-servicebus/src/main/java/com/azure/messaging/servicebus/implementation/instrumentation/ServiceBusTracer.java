@@ -4,13 +4,12 @@
 package com.azure.messaging.servicebus.implementation.instrumentation;
 
 import com.azure.core.amqp.exception.AmqpException;
-import com.azure.core.util.Configuration;
 import com.azure.core.util.Context;
 import com.azure.core.util.logging.ClientLogger;
-import com.azure.core.util.tracing.Link;
 import com.azure.core.util.tracing.SpanKind;
 import com.azure.core.util.tracing.StartSpanOptions;
 import com.azure.core.util.tracing.Tracer;
+import com.azure.core.util.tracing.TracingLink;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 import reactor.core.publisher.Flux;
@@ -21,23 +20,16 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
-import static com.azure.core.util.tracing.Tracer.DIAGNOSTIC_ID_KEY;
 import static com.azure.core.util.tracing.Tracer.ENTITY_PATH_KEY;
 import static com.azure.core.util.tracing.Tracer.HOST_NAME_KEY;
-import static com.azure.core.util.tracing.Tracer.MESSAGE_ENQUEUED_TIME;
 import static com.azure.core.util.tracing.Tracer.SPAN_CONTEXT_KEY;
-import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.AZ_TRACING_NAMESPACE_VALUE;
 
 /**
  * Tracing helper.
@@ -50,6 +42,8 @@ public class ServiceBusTracer {
     };
     private static final ClientLogger LOGGER = new ClientLogger(ServiceBusTracer.class);
     protected static final String TRACEPARENT_KEY = "traceparent";
+    private static final String MESSAGE_ENQUEUED_TIME = "x-opt-enqueued-time";
+    private static final String DIAGNOSTIC_ID_KEY = "Diagnostic-Id";
 
 
     protected final Tracer tracer;
@@ -277,8 +271,7 @@ public class ServiceBusTracer {
                 options.setAttribute(MESSAGE_ENQUEUED_TIME, message.getEnqueuedTime().toInstant().atOffset(ZoneOffset.UTC).toEpochSecond());
             }
 
-            // TODO remote none (invalid), parent (ambient) is there
-            Context messageTraceContext = tracer.extractContext(name -> getStringValue(name, message.getApplicationProperties()), Context.NONE);
+            Context messageTraceContext = tracer.extractContext(name -> getStringValue(name, message.getApplicationProperties()));
             options.setRemoteParent(messageTraceContext);
 
             return tracer.start(spanName, options, parent);
@@ -308,10 +301,10 @@ public class ServiceBusTracer {
         }
 
         if (!messageContext.getData(SPAN_CONTEXT_KEY).isPresent()) {
-            messageContext = tracer.extractContext(name -> getStringValue(name, applicationProperties), messageContext);
+            messageContext = tracer.extractContext(name -> getStringValue(name, applicationProperties));
         }
 
-        spanBuilder.addLink(new Link(messageContext, linkAttributes));
+        spanBuilder.addLink(new TracingLink(messageContext, linkAttributes));
     }
 
     private static String getStringValue(String name, Map<String, Object> applicationProperties) {
@@ -321,8 +314,7 @@ public class ServiceBusTracer {
 
     private StartSpanOptions createOptionsWithCommonAttributes(SpanKind kind) {
         return new StartSpanOptions(kind).setAttribute(ENTITY_PATH_KEY, entityPath)
-            .setAttribute(HOST_NAME_KEY, fullyQualifiedName)
-            .setAttribute(AZ_TRACING_NAMESPACE_KEY, AZ_TRACING_NAMESPACE_VALUE);
+            .setAttribute(HOST_NAME_KEY, fullyQualifiedName);
     }
 
     private <T> void endSpan(Signal<T> signal) {

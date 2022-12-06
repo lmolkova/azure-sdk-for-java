@@ -138,15 +138,13 @@ public class OpenTelemetryTracerTest {
         final String parentSpanId = parentSpan.getSpanContext().getSpanId();
 
         // Act
-        final Context updatedContext = openTelemetryTracer.start(METHOD_NAME,
-            tracingContext.addData(AZ_TRACING_NAMESPACE_KEY, AZ_NAMESPACE_VALUE));
+        final Context span = openTelemetryTracer.start(METHOD_NAME, tracingContext);
 
         // Assert
-        assertSpanWithExplicitParent(updatedContext, parentSpanId);
-        final ReadableSpan recordEventsSpan = getSpan(updatedContext);
-        assertEquals(SpanKind.INTERNAL, recordEventsSpan.toSpanData().getKind());
-        final Attributes attributeMap = recordEventsSpan.toSpanData().getAttributes();
-        assertEquals(attributeMap.get(AttributeKey.stringKey(AZ_TRACING_NAMESPACE_KEY)), AZ_NAMESPACE_VALUE);
+        final SpanData spanData = assertSpanWithExplicitParent(span, parentSpanId).toSpanData();
+        assertEquals(SpanKind.INTERNAL, spanData.getKind());
+        final Attributes attributeMap = spanData.getAttributes();
+        assertEquals(attributeMap.get(AttributeKey.stringKey("az.namespace")), AZ_NAMESPACE_VALUE);
     }
 
     @Test
@@ -453,11 +451,27 @@ public class OpenTelemetryTracerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void startSpanOverloadNullPointerException() {
 
         // Assert
         assertThrows(NullPointerException.class, () ->
             openTelemetryTracer.start("", Context.NONE, null));
+    }
+
+    @Test
+    public void startSpanInvalid() {
+        assertThrows(NullPointerException.class, () ->
+            openTelemetryTracer.start(null, Context.NONE));
+        assertThrows(NullPointerException.class, () ->
+            openTelemetryTracer.start("span", null));
+        assertThrows(NullPointerException.class, () ->
+            openTelemetryTracer.start("span", null, Context.NONE));
+        assertThrows(NullPointerException.class, () ->
+            openTelemetryTracer.start(null, new StartSpanOptions(com.azure.core.util.tracing.SpanKind.CONSUMER), Context.NONE));
+        assertThrows(NullPointerException.class, () ->
+            openTelemetryTracer.start("span", new StartSpanOptions(com.azure.core.util.tracing.SpanKind.CONSUMER), null));
+
     }
 
     @Test
@@ -687,8 +701,8 @@ public class OpenTelemetryTracerTest {
                 put("attr2", true);
                 put("attr3", 1L);
                 put("attr4", 2);
-                put("attr5", (short)3);
-                put("attr6", (byte)4);
+                put("attr5", (short) 3);
+                put("attr6", (byte) 4);
                 put("attr7", 1.0);
                 put("attr8", 2F);
                 put("attr9", new double[] {1.0, 2.0, 3.0});
@@ -907,6 +921,7 @@ public class OpenTelemetryTracerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void suppressNestedInterleavedClientSpan() {
         Context outer = openTelemetryTracer.start("outer", Context.NONE, com.azure.core.util.tracing.ProcessKind.SEND);
 
@@ -997,13 +1012,13 @@ public class OpenTelemetryTracerTest {
 
     private static Stream<Arguments> spanKinds() {
         return Stream.of(
-            Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CLIENT, false),
+            Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CLIENT, true),
+            Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.INTERNAL, true),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.INTERNAL, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.PRODUCER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CONSUMER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.SERVER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.CLIENT, false),
-            Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.INTERNAL, true),
             Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.PRODUCER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.CONSUMER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.SERVER, false),
@@ -1082,6 +1097,7 @@ public class OpenTelemetryTracerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void startSendSpanWithoutBuilder() {
         Context outer = openTelemetryTracer.start("outer", new StartSpanOptions(com.azure.core.util.tracing.SpanKind.SERVER), Context.NONE);
         Context sendNoBuilder = openTelemetryTracer.start("sendNoBuilder", outer, com.azure.core.util.tracing.ProcessKind.SEND);
@@ -1098,6 +1114,44 @@ public class OpenTelemetryTracerTest {
         assertEquals(sendNoBuilderSpan.getParentSpanId(), outerSpan.getSpanContext().getSpanId());
     }
 
+    @Test
+    public void invalidParent() {
+        Context explicitInvalidParent = new Context(PARENT_TRACE_CONTEXT_KEY, Span.wrap(SpanContext.getInvalid()));
+        Span outer = tracer.spanBuilder("outer").startSpan();
+        try (Scope scope = outer.makeCurrent()) {
+            Context inner = openTelemetryTracer.start("inner", explicitInvalidParent);
+            openTelemetryTracer.end("ok", null, inner);
+            outer.end();
+        }
+
+        assertEquals(2, testExporter.getFinishedSpanItems().size());
+
+        SpanData innerSpan = testExporter.getFinishedSpanItems().get(0);
+        SpanData outerSpan = testExporter.getFinishedSpanItems().get(1);
+        assertEquals(innerSpan.getSpanContext().getTraceId(), outerSpan.getSpanContext().getTraceId());
+        assertEquals(innerSpan.getParentSpanId(), outerSpan.getSpanContext().getSpanId());
+    }
+
+    @Test
+    public void invalidRemoteParent() {
+        Context explicitInvalidParent = new Context(SPAN_CONTEXT_KEY, SpanContext.getInvalid());
+        Span outer = tracer.spanBuilder("outer").startSpan();
+        try (Scope scope = outer.makeCurrent()) {
+            StartSpanOptions options = new StartSpanOptions(com.azure.core.util.tracing.SpanKind.CONSUMER)
+                .setRemoteParent(explicitInvalidParent);
+            Context inner = openTelemetryTracer.start("inner", options, Context.NONE);
+            openTelemetryTracer.end("ok", null, inner);
+            outer.end();
+        }
+
+        assertEquals(2, testExporter.getFinishedSpanItems().size());
+
+        SpanData innerSpan = testExporter.getFinishedSpanItems().get(0);
+        SpanData outerSpan = testExporter.getFinishedSpanItems().get(1);
+        assertEquals(innerSpan.getSpanContext().getTraceId(), outerSpan.getSpanContext().getTraceId());
+        assertEquals(innerSpan.getParentSpanId(), outerSpan.getSpanContext().getSpanId());
+    }
+
     private static ReadableSpan getSpan(Context context) {
         Optional<Object> otelCtx =  context.getData(PARENT_TRACE_CONTEXT_KEY);
         assertTrue(otelCtx.isPresent());
@@ -1109,27 +1163,27 @@ public class OpenTelemetryTracerTest {
         return (ReadableSpan) span;
     }
 
-    private static ReadableSpan assertSpanWithExplicitParent(Context updatedContext, String parentSpanId) {
-        final ReadableSpan recordEventsSpan = getSpan(updatedContext);
+    private static ReadableSpan assertSpanWithExplicitParent(Context context, String parentSpanId) {
+        final ReadableSpan span = getSpan(context);
 
-        assertEquals(METHOD_NAME, recordEventsSpan.getName());
+        assertEquals(METHOD_NAME, span.getName());
 
         // verify span started with explicit parent
-        assertFalse(recordEventsSpan.toSpanData().getParentSpanContext().isRemote());
-        assertEquals(parentSpanId, recordEventsSpan.toSpanData().getParentSpanId());
-        return recordEventsSpan;
+        assertFalse(span.toSpanData().getParentSpanContext().isRemote());
+        assertEquals(parentSpanId, span.toSpanData().getParentSpanId());
+        return span;
     }
 
-    private static ReadableSpan assertSpanWithRemoteParent(Context updatedContext, String parentSpanId) {
-        final ReadableSpan recordEventsSpan = getSpan(updatedContext);
+    private static ReadableSpan assertSpanWithRemoteParent(Context context, String parentSpanId) {
+        final ReadableSpan span = getSpan(context);
 
-        assertEquals(METHOD_NAME, recordEventsSpan.getName());
-        assertEquals(SpanKind.CONSUMER, recordEventsSpan.toSpanData().getKind());
+        assertEquals(METHOD_NAME, span.getName());
+        assertEquals(SpanKind.CONSUMER, span.toSpanData().getKind());
 
         // verify span started with remote parent
-        assertTrue(recordEventsSpan.toSpanData().getParentSpanContext().isRemote());
-        assertEquals(parentSpanId, recordEventsSpan.toSpanData().getParentSpanId());
-        return recordEventsSpan;
+        assertTrue(span.toSpanData().getParentSpanContext().isRemote());
+        assertEquals(parentSpanId, span.toSpanData().getParentSpanId());
+        return span;
     }
 
     private static void verifySpanAttributes(Map<String, Object> expectedMap, Attributes actualAttributeMap) {
