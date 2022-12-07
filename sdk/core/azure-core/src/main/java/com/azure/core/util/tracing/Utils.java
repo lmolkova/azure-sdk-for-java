@@ -4,6 +4,7 @@
 package com.azure.core.util.tracing;
 
 import com.azure.core.util.Context;
+import com.azure.core.util.logging.ClientLogger;
 
 import static com.azure.core.util.tracing.Tracer.ENTITY_PATH_KEY;
 import static com.azure.core.util.tracing.Tracer.HOST_NAME_KEY;
@@ -13,6 +14,9 @@ final class Utils {
 
     static final String SPAN_KIND_KEY = "span-kind";
     static final String START_TIME_KEY = "span-start-time";
+
+    static final AutoCloseable NOOP_CLOSEABLE = () -> { };
+    static final ClientLogger LOGGER = new ClientLogger(Utils.class);
 
     private Utils() {
     }

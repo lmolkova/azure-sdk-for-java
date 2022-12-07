@@ -57,6 +57,7 @@ public class AsyncRestProxy extends RestProxyBase {
     }
 
     @Override
+    @SuppressWarnings("try")
     public Object invoke(Object proxy, Method method, RequestOptions options, EnumSet<ErrorOptions> errorOptions,
         Consumer<HttpRequest> requestCallback, SwaggerMethodParser methodParser, HttpRequest request, Context context) {
         RestProxyUtils.validateResumeOperationIsNotPresent(method);
@@ -71,8 +72,14 @@ public class AsyncRestProxy extends RestProxyBase {
 
         final Context finalContext = context;
         final Mono<HttpResponse> asyncResponse = RestProxyUtils.validateLengthAsync(request)
-            .flatMap(r -> send(r, finalContext));
-
+            .flatMap(r -> {
+                try (AutoCloseable scope = tracer.makeSpanCurrent(finalContext)) {
+                    return send(r, finalContext);
+                } catch (Throwable ex) {
+                    // do nothing
+                    return Mono.error(ex);
+                }
+            });
         Mono<HttpResponseDecoder.HttpDecodedResponse> asyncDecodedResponse = this.decoder
             .decode(asyncResponse, methodParser);
 

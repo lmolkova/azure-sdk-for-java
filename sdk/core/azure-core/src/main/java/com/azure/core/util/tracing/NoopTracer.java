@@ -4,13 +4,11 @@
 package com.azure.core.util.tracing;
 
 import com.azure.core.util.Context;
-import com.azure.core.util.logging.ClientLogger;
 
 import java.util.Objects;
 
 class NoopTracer implements Tracer {
     static final Tracer INSTANCE = new NoopTracer();
-    static final ClientLogger LOGGER = new ClientLogger(NoopTracer.class);
 
     @Override
     public Context start(String spanName, Context context) {
@@ -35,5 +33,10 @@ class NoopTracer implements Tracer {
     @Override
     public boolean isEnabled() {
         return false;
+    }
+
+    @Override
+    public AutoCloseable makeSpanCurrent(Context context) {
+        return Utils.NOOP_CLOSEABLE;
     }
 }

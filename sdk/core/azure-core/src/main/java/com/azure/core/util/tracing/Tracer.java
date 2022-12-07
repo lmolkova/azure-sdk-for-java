@@ -237,7 +237,7 @@ public interface Tracer {
                 if (spanBuilder == null) {
                     // we can't return context here, because caller would not know that span was not created.
                     // it will add attributes or events to parent span and end parent span.
-                    NoopTracer.LOGGER.atWarning()
+                    Utils.LOGGER.atWarning()
                         .addKeyValue("spanName", spanName)
                         .addKeyValue("processKind", processKind)
                         .log("Start span is called without builder on the context, creating default builder.");
@@ -268,7 +268,7 @@ public interface Tracer {
                 addMessagingAttributes(spanBuilder, context);
                 return start(spanName, spanBuilder,  context);
             default:
-                NoopTracer.LOGGER.atWarning()
+                Utils.LOGGER.atWarning()
                     .addKeyValue("spanName", spanName)
                     .addKeyValue("processKind", processKind)
                     .log("Start span is called with unknown process kind, suppressing the span.");

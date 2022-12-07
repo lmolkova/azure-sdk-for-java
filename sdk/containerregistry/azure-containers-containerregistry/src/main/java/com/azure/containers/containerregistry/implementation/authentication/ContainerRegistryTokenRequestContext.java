@@ -4,6 +4,7 @@
 package com.azure.containers.containerregistry.implementation.authentication;
 
 import com.azure.core.credential.TokenRequestContext;
+import com.azure.core.util.Context;
 
 /**
  * A token request context associated with a given container registry token.
@@ -11,15 +12,17 @@ import com.azure.core.credential.TokenRequestContext;
 public class ContainerRegistryTokenRequestContext extends TokenRequestContext {
     private final String scope;
     private final String serviceName;
+    private final Context context;
 
     /**
      * Creates an instance of TokenRequestContext.
      * @param serviceName the service name of the registry.
      * @param scope token scope.
      */
-    public ContainerRegistryTokenRequestContext(String serviceName, String scope) {
+    public ContainerRegistryTokenRequestContext(String serviceName, String scope, Context context) {
         this.serviceName = serviceName;
         this.scope = scope;
+        this.context = context;
     }
 
     /**
@@ -36,5 +39,9 @@ public class ContainerRegistryTokenRequestContext extends TokenRequestContext {
      */
     public String getScope() {
         return this.scope;
+    }
+
+    public Context getContext() {
+        return this.context;
     }
 }

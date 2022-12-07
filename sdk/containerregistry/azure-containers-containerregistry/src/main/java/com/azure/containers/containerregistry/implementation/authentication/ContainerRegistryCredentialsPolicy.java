@@ -148,7 +148,7 @@ public final class ContainerRegistryCredentialsPolicy extends BearerTokenAuthent
                     String scope = extractedChallengeParams.get(SCOPES_PARAMETER);
                     String serviceName = extractedChallengeParams.get(SERVICE_PARAMETER);
                     // TODO HERE~!!!!!!
-                    return FluxUtil.withContext(ctx -> setAuthorizationHeader(context, new ContainerRegistryTokenRequestContext(serviceName, scope))
+                    return FluxUtil.withContext(ctx -> setAuthorizationHeader(context, new ContainerRegistryTokenRequestContext(serviceName, scope, context.getContext()))
                         .then(Mono.defer(() -> Mono.just(true))));
                 }
 
@@ -233,7 +233,7 @@ public final class ContainerRegistryCredentialsPolicy extends BearerTokenAuthent
             if (extractedChallengeParams != null && extractedChallengeParams.containsKey(SCOPES_PARAMETER)) {
                 String scope = extractedChallengeParams.get(SCOPES_PARAMETER);
                 String serviceName = extractedChallengeParams.get(SERVICE_PARAMETER);
-                setAuthorizationHeaderSync(context, new ContainerRegistryTokenRequestContext(serviceName, scope));
+                setAuthorizationHeaderSync(context, new ContainerRegistryTokenRequestContext(serviceName, scope, context.getContext()));
                 return true;
             }
 
