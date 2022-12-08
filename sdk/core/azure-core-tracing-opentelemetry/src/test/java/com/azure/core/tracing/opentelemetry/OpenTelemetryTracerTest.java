@@ -1012,8 +1012,8 @@ public class OpenTelemetryTracerTest {
 
     private static Stream<Arguments> spanKinds() {
         return Stream.of(
-            Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CLIENT, true),
             Arguments.of(com.azure.core.util.tracing.SpanKind.INTERNAL, com.azure.core.util.tracing.SpanKind.INTERNAL, true),
+            Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CLIENT, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.INTERNAL, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.PRODUCER, false),
             Arguments.of(com.azure.core.util.tracing.SpanKind.CLIENT, com.azure.core.util.tracing.SpanKind.CONSUMER, false),
