@@ -46,7 +46,6 @@ public class TracerProviderTest {
 
         Map<String, Object> attributes = optionsCaptor.getValue().getAttributes();
 
-        assertThat(attributes.get("az.namespace")).isEqualTo("Microsoft.DocumentDB");
         assertThat(attributes.get("db.type")).isEqualTo("Cosmos");
         assertThat(attributes.get("db.url")).isEqualTo(endpoint);
         assertThat(attributes.get("db.statement")).isEqualTo(methodName);
@@ -61,7 +60,8 @@ public class TracerProviderTest {
         Tracer tracerMock = Mockito.mock(Tracer.class);
         TracerProvider provider = new TracerProvider(tracerMock, false, false);
         provider.endSpan(Signal.complete(reactorContext), 200);
-        verify(tracerMock, times(1)).end(eq(200), isNull(),  eq(sdkContext));
+        verify(tracerMock, times(1)).setAttribute(eq("db.cosmosdb.status_code"), eq(200L), eq(sdkContext));
+        verify(tracerMock, times(1)).end(isNull(), isNull(),  eq(sdkContext));
     }
 
     @Test(groups = { "unit" })
@@ -73,7 +73,8 @@ public class TracerProviderTest {
         TracerProvider provider = new TracerProvider(tracerMock, false, false);
         Exception ex = new Exception("foo");
         provider.endSpan(Signal.error(ex, reactorContext), 500);
-        verify(tracerMock, times(1)).end(eq(500), eq(ex),  eq(sdkContext));
+        verify(tracerMock, times(1)).setAttribute(eq("db.cosmosdb.status_code"), eq(500L), eq(sdkContext));
+        verify(tracerMock, times(1)).end(isNull(), eq(ex),  eq(sdkContext));
     }
 
     @Test(groups = { "unit" })
@@ -85,7 +86,8 @@ public class TracerProviderTest {
         TracerProvider provider = new TracerProvider(tracerMock, false, false);
         Exception ex = new ServiceUnavailableException();
         provider.endSpan(Signal.error(ex, reactorContext), -1);
-        verify(tracerMock, times(1)).end(eq(503), eq(ex),  eq(sdkContext));
+        verify(tracerMock, times(1)).setAttribute(eq("db.cosmosdb.status_code"), eq(503L), eq(sdkContext));
+        verify(tracerMock, times(1)).end(isNull(), eq(ex),  eq(sdkContext));
     }
 
     @Test(groups = { "unit" })
@@ -110,7 +112,8 @@ public class TracerProviderTest {
         ArgumentCaptor<StartSpanOptions> optionsCaptor = ArgumentCaptor.forClass(StartSpanOptions.class);
         verify(tracerMock, times(1)).start(anyString(), optionsCaptor.capture(), any(Context.class));
         verify(tracerMock, times(1)).makeSpanCurrent(eq(sdkContext));
-        verify(tracerMock, times(1)).end(eq(412), any(), eq(sdkContext));
+        verify(tracerMock, times(1)).setAttribute(eq("db.cosmosdb.status_code"), eq(412L), eq(sdkContext));
+        verify(tracerMock, times(1)).end(eq("error"), isNull(), eq(sdkContext));
         assertThat(closed.get()).isTrue();
     }
 
@@ -134,7 +137,9 @@ public class TracerProviderTest {
 
         verify(tracerMock, times(1)).start(anyString(), any(StartSpanOptions.class), any(Context.class));
         verify(tracerMock, times(1)).makeSpanCurrent(any());
-        verify(tracerMock, times(1)).end(eq(400), eq(ex), any());
+
+        verify(tracerMock, times(1)).setAttribute(eq("db.cosmosdb.status_code"), eq(400L), any());
+        verify(tracerMock, times(1)).end(isNull(), eq(ex), any());
         assertThat(closed.get()).isTrue();
     }
 

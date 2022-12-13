@@ -4,6 +4,7 @@
 package com.azure.cosmos.implementation;
 
 import com.azure.core.http.ProxyOptions;
+import com.azure.core.util.TracingOptions;
 import com.azure.cosmos.BridgeInternal;
 import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosAsyncClient;
@@ -1118,6 +1119,7 @@ public class ImplementationBridgeHelpers {
             Boolean isSendClientTelemetryToServiceEnabled(CosmosClientTelemetryConfig config);
             boolean isClientMetricsEnabled(CosmosClientTelemetryConfig config);
             void resetIsSendClientTelemetryToServiceEnabled(CosmosClientTelemetryConfig config);
+            TracingOptions getTracingOptions(CosmosClientTelemetryConfig config);
             CosmosClientTelemetryConfig createSnapshot(
                 CosmosClientTelemetryConfig config,
                 boolean effectiveIsClientTelemetryEnabled);

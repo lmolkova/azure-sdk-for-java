@@ -42,8 +42,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
-
 public class TracerProvider {
     private Tracer tracer;
     private static final Logger LOGGER = LoggerFactory.getLogger(TracerProvider.class);
@@ -134,7 +132,6 @@ public class TracerProvider {
         Context local = Objects.requireNonNull(context, "'context' cannot be null.");
 
         StartSpanOptions spanOptions = new StartSpanOptions(SpanKind.CLIENT)
-            .setAttribute(AZ_TRACING_NAMESPACE_KEY, RESOURCE_PROVIDER_NAME)
             .setAttribute(DB_TYPE, DB_TYPE_VALUE)
             .setAttribute(TracerProvider.DB_URL, endpoint)
             .setAttribute(TracerProvider.DB_STATEMENT, methodName);
@@ -255,7 +252,7 @@ public class TracerProvider {
 
     /**
      * Runs given {@code Flux<T>} publisher in the scope of trace context passed in using
-     * {@link TracerProvider#setContextInReactor(Context, reactor.util.context.Context)} in {@code contextWrite}
+     * {@link TracerProvider#setContextInReactor(Context)} (Context, reactor.util.context.Context)} in {@code contextWrite}
      * Populates active trace context on Reactor's hot path. Reactor's instrumentation for OpenTelemetry
      * (or other hypothetical solution) will take care of the cold path.
      *
@@ -418,16 +415,22 @@ public class TracerProvider {
     }
 
     private void end(int statusCode, Throwable throwable, Context context) {
-        if (throwable != null) {
-            if (throwable instanceof CosmosException) {
-                CosmosException cosmosException = (CosmosException) throwable;
-                if (statusCode == HttpConstants.StatusCodes.NOTFOUND && cosmosException.getSubStatusCode() == 0) {
-                    tracer.end(statusCode, null, context);
-                    return;
-                }
+        tracer.setAttribute("db.cosmosdb.status_code", statusCode, context);
+        if (throwable == null ) {
+            String errorMessage = (statusCode >= 400) ? "error" : null;
+            tracer.end(errorMessage, null, context);
+            return;
+        }
+
+        if (throwable instanceof CosmosException) {
+            CosmosException cosmosException = (CosmosException) throwable;
+            if (statusCode != HttpConstants.StatusCodes.NOTFOUND && cosmosException.getSubStatusCode() != 0) {
+                tracer.end(null, throwable, context);
+                return;
             }
         }
-        tracer.end(statusCode, throwable, context);
+
+        tracer.end(null, throwable, context);
     }
 
     private void fillClientTelemetry(CosmosAsyncClient cosmosAsyncClient,

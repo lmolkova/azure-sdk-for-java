@@ -5,6 +5,7 @@ package com.azure.cosmos.models;
 
 import com.azure.core.http.ProxyOptions;
 import com.azure.core.util.MetricsOptions;
+import com.azure.core.util.TracingOptions;
 import com.azure.cosmos.CosmosClient;
 import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.implementation.Configs;
@@ -59,6 +60,7 @@ public final class CosmosClientTelemetryConfig {
     private EnumSet<TagName> metricTagNames = DEFAULT_TAGS;
     private MeterRegistry clientMetricRegistry = null;
     private boolean isClientMetricsEnabled = false;
+    private TracingOptions tracingOptions;
 
     CosmosClientTelemetryConfig(CosmosClientTelemetryConfig toBeCopied, boolean effectiveIsClientTelemetryEnabled) {
         this.httpNetworkRequestTimeout = toBeCopied.httpNetworkRequestTimeout;
@@ -124,6 +126,13 @@ public final class CosmosClientTelemetryConfig {
         this.clientMetricRegistry = micrometerMetricsOptions.getClientMetricRegistry();
         this.isClientMetricsEnabled = micrometerMetricsOptions.isEnabled();
 
+        return this;
+    }
+
+    public CosmosClientTelemetryConfig tracingOptions(TracingOptions clientTracingOptions) {
+        checkNotNull(clientTracingOptions, "expected non-null clientTracingOptions");
+
+        this.tracingOptions = clientTracingOptions;
         return this;
     }
 
@@ -221,6 +230,9 @@ public final class CosmosClientTelemetryConfig {
         return this.proxy;
     }
 
+    TracingOptions getTracingOptions() {
+        return tracingOptions;
+    }
     private ProxyOptions getProxyOptions() {
         String config = Configs.getClientTelemetryProxyOptionsConfig();
 
@@ -351,6 +363,11 @@ public final class CosmosClientTelemetryConfig {
                 public void resetIsSendClientTelemetryToServiceEnabled(CosmosClientTelemetryConfig config) {
 
                     config.resetIsSendClientTelemetryToServiceEnabled();
+                }
+
+                @Override
+                public TracingOptions getTracingOptions(CosmosClientTelemetryConfig config) {
+                    return config.getTracingOptions();
                 }
             });
     }

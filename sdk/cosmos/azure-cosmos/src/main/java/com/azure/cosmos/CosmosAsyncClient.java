@@ -77,7 +77,7 @@ public final class CosmosAsyncClient implements Closeable {
     private final CosmosClientTelemetryConfig clientTelemetryConfig;
     private final TracerProvider tracerProvider;
     private final boolean contentResponseOnWriteEnabled;
-    private static final Tracer TRACER;
+    private final Tracer tracer;
     private final ApiType apiType;
     private final String clientCorrelationId;
     private final Tag clientCorrelationTag;
@@ -86,16 +86,6 @@ public final class CosmosAsyncClient implements Closeable {
     private final boolean clientMetricsEnabled;
     private final boolean isSendClientTelemetryToServiceEnabled;
     private final MeterRegistry clientMetricRegistrySnapshot;
-
-    static {
-        ServiceLoader<Tracer> serviceLoader = ServiceLoader.load(Tracer.class);
-        Iterator<?> iterator = serviceLoader.iterator();
-        if (iterator.hasNext()) {
-            TRACER = serviceLoader.iterator().next();
-        } else {
-            TRACER = null;
-        }
-    }
 
     CosmosAsyncClient(CosmosClientBuilder builder) {
         this.configs = builder.configs();
@@ -123,8 +113,10 @@ public final class CosmosAsyncClient implements Closeable {
         this.isSendClientTelemetryToServiceEnabled = telemetryConfigAccessor
             .isSendClientTelemetryToServiceEnabled(effectiveTelemetryConfig);
         this.contentResponseOnWriteEnabled = builder.isContentResponseOnWriteEnabled();
+        this.tracer = com.azure.core.util.tracing.TracerProvider.getDefaultProvider().createTracer("azure-cosmos", "version-todo", "Microsoft.DocumentDB",
+            telemetryConfigAccessor.getTracingOptions(effectiveTelemetryConfig));
         this.tracerProvider = new TracerProvider(
-            TRACER,
+            tracer,
             telemetryConfigAccessor
                 .isSendClientTelemetryToServiceEnabled(effectiveTelemetryConfig),
             telemetryConfigAccessor
