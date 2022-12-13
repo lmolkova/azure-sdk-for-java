@@ -335,5 +335,4 @@ public class OpenTelemetryHttpPolicyTests {
             return Mono.just(new MockHttpResponse(request, RESPONSE_STATUS_CODE, headers));
         }
     }
-
 }

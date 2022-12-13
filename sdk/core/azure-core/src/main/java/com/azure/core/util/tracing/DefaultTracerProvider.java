@@ -3,6 +3,8 @@
 
 package com.azure.core.util.tracing;
 
+import com.azure.core.util.Configuration;
+import com.azure.core.util.CoreUtils;
 import com.azure.core.util.TracingOptions;
 import com.azure.core.util.logging.ClientLogger;
 
@@ -14,15 +16,36 @@ import java.util.stream.StreamSupport;
 
 final class DefaultTracerProvider implements TracerProvider {
     private static final TracerProvider INSTANCE = new DefaultTracerProvider();
-    private static final RuntimeException ERROR;
+    private static RuntimeException error;
     private static final ClientLogger LOGGER = new ClientLogger(DefaultTracerProvider.class);
-    private static TracerProvider tracerProvider;
+    private static TracerProvider tracerProvider = initialize();
     private static Tracer fallbackTracer;
+
 
     private DefaultTracerProvider() {
     }
 
-    static {
+    @SuppressWarnings("unchecked")
+    private static TracerProvider initialize() {
+        // TODO: make consistent with HTTP clients
+        String providerClassName = Configuration.getGlobalConfiguration().get("TRACER_PROVIDER_CLASSNAME");
+        if (!CoreUtils.isNullOrEmpty(providerClassName)) {
+            RuntimeException error;
+            try {
+                Class<?> providerClass = Class.forName(providerClassName);
+                if (TracerProvider.class.isAssignableFrom(providerClass)) {
+                    return ((Class<TracerProvider>) providerClass).getDeclaredConstructor().newInstance();
+                } else {
+                    error = new IllegalStateException("foo");
+                }
+            } catch (ReflectiveOperationException e) {
+                error = new IllegalStateException(e);
+            }
+
+            LOGGER.error("Can't load provided class", error);
+            return null;
+        }
+
         // Use as classloader to load provider-configuration files and provider classes the classloader
         // that loaded this class. In most cases this will be the System classloader.
         // But this choice here provides additional flexibility in managed environments that control
@@ -31,7 +54,7 @@ final class DefaultTracerProvider implements TracerProvider {
         ServiceLoader<TracerProvider> serviceLoader = ServiceLoader.load(TracerProvider.class, TracerProvider.class.getClassLoader());
         Iterator<TracerProvider> iterator = serviceLoader.iterator();
         if (iterator.hasNext()) {
-            tracerProvider = iterator.next();
+            TracerProvider provider = iterator.next();
 
             if (iterator.hasNext()) {
                 String allProviders = StreamSupport.stream(serviceLoader.spliterator(), false)
@@ -40,17 +63,20 @@ final class DefaultTracerProvider implements TracerProvider {
 
                 // TODO (lmolkova) add configuration to allow picking specific provider
                 String message = String.format("Expected only one TracerProvider on the classpath, but found multiple providers: %s. "
-                         + "Please pick one TracerProvider implementation and remove or exclude packages that bring other implementations", allProviders);
+                    + "Please pick one TracerProvider implementation and remove or exclude packages that bring other implementations", allProviders);
 
-                ERROR = new IllegalStateException(message);
+                error = new IllegalStateException(message);
                 LOGGER.error(message);
             } else {
-                ERROR = null;
+                error = null;
                 LOGGER.info("Found TracerProvider implementation on the classpath: {}", tracerProvider.getClass().getName());
             }
+
+            return provider;
         } else {
-            ERROR = null;
+            error = null;
             fallbackTracer = createFallbackTracer();
+            return null;
         }
     }
 
@@ -68,8 +94,8 @@ final class DefaultTracerProvider implements TracerProvider {
     }
 
     static TracerProvider getInstance() {
-        if (ERROR != null) {
-            throw LOGGER.logThrowableAsError(ERROR);
+        if (error != null) {
+            throw LOGGER.logThrowableAsError(error);
         }
 
         return INSTANCE;

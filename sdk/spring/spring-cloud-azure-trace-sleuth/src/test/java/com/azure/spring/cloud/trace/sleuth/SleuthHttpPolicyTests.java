@@ -14,7 +14,11 @@ import com.azure.core.http.HttpPipelineNextPolicy;
 import com.azure.core.http.HttpRequest;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.test.http.MockHttpResponse;
+import com.azure.core.util.ClientOptions;
+import com.azure.core.util.Configuration;
+import com.azure.core.util.HttpClientOptions;
 import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.spring.cloud.core.provider.ClientOptionsProvider;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.CustomerProvidedKey;
@@ -34,6 +38,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -67,7 +73,9 @@ public class SleuthHttpPolicyTests {
 
     @Test
     public void addPolicyForBlobServiceClientBuilder() {
-        SleuthHttpPolicy sleuthHttpPolicy = new SleuthHttpPolicy(tracer);
+        Configuration.getGlobalConfiguration().put("TRACER_PROVIDER_CLASSNAME", SleuthTracerProvider.class.getName());
+        ClientOptions options = new HttpClientOptions().setTracingOptions(
+            new SleuthTracingOptions().setTracer(tracer));
         // key is test-key
         CustomerProvidedKey providedKey = new CustomerProvidedKey("dGVzdC1rZXk=");
         TokenCredential tokenCredential = new ClientSecretCredentialBuilder()
@@ -78,116 +86,19 @@ public class SleuthHttpPolicyTests {
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
             .customerProvidedKey(providedKey)
             .credential(tokenCredential)
-            .addPolicy(sleuthHttpPolicy)
+            .clientOptions(options)
             .endpoint("https://test.blob.core.windows.net/")
             .buildClient();
 
         HttpPipeline pipeline = blobServiceClient.getHttpPipeline();
-        assertEquals(10, pipeline.getPolicyCount());
-        assertEquals(SleuthHttpPolicy.class, pipeline.getPolicy(6).getClass());
+        assertTrue(pipeline.getTracer() instanceof SleuthTracer);
+
+        boolean foundInstrumentationPolicy = false;
+        for (int i = 0; i < pipeline.getPolicyCount(); i ++) {
+            foundInstrumentationPolicy |= pipeline.getPolicy(i).getClass().getName().contains("InstrumentationPolicy");
+        }
+        assertTrue(foundInstrumentationPolicy);
     }
 
-    @Test
-    public void processWhenDisableTracingKey() {
-        SleuthHttpPolicy sleuthHttpPolicy = spy(new SleuthHttpPolicy(tracer));
-        when(httpPipelineCallContext.getData(com.azure.core.util.tracing.Tracer.DISABLE_TRACING_KEY))
-            .thenReturn(Optional.of(true));
-        sleuthHttpPolicy.process(httpPipelineCallContext, httpPipelineNextPolicy);
-        verify(httpPipelineCallContext, times(1))
-            .getData(com.azure.core.util.tracing.Tracer.DISABLE_TRACING_KEY);
-        verify(httpPipelineCallContext, times(0))
-            .getData(com.azure.core.util.tracing.Tracer.PARENT_TRACE_CONTEXT_KEY);
-    }
-
-    @Test
-    public void processAndSetParent() throws MalformedURLException {
-        SleuthHttpPolicy sleuthHttpPolicy = spy(new SleuthHttpPolicy(tracer));
-        Span parentSpan = mock(Span.class);
-        Span.Builder spanBuilder = mock(Span.Builder.class);
-        HttpRequest request = mock(HttpRequest.class);
-        commonProcess(parentSpan, spanBuilder, request);
-
-        Span span = mock(Span.class);
-        when(spanBuilder.start()).thenReturn(span);
-        when(span.isNoop()).thenReturn(true);
-
-        when(httpPipelineNextPolicy.process()).thenReturn(Mono.just(successResponse));
-        sleuthHttpPolicy.process(httpPipelineCallContext, httpPipelineNextPolicy);
-        verify(spanBuilder, times(1)).setParent(any());
-        verify(spanBuilder, times(1)).kind(Span.Kind.CLIENT);
-    }
-
-    @Test
-    public void processAndPutTag() throws MalformedURLException {
-        SleuthHttpPolicy sleuthHttpPolicy = spy(new SleuthHttpPolicy(tracer));
-        Span parentSpan = mock(Span.class);
-        Span.Builder spanBuilder = mock(Span.Builder.class);
-        HttpRequest request = mock(HttpRequest.class);
-        commonProcess(parentSpan, spanBuilder, request);
-
-        Span span = mock(Span.class);
-        when(spanBuilder.start()).thenReturn(span);
-
-        when(httpPipelineNextPolicy.process()).thenReturn(Mono.just(successResponse));
-
-        setSpanHeaders(request);
-
-        sleuthHttpPolicy.process(httpPipelineCallContext, httpPipelineNextPolicy);
-        verify(span, times(3)).tag(any(), any());
-    }
-
-    private void setSpanHeaders(HttpRequest request) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("User-Agent", "test");
-        headers.add("x-ms-request-id", "test-request-id");
-        when(request.getHeaders()).thenReturn(headers);
-        when(request.getHttpMethod()).thenReturn(HttpMethod.POST);
-    }
-
-    @Test
-    public void processAndHandleResponse() throws MalformedURLException {
-        SleuthHttpPolicy sleuthHttpPolicy = spy(new SleuthHttpPolicy(tracer));
-        Span parentSpan = mock(Span.class);
-        Span.Builder spanBuilder = mock(Span.Builder.class);
-        HttpRequest request = mock(HttpRequest.class);
-        commonProcess(parentSpan, spanBuilder, request);
-
-        Span span = mock(Span.class);
-        when(spanBuilder.start()).thenReturn(span);
-
-        setSpanHeaders(request);
-        when(httpPipelineNextPolicy.process()).thenReturn(Mono.just(successResponse));
-        when(successResponse.getHeaderValue("x-ms-request-id")).thenReturn("test-request-id");
-
-        sleuthHttpPolicy.process(httpPipelineCallContext, httpPipelineNextPolicy).block();
-        verify(span, times(1)).end();
-        verify(span, times(1)).tag("x-ms-request-id", "test-request-id");
-        verify(span, times(1)).tag("http.status_code", "200");
-    }
-
-    private void commonProcess(Span parentSpan, Span.Builder spanBuilder, HttpRequest request) throws MalformedURLException {
-        when(tracer.currentSpan()).thenReturn(parentSpan);
-        when(tracer.spanBuilder()).thenReturn(spanBuilder);
-        when(httpPipelineCallContext.getHttpRequest()).thenReturn(request);
-        when(request.getUrl()).thenReturn(new URL("https://test.blob.core.windows.net/"));
-        when(spanBuilder.name(anyString())).thenReturn(spanBuilder);
-    }
-
-    @Test
-    public void addAfterPolicyForHttpPipeline() {
-        final HttpPipeline pipeline = createHttpPipeline();
-        assertEquals(1, pipeline.getPolicyCount());
-        assertEquals(SleuthHttpPolicy.class, pipeline.getPolicy(0).getClass());
-    }
-
-    private HttpPipeline createHttpPipeline() {
-        final HttpClient httpClient = HttpClient.createDefault();
-        final List<HttpPipelinePolicy> policies = new ArrayList<>();
-        policies.add(new SleuthHttpPolicy(tracer));
-        final HttpPipeline httpPipeline = new HttpPipelineBuilder()
-            .httpClient(httpClient)
-            .policies(policies.toArray(new HttpPipelinePolicy[0]))
-            .build();
-        return httpPipeline;
-    }
+    // implement tests with  micrometer-tracing-test
 }
