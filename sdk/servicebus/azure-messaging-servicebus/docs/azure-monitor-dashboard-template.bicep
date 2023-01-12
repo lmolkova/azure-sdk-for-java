@@ -24,7 +24,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
               x: 0
               y: 0
               colSpan: 8
-              rowSpan: 5
+              rowSpan: 4
             }
             metadata: {
               inputs: [
@@ -104,7 +104,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
               x: 8
               y: 0
               colSpan: 8
-              rowSpan: 5
+              rowSpan: 4
             }
             metadata: {
               inputs: [
@@ -376,9 +376,9 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 0
-              y: 5
+              y: 4
               colSpan: 8
-              rowSpan: 5
+              rowSpan: 4
             }
             metadata: {
               inputs: [
@@ -456,9 +456,9 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 8
-              y: 5
+              y: 4
               colSpan: 8
-              rowSpan: 5
+              rowSpan: 4
             }
             metadata: {
               inputs: [
@@ -519,7 +519,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 16
-              y: 6
+              y: 5
               colSpan: 3
               rowSpan: 3
             }
@@ -585,10 +585,95 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           }
           {
             position: {
-              x: 16
-              y: 9
+              x: 19
+              y: 0
               colSpan: 3
-              rowSpan: 4
+              rowSpan: 3
+            }
+            metadata: {
+              inputs: [
+                {
+                  name: 'options'
+                  value: {
+                    chart: {
+                      title: 'AMQP error rate'
+                      metrics: [
+                        {
+                          resourceMetadata: {
+                            id: applicationInsightResourceId
+                          }
+                          name: 'messaging.az.amqp.client.link.errors'
+                          aggregationType: 7
+                          namespace: 'azure.applicationinsights'
+                          metricVisualization: {
+                            displayName: 'link errors'
+                          }                          
+                        }
+                        {
+                          resourceMetadata: {
+                            id: applicationInsightResourceId
+                          }
+                          name: 'messaging.az.amqp.client.session.errors'
+                          aggregationType: 7
+                          namespace: 'azure.applicationinsights'
+                          metricVisualization: {
+                            displayName: 'session errors'
+                          }                          
+                        }
+                        {
+                          resourceMetadata: {
+                            id: applicationInsightResourceId
+                          }
+                          name: 'messaging.az.amqp.client.transport.errors'
+                          aggregationType: 7
+                          namespace: 'azure.applicationinsights'
+                          metricVisualization: {
+                            displayName: 'transport errors'
+                          }                          
+                        }
+                      ]
+                      grouping: {
+                        dimension: 'amqp.error_condition'
+                        sort: 2
+                        top: 10
+                      }
+                      visualization: {
+                        chartType: 2
+                        legendVisualization: {
+                          isVisible: true
+                          position: 2
+                          hideSubtitle: false
+                        }
+                        axisVisualization: {
+                          x: {
+                            isVisible: true
+                            axisType: 2
+                          }
+                          y: {
+                            isVisible: true
+                            axisType: 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                {
+                  name: 'sharedTimeRange'
+                  isOptional: true
+                }
+              ]
+              #disable-next-line BCP036
+              type: 'Extension/HubsExtension/PartType/MonitorChartPart'
+              settings: {}
+            }
+          }          
+          {
+            position: {
+              x: 16
+              y: 8
+              colSpan: 3
+              rowSpan: 3
             }
             metadata: {
               inputs: [
@@ -609,7 +694,12 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
                             displayName: 'closed connections'
                           }                          
                         }
-                      ]              
+                      ]
+                      grouping: {
+                        dimension: 'amqp.error_condition'
+                        sort: 2
+                        top: 10
+                      }
                       visualization: {
                         chartType: 2
                         legendVisualization: {
@@ -644,7 +734,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 0
-              y: 10
+              y: 8
               colSpan: 8
               rowSpan: 3
             }
@@ -713,7 +803,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 8
-              y: 10
+              y: 8
               colSpan: 4
               rowSpan: 3
             }
@@ -771,7 +861,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 12
-              y: 10
+              y: 8
               colSpan: 4
               rowSpan: 3
             }

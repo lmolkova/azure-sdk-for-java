@@ -177,62 +177,11 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
                             displayName: 'errors'
                           }                          
                         }
-                        {
-                          resourceMetadata: {
-                            id: applicationInsightResourceId
-                          }
-                          name: 'messaging.az.amqp.management.request.duration'
-                          aggregationType: 7
-                          namespace: 'azure.applicationinsights'
-                          metricVisualization: {
-                            displayName: 'management operations'
-                          }                          
-                        }
-                        {
-                          resourceMetadata: {
-                            id: applicationInsightResourceId
-                          }
-                          name: 'messaging.az.amqp.client.link.errors'
-                          aggregationType: 7
-                          namespace: 'azure.applicationinsights'
-                          metricVisualization: {
-                            displayName: 'link errors'
-                          }                          
-                        }
-                        {
-                          resourceMetadata: {
-                            id: applicationInsightResourceId
-                          }
-                          name: 'messaging.az.amqp.client.session.errors'
-                          aggregationType: 7
-                          namespace: 'azure.applicationinsights'
-                          metricVisualization: {
-                            displayName: 'session errors'
-                          }                          
-                        }
-                        {
-                          resourceMetadata: {
-                            id: applicationInsightResourceId
-                          }
-                          name: 'messaging.az.amqp.client.transport.errors'
-                          aggregationType: 7
-                          namespace: 'azure.applicationinsights'
-                          metricVisualization: {
-                            displayName: 'transport errors'
-                          }                          
-                        }                                                                   
                       ]
                       filterCollection: {
                         filters: [
                           {
                             key: 'amqp.delivery_state'
-                            operator: 1
-                            values: [
-                              'accepted'
-                            ]
-                          }
-                          {
-                            key: 'amqp.status_code'
                             operator: 1
                             values: [
                               'accepted'
@@ -371,7 +320,12 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
                             displayName: 'closed connections'
                           }                          
                         }
-                      ]              
+                      ]
+                      grouping: {
+                        dimension: 'amqp.error_condition'
+                        sort: 2
+                        top: 10
+                      }      
                       visualization: {
                         chartType: 2
                         legendVisualization: {
@@ -416,42 +370,47 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
                   name: 'options'
                   value: {
                     chart: {
-                      title: 'Send, management, and settlement request duration (average), ms'
+                      title: 'AMQP error rate'
                       metrics: [
                         {
                           resourceMetadata: {
                             id: applicationInsightResourceId
                           }
-                          name: 'messaging.servicebus.settlement.request.duration'
-                          aggregationType: 4
+                          name: 'messaging.az.amqp.client.link.errors'
+                          aggregationType: 7
                           namespace: 'azure.applicationinsights'
                           metricVisualization: {
-                            displayName: 'settlement'
+                            displayName: 'link errors'
                           }                          
                         }
                         {
                           resourceMetadata: {
                             id: applicationInsightResourceId
                           }
-                          name: 'messaging.az.amqp.management.request.duration'
-                          aggregationType: 4
+                          name: 'messaging.az.amqp.client.session.errors'
+                          aggregationType: 7
                           namespace: 'azure.applicationinsights'
                           metricVisualization: {
-                            displayName: 'management'
+                            displayName: 'session errors'
                           }                          
                         }
                         {
                           resourceMetadata: {
                             id: applicationInsightResourceId
                           }
-                          name: 'messaging.az.amqp.producer.send.duration'
-                          aggregationType: 4
+                          name: 'messaging.az.amqp.client.transport.errors'
+                          aggregationType: 7
                           namespace: 'azure.applicationinsights'
                           metricVisualization: {
-                            displayName: 'send'
+                            displayName: 'transport errors'
                           }                          
                         }
                       ]
+                      grouping: {
+                        dimension: 'amqp.error_condition'
+                        sort: 2
+                        top: 10
+                      }
                       visualization: {
                         chartType: 2
                         legendVisualization: {
@@ -565,10 +524,10 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           }
           {
             position: {
-              x: 8
-              y: 4
-              colSpan: 8
-              rowSpan: 4
+              x: 16
+              y: 9
+              colSpan: 6
+              rowSpan: 3
             }
             metadata: {
               inputs: [
@@ -583,7 +542,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
                             id: applicationInsightResourceId
                           }
                           name: 'messaging.eventhubs.checkpoint.sequence_number'
-                          aggregationType: 7
+                          aggregationType: 3
                           namespace: 'azure.applicationinsights'
                           metricVisualization: {
                             displayName: 'sequence number'
@@ -628,10 +587,10 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           }
           {
             position: {
-              x: 16
-              y: 6
-              colSpan: 6
-              rowSpan: 3
+              x: 8
+              y: 4
+              colSpan: 8
+              rowSpan: 4
             }
             metadata: {
               inputs: [
@@ -818,7 +777,7 @@ resource dashboard 'Microsoft.Portal/dashboards@2020-09-01-preview' = {
           {
             position: {
               x: 16
-              y: 9
+              y: 6
               colSpan: 6
               rowSpan: 3
             }
