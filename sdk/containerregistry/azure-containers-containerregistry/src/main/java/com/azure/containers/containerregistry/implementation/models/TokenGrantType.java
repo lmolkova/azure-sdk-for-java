@@ -4,6 +4,9 @@
 
 package com.azure.containers.containerregistry.implementation.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 /** Grant type is expected to be refresh_token. */
 public enum TokenGrantType {
     /** Enum value refresh_token. */
@@ -39,6 +42,7 @@ public enum TokenGrantType {
     }
 
     /** {@inheritDoc} */
+    @JsonValue
     @Override
     public String toString() {
         return this.value;

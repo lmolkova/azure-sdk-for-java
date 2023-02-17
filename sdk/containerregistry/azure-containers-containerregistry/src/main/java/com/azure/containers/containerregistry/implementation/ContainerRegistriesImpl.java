@@ -577,7 +577,7 @@ public final class ContainerRegistriesImpl {
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
     public Mono<Response<ManifestWrapper>> getManifestWithResponseAsync(String name, String reference, String accept) {
-        final String acceptParam = "application/json";
+        final String acceptParam = accept;
         return FluxUtil.withContext(
                 context -> service.getManifest(this.client.getUrl(), name, reference, accept, acceptParam, context));
     }
@@ -599,7 +599,7 @@ public final class ContainerRegistriesImpl {
     @ServiceMethod(returns = ReturnType.SINGLE)
     public Mono<Response<ManifestWrapper>> getManifestWithResponseAsync(
             String name, String reference, String accept, Context context) {
-        final String acceptParam = "application/json";
+        final String acceptParam = accept;
         return service.getManifest(this.client.getUrl(), name, reference, accept, acceptParam, context);
     }
 
@@ -658,7 +658,7 @@ public final class ContainerRegistriesImpl {
     @ServiceMethod(returns = ReturnType.SINGLE)
     public Response<ManifestWrapper> getManifestWithResponse(
             String name, String reference, String accept, Context context) {
-        final String acceptParam = "application/json";
+        final String acceptParam = accept;
         return service.getManifestSync(this.client.getUrl(), name, reference, accept, acceptParam, context);
     }
 
