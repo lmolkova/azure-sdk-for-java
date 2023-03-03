@@ -187,6 +187,24 @@ public class EventHubsTracer {
     }
 
     public Flux<PartitionEvent> reportSyncReceiveSpan(String name, Instant startTime, Flux<PartitionEvent> events, Context parent) {
+        if (isEnabled()) {
+            final StartSpanOptions startOptions = createStartOption(SpanKind.CLIENT, OperationName.RECEIVE)
+                .setStartTimestamp(startTime);
+
+            return events.doOnEach(signal -> {
+                if (signal.hasValue()) {
+                    EventData data = signal.get().getData();
+                    startOptions.addLink(createLink(data.getProperties(), data.getEnqueuedTime(), Context.NONE));
+                } else if (signal.isOnComplete() || signal.isOnError()) {
+                    int batchSize = startOptions.getLinks() == null ? 0 : startOptions.getLinks().size();
+                    startOptions.setAttribute(MESSAGING_BATCH_SIZE_ATTRIBUTE_NAME, batchSize);
+
+                    Context span = tracer.start(name, startOptions, parent);
+                    tracer.end(null, signal.getThrowable(), span);
+                }
+            });
+        }
+
         return events;
     }
 
