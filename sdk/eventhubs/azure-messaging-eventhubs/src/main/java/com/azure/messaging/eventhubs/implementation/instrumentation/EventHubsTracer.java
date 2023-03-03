@@ -188,10 +188,21 @@ public class EventHubsTracer {
 
     public Flux<PartitionEvent> reportSyncReceiveSpan(String name, Instant startTime, Flux<PartitionEvent> events, Context parent) {
         if (isEnabled()) {
+            LOGGER.atInfo()
+                .addKeyValue("name", name)
+                .addKeyValue("startTime", startTime)
+                .addKeyValue("events", events)
+                .log("reportSyncReceiveSpan - enabled");
             final StartSpanOptions startOptions = createStartOption(SpanKind.CLIENT, OperationName.RECEIVE)
                 .setStartTimestamp(startTime);
 
             return events.doOnEach(signal -> {
+                LOGGER.atInfo()
+                    .addKeyValue("signal.hasValue()", signal.hasValue())
+                    .addKeyValue("signal.getType()", signal.getType())
+                    .addKeyValue("signal.get()", signal.get())
+                    .log("onEach");
+
                 if (signal.hasValue()) {
                     EventData data = signal.get().getData();
                     startOptions.addLink(createLink(data.getProperties(), data.getEnqueuedTime(), Context.NONE));
@@ -218,6 +229,12 @@ public class EventHubsTracer {
     }
 
     public StartSpanOptions createStartOption(SpanKind kind, OperationName operationName) {
+        LOGGER.atInfo()
+            .addKeyValue("kind", kind)
+            .addKeyValue("operationName", operationName)
+            .addKeyValue("entityName", entityName)
+            .addKeyValue("fullyQualifiedName", fullyQualifiedName)
+            .log("createStartOption");
         StartSpanOptions startOptions =  new StartSpanOptions(kind)
             .setAttribute(MESSAGING_SYSTEM_ATTRIBUTE_NAME, "eventhubs")
             .setAttribute(ENTITY_PATH_KEY, entityName)
@@ -227,6 +244,7 @@ public class EventHubsTracer {
             startOptions.setAttribute(MESSAGING_OPERATION_ATTRIBUTE_NAME, operationName.toString());
         }
 
+        LOGGER.info("createStartOption - ok");
         return startOptions;
     }
 
