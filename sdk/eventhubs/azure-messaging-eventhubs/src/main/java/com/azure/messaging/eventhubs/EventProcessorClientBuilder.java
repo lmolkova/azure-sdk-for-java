@@ -20,6 +20,8 @@ import com.azure.core.exception.AzureException;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.Configuration;
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.core.util.tracing.Tracer;
+import com.azure.core.util.tracing.TracerProvider;
 import com.azure.messaging.eventhubs.implementation.instrumentation.EventHubsTracer;
 import com.azure.messaging.eventhubs.implementation.PartitionProcessor;
 import com.azure.messaging.eventhubs.models.CloseContext;
@@ -744,10 +746,11 @@ public class EventProcessorClientBuilder implements
             partitionOwnershipExpirationInterval = DEFAULT_OWNERSHIP_EXPIRATION_INTERVAL;
         }
 
+        Tracer t = TracerProvider.getDefaultProvider().createTracer("fo", "bar", null, null);
         return new EventProcessorClient(eventHubClientBuilder, consumerGroup,
             getPartitionProcessorSupplier(), checkpointStore, trackLastEnqueuedEventProperties,
             processError, initialPartitionEventPosition, maxBatchSize, maxWaitTime, processEventBatch != null,
-            loadBalancingUpdateInterval, partitionOwnershipExpirationInterval, loadBalancingStrategy, EventHubsTracer.getDefaultTracer());
+            loadBalancingUpdateInterval, partitionOwnershipExpirationInterval, loadBalancingStrategy, t);
     }
 
     private Supplier<PartitionProcessor> getPartitionProcessorSupplier() {
