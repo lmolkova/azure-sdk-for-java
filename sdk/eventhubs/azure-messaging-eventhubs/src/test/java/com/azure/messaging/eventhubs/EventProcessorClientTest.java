@@ -667,9 +667,10 @@ public class EventProcessorClientTest {
     public void testSingleEventReceiveHeartBeat() throws InterruptedException {
         // Arrange
         Tracer tracer = mock(Tracer.class);
+        when(tracer.isEnabled()).thenReturn(true);
         when(eventHubClientBuilder.getPrefetchCount()).thenReturn(DEFAULT_PREFETCH_COUNT);
         when(eventHubClientBuilder.buildAsyncClient()).thenReturn(eventHubAsyncClient);
-        when(eventHubClientBuilder.createTracer()).thenReturn(null);
+        when(eventHubClientBuilder.createTracer()).thenReturn(tracer);
         when(eventHubAsyncClient.getFullyQualifiedNamespace()).thenReturn("test-ns");
         when(eventHubAsyncClient.getEventHubName()).thenReturn("test-eh");
         when(eventHubAsyncClient.getPartitionIds()).thenReturn(Flux.just("1"));
@@ -699,8 +700,9 @@ public class EventProcessorClientTest {
                 return invocation.getArgument(1, Context.class).addData(SPAN_CONTEXT_KEY, "value");
             }
         );
+
         when(tracer.start(eq("EventHubs.process"), any(), any(Context.class))).thenAnswer(
-            invocation -> invocation.getArgument(1, Context.class)
+            invocation -> invocation.getArgument(2, Context.class)
                     .addData(PARENT_TRACE_CONTEXT_KEY, "value2"));
 
         final SampleCheckpointStore checkpointStore = new SampleCheckpointStore();

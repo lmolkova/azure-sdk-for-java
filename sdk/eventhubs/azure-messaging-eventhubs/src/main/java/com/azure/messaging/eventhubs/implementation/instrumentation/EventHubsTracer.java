@@ -171,72 +171,22 @@ public class EventHubsTracer {
     }
 
     public Context extractContext(Map<String, Object> applicationProperties) {
-        return tracer.extractContext(key ->  {
-            if (TRACEPARENT_KEY.equals(key)) {
-                return getTraceparent(applicationProperties);
-            } else {
-                Object value = applicationProperties.get(key);
-                if (value != null) {
-                    return value.toString();
-                }
-            }
-            return null;
-        });
+        return Context.NONE;
     }
 
     public AutoCloseable makeSpanCurrent(Context context) {
-        return isEnabled() ? tracer.makeSpanCurrent(context) : NOOP_AUTOCLOSEABLE;
+        return NOOP_AUTOCLOSEABLE;
     }
 
     public Context startProcessSpan(String name, EventData event, Context parent) {
-        if (isEnabled()) {
-            StartSpanOptions startOptions = createStartOption(SpanKind.CONSUMER, OperationName.PROCESS)
-                .setRemoteParent(extractContext(event.getProperties()));
-
-            Instant enqueuedTime = event.getEnqueuedTime();
-            if (enqueuedTime != null) {
-                startOptions.setAttribute(MESSAGE_ENQUEUED_TIME_ATTRIBUTE_NAME, enqueuedTime.atOffset(ZoneOffset.UTC).toEpochSecond());
-            }
-
-            return tracer.start(name, startOptions, parent);
-        }
-
         return parent;
     }
 
     public Context startProcessSpan(String name, List<EventData> events, Context parent) {
-        if (isEnabled() && events != null) {
-            StartSpanOptions startOptions = createStartOption(SpanKind.CONSUMER, OperationName.PROCESS);
-            startOptions.setAttribute(MESSAGING_BATCH_SIZE_ATTRIBUTE_NAME, events.size());
-            for (EventData event : events) {
-                startOptions.addLink(createLink(event.getProperties(), event.getEnqueuedTime(), Context.NONE));
-            }
-
-            return tracer.start(name, startOptions, parent);
-        }
-
         return parent;
     }
 
     public Flux<PartitionEvent> reportSyncReceiveSpan(String name, Instant startTime, Flux<PartitionEvent> events, Context parent) {
-        if (isEnabled()) {
-            final StartSpanOptions startOptions = createStartOption(SpanKind.CLIENT, OperationName.RECEIVE)
-                .setStartTimestamp(startTime);
-
-            return events.doOnEach(signal -> {
-                if (signal.hasValue()) {
-                    EventData data = signal.get().getData();
-                    startOptions.addLink(createLink(data.getProperties(), data.getEnqueuedTime(), Context.NONE));
-                } else if (signal.isOnComplete() || signal.isOnError()) {
-                    int batchSize = startOptions.getLinks() == null ? 0 : startOptions.getLinks().size();
-                    startOptions.setAttribute(MESSAGING_BATCH_SIZE_ATTRIBUTE_NAME, batchSize);
-
-                    Context span = tracer.start(name, startOptions, parent);
-                    tracer.end(null, signal.getThrowable(), span);
-                }
-            });
-        }
-
         return events;
     }
 
