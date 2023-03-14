@@ -9,7 +9,7 @@ import com.azure.core.util.logging.ClientLogger;
 /**
  * The result from downloading an OCI manifest from the registry.
  */
-public class DownloadManifestResult {
+public final class DownloadManifestResult {
     private static final ClientLogger LOGGER = new ClientLogger(DownloadManifestResult.class);
     static {
         ConstructorAccessors.setDownloadManifestResultAccessor(DownloadManifestResult::new);

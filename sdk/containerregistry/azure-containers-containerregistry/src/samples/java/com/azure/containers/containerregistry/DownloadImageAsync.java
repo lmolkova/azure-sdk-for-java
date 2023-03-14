@@ -25,7 +25,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
-public class DownloadImageAsync {
+public final class DownloadImageAsync {
     private static final String ENDPOINT = "https://registryName.azurecr.io";
     private static final String REPOSITORY = "samples/nginx";
     private static final ObjectMapper PRETTY_PRINT = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
