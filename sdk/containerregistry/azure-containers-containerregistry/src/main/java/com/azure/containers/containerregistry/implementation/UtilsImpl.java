@@ -44,6 +44,7 @@ import com.azure.core.http.rest.PagedResponseBase;
 import com.azure.core.http.rest.Response;
 import com.azure.core.http.rest.ResponseBase;
 import com.azure.core.http.rest.SimpleResponse;
+import com.azure.core.http.rest.StreamResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.Configuration;
@@ -230,9 +231,9 @@ public final class UtilsImpl {
         }
     }
 
-    public static Response<DownloadManifestResult> toDownloadManifestResponse(String tagOrDigest, Response<BinaryData> rawResponse) {
+    public static Response<DownloadManifestResult> toDownloadManifestResponse(String tagOrDigest, Response<?> rawResponse, BinaryData content) {
         String digest = rawResponse.getHeaders().getValue(DOCKER_DIGEST_HEADER_NAME);
-        String responseSha256 = computeDigest(rawResponse.getValue().toByteBuffer());
+        String responseSha256 = computeDigest(content.toByteBuffer());
 
         if (!Objects.equals(responseSha256, digest)
             || (isDigest(tagOrDigest) && !Objects.equals(responseSha256, tagOrDigest))) {
@@ -246,7 +247,7 @@ public final class UtilsImpl {
             rawResponse.getRequest(),
             rawResponse.getStatusCode(),
             rawResponse.getHeaders(),
-            ConstructorAccessors.createDownloadManifestResult(digest, responseMediaType, rawResponse.getValue()));
+            ConstructorAccessors.createDownloadManifestResult(digest, responseMediaType, content));
     }
 
     /**
@@ -471,6 +472,14 @@ public final class UtilsImpl {
         }
 
         throw LOGGER.logExceptionAsError(new ServiceResponseException("Invalid content-range header in response -" + contentRangeHeader));
+    }
+
+    public static long getContentLength(HttpHeader contentLengthHeader) {
+        if (contentLengthHeader != null) {
+            return Long.parseLong(contentLengthHeader.getValue());
+        }
+
+        throw LOGGER.logExceptionAsError(new ServiceResponseException("Invalid content-length header in response -" + contentLengthHeader));
     }
 
     /**

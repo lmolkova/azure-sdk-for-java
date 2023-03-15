@@ -28,6 +28,7 @@ import com.azure.core.http.HttpResponse;
 import com.azure.core.http.rest.Response;
 import com.azure.core.http.rest.ResponseBase;
 import com.azure.core.http.rest.SimpleResponse;
+import com.azure.core.http.rest.StreamResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.Context;
 import com.azure.core.util.FluxUtil;
@@ -52,6 +53,7 @@ import static com.azure.containers.containerregistry.implementation.UtilsImpl.UP
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.computeDigest;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.createSha256;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getBlobSize;
+import static com.azure.containers.containerregistry.implementation.UtilsImpl.getContentLength;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getContentTypeString;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getLocation;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.toDownloadManifestResponse;
@@ -70,6 +72,7 @@ import static com.azure.core.util.FluxUtil.withContext;
  */
 @ServiceClient(builder = ContainerRegistryBlobClientBuilder.class, isAsync = true)
 public final class ContainerRegistryBlobAsyncClient {
+    private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
     private final ContainerRegistryBlobsImpl blobsImpl;
     private final ContainerRegistriesImpl registriesImpl;
     private final String endpoint;
@@ -457,7 +460,8 @@ public final class ContainerRegistryBlobAsyncClient {
         String requestMediaTypes = getContentTypeString(mediaTypes);
 
         return registriesImpl.getManifestWithResponseAsync(repositoryName, tagOrDigest, requestMediaTypes, context)
-            .map(response -> toDownloadManifestResponse(tagOrDigest, response))
+            .flatMap(response -> BinaryData.fromFlux(response.getValue())
+                .map(data -> toDownloadManifestResponse(tagOrDigest, response, data)))
             .onErrorMap(UtilsImpl::mapException);
     }
 
@@ -502,21 +506,32 @@ public final class ContainerRegistryBlobAsyncClient {
             return monoError(LOGGER, new NullPointerException("'digest' can't be null."));
         }
 
-        Flux<ByteBuffer> content =
-            blobsImpl.getChunkWithResponseAsync(repositoryName, digest, new HttpRange(0, (long) CHUNK_SIZE).toString(), context)
-                .flatMapMany(firstResponse -> getAllChunks(firstResponse, digest, context))
-                .flatMapSequential(chunk -> chunk.getValue().toFluxByteBuffer(), 1);
+        Flux<ByteBuffer> content = getNext(0, digest, 3, context).flatMapMany(r -> r);
+
         return Mono.just(ConstructorAccessors.createDownloadBlobResult(digest, content));
     }
 
-    private Flux<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData>> getAllChunks(
-        ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData> firstResponse, String digest, Context context) {
+    private Mono<Flux<ByteBuffer>> getNext(long position, String digest, int maxTries, Context context) {
+        return blobsImpl
+            .getChunkWithResponseAsync(repositoryName, digest, new HttpRange(position).toString(), context)
+            .map(r -> FluxUtil.createRetriableDownloadFlux(
+                    () -> r.getValue(),
+                    (throwable, p) ->   blobsImpl
+                        .getChunkWithResponseAsync(repositoryName, digest, new HttpRange(p).toString(), context).flatMapMany(rr -> rr.getValue()),
+                    maxTries)
+                .defaultIfEmpty(EMPTY_BUFFER));
+    }
+
+    private Flux<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>>> getAllChunks(
+        ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>> firstResponse, String digest, Context context) {
         validateResponseHeaderDigest(digest, firstResponse.getHeaders());
 
         long blobSize = getBlobSize(firstResponse.getHeaders().get(HttpHeaderName.CONTENT_RANGE));
-        List<Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData>>> others = new ArrayList<>();
+        List<Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>>>> others = new ArrayList<>();
         others.add(Mono.just(firstResponse));
-        for (long p = firstResponse.getValue().getLength(); p < blobSize; p += CHUNK_SIZE) {
+
+        long firstChunkSize = getContentLength(firstResponse.getHeaders().get(HttpHeaderName.CONTENT_LENGTH));
+        for (long p = firstChunkSize; p < blobSize; p += CHUNK_SIZE) {
             HttpRange range = new HttpRange(p, (long) CHUNK_SIZE);
             others.add(blobsImpl.getChunkWithResponseAsync(repositoryName, digest, range.toString(), context));
         }

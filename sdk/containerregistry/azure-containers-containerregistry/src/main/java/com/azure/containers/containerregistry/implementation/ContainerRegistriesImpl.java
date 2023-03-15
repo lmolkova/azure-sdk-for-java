@@ -46,9 +46,11 @@ import com.azure.core.http.rest.PagedResponseBase;
 import com.azure.core.http.rest.Response;
 import com.azure.core.http.rest.ResponseBase;
 import com.azure.core.http.rest.RestProxy;
+import com.azure.core.http.rest.StreamResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.Context;
 import com.azure.core.util.FluxUtil;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -95,7 +97,7 @@ public final class ContainerRegistriesImpl {
         @Get("/v2/{name}/manifests/{reference}")
         @ExpectedResponses({200})
         @UnexpectedResponseExceptionType(AcrErrorsException.class)
-        Mono<Response<BinaryData>> getManifest(
+        Mono<StreamResponse> getManifest(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("reference") String reference,
@@ -105,7 +107,7 @@ public final class ContainerRegistriesImpl {
         @Get("/v2/{name}/manifests/{reference}")
         @ExpectedResponses({200})
         @UnexpectedResponseExceptionType(AcrErrorsException.class)
-        Response<BinaryData> getManifestSync(
+        Response<InputStream> getManifestSync(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("reference") String reference,
@@ -568,11 +570,11 @@ public final class ContainerRegistriesImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws AcrErrorsException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest along with
-     *     {@link Response} on successful completion of {@link Mono}.
+     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest on successful
+     *     completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<Response<BinaryData>> getManifestWithResponseAsync(String name, String reference, String accept) {
+    public Mono<StreamResponse> getManifestWithResponseAsync(String name, String reference, String accept) {
         return FluxUtil.withContext(
                 context -> service.getManifest(this.client.getUrl(), name, reference, accept, context));
     }
@@ -588,11 +590,11 @@ public final class ContainerRegistriesImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws AcrErrorsException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest along with
-     *     {@link Response} on successful completion of {@link Mono}.
+     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest on successful
+     *     completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<Response<BinaryData>> getManifestWithResponseAsync(
+    public Mono<StreamResponse> getManifestWithResponseAsync(
             String name, String reference, String accept, Context context) {
         return service.getManifest(this.client.getUrl(), name, reference, accept, context);
     }
@@ -607,12 +609,12 @@ public final class ContainerRegistriesImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws AcrErrorsException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest on successful
-     *     completion of {@link Mono}.
+     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getManifestAsync(String name, String reference, String accept) {
-        return getManifestWithResponseAsync(name, reference, accept).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> getManifestAsync(String name, String reference, String accept) {
+        return getManifestWithResponseAsync(name, reference, accept)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -626,13 +628,12 @@ public final class ContainerRegistriesImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws AcrErrorsException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest on successful
-     *     completion of {@link Mono}.
+     * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getManifestAsync(String name, String reference, String accept, Context context) {
+    public Flux<ByteBuffer> getManifestAsync(String name, String reference, String accept, Context context) {
         return getManifestWithResponseAsync(name, reference, accept, context)
-                .flatMap(res -> Mono.justOrEmpty(res.getValue()));
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -650,7 +651,8 @@ public final class ContainerRegistriesImpl {
      *     {@link Response}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Response<BinaryData> getManifestWithResponse(String name, String reference, String accept, Context context) {
+    public Response<InputStream> getManifestWithResponse(
+            String name, String reference, String accept, Context context) {
         return service.getManifestSync(this.client.getUrl(), name, reference, accept, context);
     }
 
@@ -667,7 +669,7 @@ public final class ContainerRegistriesImpl {
      * @return the manifest identified by `name` and `reference` where `reference` can be a tag or digest.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public BinaryData getManifest(String name, String reference, String accept) {
+    public InputStream getManifest(String name, String reference, String accept) {
         return getManifestWithResponse(name, reference, accept, Context.NONE).getValue();
     }
 

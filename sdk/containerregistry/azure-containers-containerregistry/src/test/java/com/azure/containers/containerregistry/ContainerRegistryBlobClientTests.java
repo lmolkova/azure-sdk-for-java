@@ -109,7 +109,7 @@ public class ContainerRegistryBlobClientTests {
     }
 
     @Test
-    public void downloadManigestWrongDigestInHeaderSync() {
+    public void downloadManifestWrongDigestInHeaderSync() {
         ContainerRegistryBlobClient client = createSyncClient(createClientManifests(MANIFEST_DATA, DIGEST_UNKNOWN, null));
         assertThrows(ServiceResponseException.class, () -> client.downloadManifest("latest"));
     }

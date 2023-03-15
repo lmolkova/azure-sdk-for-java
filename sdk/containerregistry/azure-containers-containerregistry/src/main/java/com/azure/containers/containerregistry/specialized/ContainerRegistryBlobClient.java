@@ -57,6 +57,7 @@ import static com.azure.containers.containerregistry.implementation.UtilsImpl.cr
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.deleteResponseToSuccess;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.enableSync;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getBlobSize;
+import static com.azure.containers.containerregistry.implementation.UtilsImpl.getContentLength;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getContentTypeString;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.getLocation;
 import static com.azure.containers.containerregistry.implementation.UtilsImpl.mapAcrErrorsException;
@@ -304,10 +305,10 @@ public final class ContainerRegistryBlobClient {
         String requestMediaTypes = getContentTypeString(mediaTypes);
 
         try {
-            Response<BinaryData> response =
+            Response<InputStream> response =
                 registriesImpl.getManifestWithResponse(repositoryName, tagOrDigest,
                     requestMediaTypes, enableSync(context));
-            return toDownloadManifestResponse(tagOrDigest, response);
+            return toDownloadManifestResponse(tagOrDigest, response, BinaryData.fromStream(response.getValue()));
         } catch (AcrErrorsException exception) {
             throw LOGGER.logExceptionAsError(mapAcrErrorsException(exception));
         }
@@ -395,7 +396,7 @@ public final class ContainerRegistryBlobClient {
 
         context = enableSync(context);
         try {
-            Response<BinaryData> streamResponse =
+            Response<InputStream> streamResponse =
                 blobsImpl.deleteBlobWithResponse(repositoryName, digest, enableSync(context));
             return deleteResponseToSuccess(streamResponse);
         } catch (HttpResponseException ex) {
@@ -539,11 +540,12 @@ public final class ContainerRegistryBlobClient {
         context = enableSync(context);
         MessageDigest sha256 = createSha256();
         try {
-            Response<BinaryData> firstChunk = readRange(digest, new HttpRange(0, (long) CHUNK_SIZE), channel, sha256, context);
+            Response<InputStream> firstChunk = readRange(digest, new HttpRange(0, (long) CHUNK_SIZE), channel, sha256, context);
             validateResponseHeaderDigest(digest, firstChunk.getHeaders());
 
             long blobSize = getBlobSize(firstChunk.getHeaders().get(HttpHeaderName.CONTENT_RANGE));
-            for (long p = firstChunk.getValue().getLength(); p < blobSize; p += CHUNK_SIZE) {
+            long chunkLength = getContentLength(firstChunk.getHeaders().get(HttpHeaderName.CONTENT_LENGTH));
+            for (long p = chunkLength; p < blobSize; p += CHUNK_SIZE) {
                 readRange(digest, new HttpRange(p, (long) CHUNK_SIZE), channel, sha256, context);
             }
         } catch (AcrErrorsException exception) {
@@ -553,10 +555,10 @@ public final class ContainerRegistryBlobClient {
         validateDigest(sha256, digest);
     }
 
-    private Response<BinaryData> readRange(String digest, HttpRange range, WritableByteChannel channel, MessageDigest sha256, Context context) {
-        Response<BinaryData> response = blobsImpl.getChunkWithResponse(repositoryName, digest, range.toString(), context);
+    private Response<InputStream> readRange(String digest, HttpRange range, WritableByteChannel channel, MessageDigest sha256, Context context) {
+        Response<InputStream> response = blobsImpl.getChunkWithResponse(repositoryName, digest, range.toString(), context);
 
-        ByteBuffer buffer = response.getValue().toByteBuffer();
+        ByteBuffer buffer = BinaryData.fromStream(response.getValue()).toByteBuffer();
         sha256.update(buffer.asReadOnlyBuffer());
         try {
             channel.write(buffer);

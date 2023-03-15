@@ -268,7 +268,7 @@ public class ContainerRegistryBlobClientIntegrationTests extends ContainerRegist
 
         client = getBlobClient("oci-artifact", httpClient);
 
-        long size = CHUNK_SIZE * 50;
+        long size = CHUNK_SIZE * 1000;
         TestInputStream input = new TestInputStream(size);
         UploadBlobResult result = client.uploadBlob(Channels.newChannel(input), Context.NONE);
 
@@ -286,7 +286,7 @@ public class ContainerRegistryBlobClientIntegrationTests extends ContainerRegist
 
         asyncClient = getBlobAsyncClient("oci-artifact", httpClient);
 
-        long size = CHUNK_SIZE * 50;
+        long size = CHUNK_SIZE * 100;
         final TestOutputStream output = new TestOutputStream();
         StepVerifier.setDefaultTimeout(Duration.ofMinutes(30));
         StepVerifier.create(BinaryData.fromFlux(generateAsyncStream(size))

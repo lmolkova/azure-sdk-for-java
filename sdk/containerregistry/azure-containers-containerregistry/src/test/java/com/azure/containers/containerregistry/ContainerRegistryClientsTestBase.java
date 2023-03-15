@@ -126,7 +126,7 @@ public class ContainerRegistryClientsTestBase extends TestBase {
             .endpoint(getEndpoint(endpoint))
             .repository(repositoryName)
             .httpClient(httpClient == null ? interceptorManager.getPlaybackClient() : httpClient)
-            .httpLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BODY_AND_HEADERS))
+            .httpLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.HEADERS))
             .addPolicy(interceptorManager.getRecordPolicy(redactors))
             .credential(credential);
     }

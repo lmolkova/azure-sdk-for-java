@@ -39,6 +39,7 @@ import com.azure.core.http.rest.RestProxy;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.Context;
 import com.azure.core.util.FluxUtil;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -73,7 +74,7 @@ public final class ContainerRegistryBlobsImpl {
         @Get("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({200, 307})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, BinaryData>> getBlob(
+        Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, Flux<ByteBuffer>>> getBlob(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -83,7 +84,7 @@ public final class ContainerRegistryBlobsImpl {
         @Get("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({200, 307})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        ResponseBase<ContainerRegistryBlobsGetBlobHeaders, BinaryData> getBlobSync(
+        ResponseBase<ContainerRegistryBlobsGetBlobHeaders, InputStream> getBlobSync(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -113,7 +114,7 @@ public final class ContainerRegistryBlobsImpl {
         @Delete("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({202})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, BinaryData>> deleteBlob(
+        Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, Flux<ByteBuffer>>> deleteBlob(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -123,7 +124,7 @@ public final class ContainerRegistryBlobsImpl {
         @Delete("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({202})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, BinaryData> deleteBlobSync(
+        ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, InputStream> deleteBlobSync(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -278,7 +279,7 @@ public final class ContainerRegistryBlobsImpl {
         @Get("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({206})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData>> getChunk(
+        Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>>> getChunk(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -289,7 +290,7 @@ public final class ContainerRegistryBlobsImpl {
         @Get("/v2/{name}/blobs/{digest}")
         @ExpectedResponses({206})
         @UnexpectedResponseExceptionType(HttpResponseException.class)
-        ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData> getChunkSync(
+        ResponseBase<ContainerRegistryBlobsGetChunkHeaders, InputStream> getChunkSync(
                 @HostParam("url") String url,
                 @PathParam("name") String name,
                 @PathParam("digest") String digest,
@@ -331,7 +332,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, BinaryData>> getBlobWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, Flux<ByteBuffer>>> getBlobWithResponseAsync(
             String name, String digest) {
         final String accept = "application/octet-stream";
         return FluxUtil.withContext(context -> service.getBlob(this.client.getUrl(), name, digest, accept, context));
@@ -349,7 +350,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, BinaryData>> getBlobWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsGetBlobHeaders, Flux<ByteBuffer>>> getBlobWithResponseAsync(
             String name, String digest, Context context) {
         final String accept = "application/octet-stream";
         return service.getBlob(this.client.getUrl(), name, digest, accept, context);
@@ -363,11 +364,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getBlobAsync(String name, String digest) {
-        return getBlobWithResponseAsync(name, digest).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> getBlobAsync(String name, String digest) {
+        return getBlobWithResponseAsync(name, digest)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -379,11 +381,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getBlobAsync(String name, String digest, Context context) {
-        return getBlobWithResponseAsync(name, digest, context).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> getBlobAsync(String name, String digest, Context context) {
+        return getBlobWithResponseAsync(name, digest, context)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -398,7 +401,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public ResponseBase<ContainerRegistryBlobsGetBlobHeaders, BinaryData> getBlobWithResponse(
+    public ResponseBase<ContainerRegistryBlobsGetBlobHeaders, InputStream> getBlobWithResponse(
             String name, String digest, Context context) {
         final String accept = "application/octet-stream";
         return service.getBlobSync(this.client.getUrl(), name, digest, accept, context);
@@ -415,7 +418,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public BinaryData getBlob(String name, String digest) {
+    public InputStream getBlob(String name, String digest) {
         return getBlobWithResponse(name, digest, Context.NONE).getValue();
     }
 
@@ -529,7 +532,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, BinaryData>> deleteBlobWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, Flux<ByteBuffer>>> deleteBlobWithResponseAsync(
             String name, String digest) {
         final String accept = "application/octet-stream";
         return FluxUtil.withContext(context -> service.deleteBlob(this.client.getUrl(), name, digest, accept, context));
@@ -547,7 +550,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, BinaryData>> deleteBlobWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, Flux<ByteBuffer>>> deleteBlobWithResponseAsync(
             String name, String digest, Context context) {
         final String accept = "application/octet-stream";
         return service.deleteBlob(this.client.getUrl(), name, digest, accept, context);
@@ -561,11 +564,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> deleteBlobAsync(String name, String digest) {
-        return deleteBlobWithResponseAsync(name, digest).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> deleteBlobAsync(String name, String digest) {
+        return deleteBlobWithResponseAsync(name, digest)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -577,11 +581,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> deleteBlobAsync(String name, String digest, Context context) {
-        return deleteBlobWithResponseAsync(name, digest, context).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> deleteBlobAsync(String name, String digest, Context context) {
+        return deleteBlobWithResponseAsync(name, digest, context)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -596,7 +601,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, BinaryData> deleteBlobWithResponse(
+    public ResponseBase<ContainerRegistryBlobsDeleteBlobHeaders, InputStream> deleteBlobWithResponse(
             String name, String digest, Context context) {
         final String accept = "application/octet-stream";
         return service.deleteBlobSync(this.client.getUrl(), name, digest, accept, context);
@@ -613,7 +618,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public BinaryData deleteBlob(String name, String digest) {
+    public InputStream deleteBlob(String name, String digest) {
         return deleteBlobWithResponse(name, digest, Context.NONE).getValue();
     }
 
@@ -1435,7 +1440,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData>> getChunkWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>>> getChunkWithResponseAsync(
             String name, String digest, String range) {
         final String accept = "application/octet-stream";
         return FluxUtil.withContext(
@@ -1457,7 +1462,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase} on successful completion of {@link Mono}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData>> getChunkWithResponseAsync(
+    public Mono<ResponseBase<ContainerRegistryBlobsGetChunkHeaders, Flux<ByteBuffer>>> getChunkWithResponseAsync(
             String name, String digest, String range, Context context) {
         final String accept = "application/octet-stream";
         return service.getChunk(this.client.getUrl(), name, digest, range, accept, context);
@@ -1474,11 +1479,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getChunkAsync(String name, String digest, String range) {
-        return getChunkWithResponseAsync(name, digest, range).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> getChunkAsync(String name, String digest, String range) {
+        return getChunkWithResponseAsync(name, digest, range)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -1493,11 +1499,12 @@ public final class ContainerRegistryBlobsImpl {
      * @throws IllegalArgumentException thrown if parameters fail the validation.
      * @throws HttpResponseException thrown if the request is rejected by server.
      * @throws RuntimeException all other wrapped checked exceptions if the request fails to be sent.
-     * @return the response body on successful completion of {@link Mono}.
+     * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public Mono<BinaryData> getChunkAsync(String name, String digest, String range, Context context) {
-        return getChunkWithResponseAsync(name, digest, range, context).flatMap(res -> Mono.justOrEmpty(res.getValue()));
+    public Flux<ByteBuffer> getChunkAsync(String name, String digest, String range, Context context) {
+        return getChunkWithResponseAsync(name, digest, range, context)
+                .flatMapMany(fluxByteBufferResponse -> fluxByteBufferResponse.getValue());
     }
 
     /**
@@ -1515,7 +1522,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response body along with {@link ResponseBase}.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public ResponseBase<ContainerRegistryBlobsGetChunkHeaders, BinaryData> getChunkWithResponse(
+    public ResponseBase<ContainerRegistryBlobsGetChunkHeaders, InputStream> getChunkWithResponse(
             String name, String digest, String range, Context context) {
         final String accept = "application/octet-stream";
         return service.getChunkSync(this.client.getUrl(), name, digest, range, accept, context);
@@ -1535,7 +1542,7 @@ public final class ContainerRegistryBlobsImpl {
      * @return the response.
      */
     @ServiceMethod(returns = ReturnType.SINGLE)
-    public BinaryData getChunk(String name, String digest, String range) {
+    public InputStream getChunk(String name, String digest, String range) {
         return getChunkWithResponse(name, digest, range, Context.NONE).getValue();
     }
 

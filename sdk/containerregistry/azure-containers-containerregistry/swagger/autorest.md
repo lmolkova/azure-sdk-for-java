@@ -73,6 +73,7 @@ custom-types-subpackage: models
 enable-sync-stack: true
 generic-response-type: true
 disable-client-builder: true
+use-input-stream-for-binary: true
 stream-style-serialization: true
 ```
 
