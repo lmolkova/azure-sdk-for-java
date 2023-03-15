@@ -84,8 +84,12 @@ public final class UtilsImpl {
     private static final String HTTP_REST_PROXY_SYNC_PROXY_ENABLE = "com.azure.core.http.restproxy.syncproxy.enable";
 
     public static final HttpHeaderName DOCKER_DIGEST_HEADER_NAME = HttpHeaderName.fromString("docker-content-digest");
-    // TODO (limolkova) should we send index and list too so that we won't need to change the default later on?
-    public static final String SUPPORTED_MANIFEST_TYPES = ManifestMediaType.OCI_MANIFEST + "," + ManifestMediaType.DOCKER_MANIFEST;
+
+    private static final ManifestMediaType DOCKER_LIST_TYPE = ManifestMediaType.fromString("application/vnd.docker.distribution.manifest.list.v2+json");
+    private static final ManifestMediaType OCI_INDEX_TYPE = ManifestMediaType.fromString("application/vnd.oci.image.index.v1+json");
+
+    public static final String SUPPORTED_MANIFEST_TYPES = ManifestMediaType.OCI_MANIFEST + "," + ManifestMediaType.DOCKER_MANIFEST + "," +
+        OCI_INDEX_TYPE + ", " + DOCKER_LIST_TYPE;
     private static final String CONTAINER_REGISTRY_TRACING_NAMESPACE_VALUE = "Microsoft.ContainerRegistry";
     private static final Context CONTEXT_WITH_SYNC = new Context(HTTP_REST_PROXY_SYNC_PROXY_ENABLE, true);
     public static final int CHUNK_SIZE = 4 * 1024 * 1024;
