@@ -3,7 +3,6 @@
 
 package com.azure.data.appconfiguration.implementation;
 
-import com.azure.core.util.Context;
 import com.azure.data.appconfiguration.implementation.models.KeyValue;
 import com.azure.data.appconfiguration.implementation.models.KeyValueFields;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
@@ -14,15 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.azure.core.util.tracing.Tracer.AZ_TRACING_NAMESPACE_KEY;
-
 /**
  * App Configuration Utility methods, use internally.
  */
 public class Utility {
-    private static final String HTTP_REST_PROXY_SYNC_PROXY_ENABLE = "com.azure.core.http.restproxy.syncproxy.enable";
-    public static final String APP_CONFIG_TRACING_NAMESPACE_VALUE = "Microsoft.AppConfiguration";
-
     static final String ID = "id";
     static final String DESCRIPTION = "description";
     static final String DISPLAY_NAME = "display_name";
@@ -123,23 +117,5 @@ public class Utility {
             return Mono.error(new IllegalArgumentException("Parameter 'key' is required and cannot be null."));
         }
         return Mono.just(setting);
-    }
-
-    /**
-     * Enable the sync stack rest proxy.
-     *
-     * @param context It offers a means of passing arbitrary data (key-value pairs) to pipeline policies.
-     * Most applications do not need to pass arbitrary data to the pipeline and can pass Context.NONE or null.
-     *
-     * @return The Context.
-     */
-    public static Context enableSyncRestProxy(Context context) {
-        context = context == null ? Context.NONE : context;
-        return context.addData(HTTP_REST_PROXY_SYNC_PROXY_ENABLE, true);
-    }
-
-    public static Context addTracingNamespace(Context context) {
-        context = context == null ? Context.NONE : context;
-        return context.addData(AZ_TRACING_NAMESPACE_KEY, APP_CONFIG_TRACING_NAMESPACE_VALUE);
     }
 }

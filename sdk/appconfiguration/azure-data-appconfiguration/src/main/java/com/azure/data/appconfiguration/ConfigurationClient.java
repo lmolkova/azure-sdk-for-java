@@ -34,8 +34,6 @@ import java.time.OffsetDateTime;
 import static com.azure.data.appconfiguration.implementation.ConfigurationSettingDeserializationHelper.toConfigurationSettingWithPagedResponse;
 import static com.azure.data.appconfiguration.implementation.ConfigurationSettingDeserializationHelper.toConfigurationSettingWithResponse;
 import static com.azure.data.appconfiguration.implementation.Utility.ETAG_ANY;
-import static com.azure.data.appconfiguration.implementation.Utility.addTracingNamespace;
-import static com.azure.data.appconfiguration.implementation.Utility.enableSyncRestProxy;
 import static com.azure.data.appconfiguration.implementation.Utility.getEtag;
 import static com.azure.data.appconfiguration.implementation.Utility.toKeyValue;
 import static com.azure.data.appconfiguration.implementation.Utility.toKeyValueFieldsList;
@@ -197,7 +195,7 @@ public final class ConfigurationClient {
         // return an error.
         final ResponseBase<PutKeyValueHeaders, KeyValue> response =
             serviceClient.putKeyValueWithResponse(setting.getKey(), setting.getLabel(), null, ETAG_ANY,
-                toKeyValue(setting), enableSyncRestProxy(addTracingNamespace(context)));
+                toKeyValue(setting), context);
         return toConfigurationSettingWithResponse(response);
     }
 
@@ -335,8 +333,7 @@ public final class ConfigurationClient {
         validateSetting(setting);
         final ResponseBase<PutKeyValueHeaders, KeyValue> response =
             serviceClient.putKeyValueWithResponse(setting.getKey(), setting.getLabel(),
-                getEtag(ifUnchanged, setting), null, toKeyValue(setting),
-                enableSyncRestProxy(addTracingNamespace(context)));
+                getEtag(ifUnchanged, setting), null, toKeyValue(setting), context);
         return toConfigurationSettingWithResponse(response);
     }
 
@@ -478,7 +475,7 @@ public final class ConfigurationClient {
             final ResponseBase<GetKeyValueHeaders, KeyValue> response =
                 serviceClient.getKeyValueWithResponse(setting.getKey(), setting.getLabel(),
                     acceptDateTime == null ? null : acceptDateTime.toString(), null,
-                    getEtag(ifChanged, setting), null, enableSyncRestProxy(addTracingNamespace(context)));
+                    getEtag(ifChanged, setting), null, context);
             return toConfigurationSettingWithResponse(response);
         } catch (HttpResponseException ex) {
             final HttpResponse httpResponse = ex.getResponse();
@@ -600,7 +597,7 @@ public final class ConfigurationClient {
         validateSetting(setting);
         final ResponseBase<DeleteKeyValueHeaders, KeyValue> response =
             serviceClient.deleteKeyValueWithResponse(setting.getKey(), setting.getLabel(),
-                getEtag(ifUnchanged, setting), enableSyncRestProxy(addTracingNamespace(context)));
+                getEtag(ifUnchanged, setting), context);
         return toConfigurationSettingWithResponse(response);
     }
 
@@ -736,7 +733,6 @@ public final class ConfigurationClient {
         validateSetting(setting);
         final String key = setting.getKey();
         final String label = setting.getLabel();
-        context = enableSyncRestProxy(addTracingNamespace(context));
         if (isReadOnly) {
             final ResponseBase<PutLockHeaders, KeyValue> response =
                 serviceClient.putLockWithResponse(key, label, null, null, context);
@@ -810,12 +806,12 @@ public final class ConfigurationClient {
                     selector == null ? null : selector.getAcceptDateTime(),
                     selector == null ? null : toKeyValueFieldsList(selector.getFields()),
                     null,
-                    enableSyncRestProxy(addTracingNamespace(context)));
+                    context);
                 return toConfigurationSettingWithPagedResponse(pagedResponse);
             },
             nextLink -> {
                 final PagedResponse<KeyValue> pagedResponse = serviceClient.getKeyValuesNextSinglePage(nextLink,
-                    selector.getAcceptDateTime(), enableSyncRestProxy(addTracingNamespace(context)));
+                    selector.getAcceptDateTime(), context);
                 return toConfigurationSettingWithPagedResponse(pagedResponse);
             }
         );
@@ -896,12 +892,12 @@ public final class ConfigurationClient {
                     null,
                     acceptDateTime,
                     selector == null ? null : toKeyValueFieldsList(selector.getFields()),
-                    enableSyncRestProxy(addTracingNamespace(context)));
+                    context);
                 return toConfigurationSettingWithPagedResponse(pagedResponse);
             },
             nextLink -> {
                 final PagedResponse<KeyValue> pagedResponse = serviceClient.getRevisionsNextSinglePage(nextLink,
-                    acceptDateTime, enableSyncRestProxy(addTracingNamespace(context)));
+                    acceptDateTime, context);
                 return toConfigurationSettingWithPagedResponse(pagedResponse);
             }
         );

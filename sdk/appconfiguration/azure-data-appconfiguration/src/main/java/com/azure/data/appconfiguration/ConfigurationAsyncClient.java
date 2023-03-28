@@ -35,7 +35,6 @@ import static com.azure.core.util.FluxUtil.withContext;
 import static com.azure.data.appconfiguration.implementation.ConfigurationSettingDeserializationHelper.toConfigurationSettingWithPagedResponse;
 import static com.azure.data.appconfiguration.implementation.ConfigurationSettingDeserializationHelper.toConfigurationSettingWithResponse;
 import static com.azure.data.appconfiguration.implementation.Utility.ETAG_ANY;
-import static com.azure.data.appconfiguration.implementation.Utility.addTracingNamespace;
 import static com.azure.data.appconfiguration.implementation.Utility.getEtag;
 import static com.azure.data.appconfiguration.implementation.Utility.toKeyValue;
 import static com.azure.data.appconfiguration.implementation.Utility.toKeyValueFieldsList;
@@ -193,9 +192,9 @@ public final class ConfigurationAsyncClient {
         return withContext(
             context -> validateSettingAsync(setting).flatMap(
                 settingInternal -> serviceClient.putKeyValueWithResponseAsync(settingInternal.getKey(),
-                    settingInternal.getLabel(), null, ETAG_ANY, toKeyValue(settingInternal),
-                    addTracingNamespace(context))
-                                       .map(response -> toConfigurationSettingWithResponse(response))));
+                        settingInternal.getLabel(), null, ETAG_ANY, toKeyValue(settingInternal),
+                        context)
+                    .map(response -> toConfigurationSettingWithResponse(response))));
     }
 
     /**
@@ -327,9 +326,9 @@ public final class ConfigurationAsyncClient {
         return withContext(
             context -> validateSettingAsync(setting).flatMap(
                 settingInternal -> serviceClient.putKeyValueWithResponseAsync(settingInternal.getKey(),
-                    settingInternal.getLabel(), getEtag(ifUnchanged, settingInternal), null,
-                    toKeyValue(settingInternal), addTracingNamespace(context))
-                                       .map(response -> toConfigurationSettingWithResponse(response))));
+                        settingInternal.getLabel(), getEtag(ifUnchanged, settingInternal), null,
+                        toKeyValue(settingInternal), context)
+                    .map(response -> toConfigurationSettingWithResponse(response))));
     }
 
     /**
@@ -470,7 +469,7 @@ public final class ConfigurationAsyncClient {
                 settingInternal ->
                     serviceClient.getKeyValueWithResponseAsync(settingInternal.getKey(), settingInternal.getLabel(),
                         acceptDateTime == null ? null : acceptDateTime.toString(), null,
-                        getEtag(ifChanged, settingInternal), null, addTracingNamespace(context))
+                        getEtag(ifChanged, settingInternal), null, context)
                         .onErrorResume(
                             HttpResponseException.class,
                             (Function<Throwable, Mono<ResponseBase<GetKeyValueHeaders, KeyValue>>>) throwable -> {
@@ -600,7 +599,7 @@ public final class ConfigurationAsyncClient {
         boolean ifUnchanged) {
         return withContext(context -> validateSettingAsync(setting).flatMap(
             settingInternal -> serviceClient.deleteKeyValueWithResponseAsync(settingInternal.getKey(),
-                settingInternal.getLabel(), getEtag(ifUnchanged, settingInternal), addTracingNamespace(context))
+                settingInternal.getLabel(), getEtag(ifUnchanged, settingInternal), context)
                                    .map(response -> toConfigurationSettingWithResponse(response))));
     }
 
@@ -737,10 +736,9 @@ public final class ConfigurationAsyncClient {
             settingInternal -> {
                 final String key = settingInternal.getKey();
                 final String label = settingInternal.getLabel();
-                final Context contextInternal = addTracingNamespace(context);
                 return (isReadOnly
-                            ? serviceClient.putLockWithResponseAsync(key, label, null, null, contextInternal)
-                            : serviceClient.deleteLockWithResponseAsync(key, label, null, null, contextInternal))
+                            ? serviceClient.putLockWithResponseAsync(key, label, null, null, context)
+                            : serviceClient.deleteLockWithResponseAsync(key, label, null, null, context))
                            .map(response -> toConfigurationSettingWithResponse(response));
             }));
     }
@@ -783,13 +781,13 @@ public final class ConfigurationAsyncClient {
                     acceptDateTime,
                     keyValueFields,
                     null,
-                    addTracingNamespace(context))
+                    context)
                                .map(pagedResponse -> toConfigurationSettingWithPagedResponse(pagedResponse))),
             nextLink -> withContext(
                 context -> serviceClient.getKeyValuesNextSinglePageAsync(
                     nextLink,
                     acceptDateTime,
-                    addTracingNamespace(context))
+                    context)
                                .map(pagedResponse -> toConfigurationSettingWithPagedResponse(pagedResponse)))
         );
     }
@@ -835,12 +833,11 @@ public final class ConfigurationAsyncClient {
                     null,
                     acceptDateTime,
                     keyValueFields,
-                    addTracingNamespace(context))
+                    context)
                                .map(pagedResponse -> toConfigurationSettingWithPagedResponse(pagedResponse))),
             nextLink -> withContext(
                 context ->
-                    serviceClient.getRevisionsNextSinglePageAsync(nextLink, acceptDateTime,
-                        addTracingNamespace(context))
+                    serviceClient.getRevisionsNextSinglePageAsync(nextLink, acceptDateTime, context)
                         .map(pagedResponse -> toConfigurationSettingWithPagedResponse(pagedResponse))));
     }
 
