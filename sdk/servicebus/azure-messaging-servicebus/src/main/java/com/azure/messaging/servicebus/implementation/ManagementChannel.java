@@ -54,6 +54,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_PATH_KEY;
+import static com.azure.core.amqp.implementation.ClientConstants.LINK_NAME_KEY;
 import static com.azure.core.util.FluxUtil.fluxError;
 import static com.azure.core.util.FluxUtil.monoError;
 import static com.azure.messaging.servicebus.implementation.ManagementConstants.OPERATION_ADD_RULE;
@@ -65,7 +66,9 @@ import static com.azure.messaging.servicebus.implementation.ManagementConstants.
 import static com.azure.messaging.servicebus.implementation.ManagementConstants.OPERATION_SCHEDULE_MESSAGE;
 import static com.azure.messaging.servicebus.implementation.ManagementConstants.OPERATION_SET_SESSION_STATE;
 import static com.azure.messaging.servicebus.implementation.ManagementConstants.OPERATION_UPDATE_DISPOSITION;
+import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.DELIVERY_STATE_KEY;
 import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.DISPOSITION_STATUS_KEY;
+import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.SEQUENCE_NUMBER_KEY;
 import static com.azure.messaging.servicebus.implementation.ServiceBusConstants.SESSION_ID_KEY;
 
 /**
@@ -183,7 +186,15 @@ public class ManagementChannel implements ServiceBusManagementNode {
     @Override
     public Flux<ServiceBusReceivedMessage> peek(long fromSequenceNumber, String sessionId, String associatedLinkName,
         int maxMessages) {
-        return isAuthorized(OPERATION_PEEK).thenMany(createChannel.flatMap(channel -> {
+        logger.atInfo().addKeyValue(LINK_NAME_KEY, associatedLinkName)
+            .addKeyValue(SEQUENCE_NUMBER_KEY, fromSequenceNumber)
+            .addKeyValue("messageCount", maxMessages)
+            .log("in peek");
+
+        Mono<Message> send = isAuthorized(OPERATION_PEEK).then(createChannel.flatMap(channel -> {
+            logger.atInfo().addKeyValue("channel", channel)
+                .log("in channel");
+
             final Message message = createManagementMessage(OPERATION_PEEK, associatedLinkName);
 
             // set mandatory properties on AMQP message body
@@ -197,13 +208,21 @@ public class ManagementChannel implements ServiceBusManagementNode {
 
             message.setBody(new AmqpValue(requestBody));
 
+            logger.atInfo().addKeyValue(SEQUENCE_NUMBER_KEY, fromSequenceNumber).addKeyValue("messageCount", maxMessages).log("about to send peek request");
             return sendWithVerify(channel, message, null);
-        }).flatMapMany(response -> {
-            final List<ServiceBusReceivedMessage> messages =
-                messageSerializer.deserializeList(response, ServiceBusReceivedMessage.class);
-
-            return Flux.fromIterable(messages);
         }));
+
+        return send
+            .doOnRequest(i -> System.out.println(" Do on request 1  " + i))
+            .flatMapMany(response -> {
+                final List<ServiceBusReceivedMessage> messages =
+                    messageSerializer.deserializeList(response, ServiceBusReceivedMessage.class);
+
+                logger.info("deserialized messages: {}", messages.size());
+                return Flux.fromIterable(messages);
+            })
+            .doOnRequest(i -> System.out.println(" Do on request 2  " + i))
+            .doOnSubscribe(s -> System.out.println("SUBSCRIBE !!!!"));
     }
 
     /**
@@ -550,6 +569,10 @@ public class ManagementChannel implements ServiceBusManagementNode {
 
     private Mono<Message> sendWithVerify(RequestResponseChannel channel, Message message,
         DeliveryState deliveryState) {
+        logger.atInfo().addKeyValue(DELIVERY_STATE_KEY, deliveryState)
+            .addKeyValue("messageId", message.getCorrelationId())
+            .addKeyValue("operation", message.getApplicationProperties().getValue().get(ManagementConstants.MANAGEMENT_OPERATION_KEY))
+            .log("sending message");
         return channel.sendWithAck(message, deliveryState)
             .handle((Message response, SynchronousSink<Message> sink) -> {
                 if (RequestResponseUtils.isSuccessful(response)) {
@@ -602,6 +625,7 @@ public class ManagementChannel implements ServiceBusManagementNode {
             .onErrorMap(this::mapError)
             .next()
             .handle((response, sink) -> {
+                System.out.println("!!!!! isAuthorized");
                 if (response != AmqpResponseCode.ACCEPTED && response != AmqpResponseCode.OK) {
                     final String message = String.format("User does not have authorization to perform operation "
                         + "[%s] on entity [%s]. Response: [%s]", operation, entityPath, response);

@@ -33,6 +33,7 @@ import com.azure.messaging.servicebus.models.ServiceBusReceiveMode;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.context.Context;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.azure.core.amqp.implementation.ClientConstants.ENTITY_PATH_KEY;
 import static com.azure.core.amqp.implementation.ClientConstants.LINK_NAME_KEY;
+import static com.azure.core.amqp.implementation.ClientConstants.SUBSCRIBER_ID_KEY;
 import static com.azure.core.util.FluxUtil.fluxError;
 import static com.azure.core.util.FluxUtil.monoError;
 import static com.azure.messaging.servicebus.implementation.Messages.INVALID_OPERATION_DISPOSED_RECEIVER;
@@ -731,24 +733,24 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
 
                 // To prevent it from throwing NoSuchElementException in .last(), we produce an empty message with
                 // the same sequence number.
-                final Mono<ServiceBusReceivedMessage> handle = messages
+                return messages
                     .switchIfEmpty(Mono.fromCallable(() -> {
+                        LOGGER.info("empty");
                         ServiceBusReceivedMessage emptyMessage = new ServiceBusReceivedMessage(BinaryData
                             .fromBytes(new byte[0]));
                         emptyMessage.setSequenceNumber(lastPeekedSequenceNumber.get());
                         return emptyMessage;
                     }))
-                    .last()
-                    .handle((last, sink) -> {
+                    .doOnNext(message -> {
                         final long current = lastPeekedSequenceNumber
-                            .updateAndGet(value -> Math.max(value, last.getSequenceNumber()));
+                            .updateAndGet(value -> Math.max(value, message.getSequenceNumber()));
 
                         LOGGER.atVerbose().addKeyValue(SEQUENCE_NUMBER_KEY, current).log("Last peeked sequence number in batch.");
-                        sink.complete();
                     });
-
-                return Flux.merge(messages, handle);
             })
+                .doOnCancel(() -> LOGGER.info("Cancelled 2"))
+                .contextWrite(Context.of(SUBSCRIBER_ID_KEY, "it'sme"))
+                .doOnComplete(() -> LOGGER.info("compleeeete"))
             .onErrorMap(throwable -> mapError(throwable, ServiceBusErrorSource.RECEIVE));
     }
 

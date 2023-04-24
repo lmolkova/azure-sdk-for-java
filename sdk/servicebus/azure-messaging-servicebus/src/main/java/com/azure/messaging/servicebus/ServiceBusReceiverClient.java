@@ -13,8 +13,11 @@ import com.azure.messaging.servicebus.models.CompleteOptions;
 import com.azure.messaging.servicebus.models.DeadLetterOptions;
 import com.azure.messaging.servicebus.models.DeferOptions;
 import com.azure.messaging.servicebus.models.ServiceBusReceiveMode;
+import org.reactivestreams.Subscription;
+import reactor.core.CoreSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+import reactor.util.context.Context;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -398,9 +401,37 @@ public final class ServiceBusReceiverClient implements AutoCloseable {
         final Flux<ServiceBusReceivedMessage> messages = asyncClient.peekMessages(maxMessages, sessionId)
             .timeout(operationTimeout);
 
-        final Flux<ServiceBusReceivedMessage> tracedMessages = tracer.traceSyncReceive("ServiceBus.peekMessages", messages);
+        /*final Flux<ServiceBusReceivedMessage> tracedMessages = tracer.traceSyncReceive("ServiceBus.peekMessages", messages);
+        // Subscribe to message flux so we can kick off this operation, but not to tracing - caller subscriber will take care of it.
+        messages.subscribe(new CoreSubscriber<ServiceBusReceivedMessage>() {
+            @Override
+            public void onSubscribe(Subscription s) {
+                s.request(1);
+            }
 
-        return new IterableStream<>(tracedMessages);
+            @Override
+            public Context currentContext(){
+                return Context.of("subscriberId", "client");
+            }
+
+            @Override
+            public void onNext(ServiceBusReceivedMessage receivedMessage) {
+                LOGGER.atInfo().addKeyValue("messageId", receivedMessage.getMessageId()).log("received in client");
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                LOGGER.logThrowableAsWarning(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                LOGGER.info("client subs done");
+            }
+        });
+
+        return new IterableStream<>(tracedMessages);*/
+        return new IterableStream<>(messages.collectList().block());//new IterableStream<>(messages);
     }
 
     /**
@@ -448,6 +479,8 @@ public final class ServiceBusReceiverClient implements AutoCloseable {
             sessionId).timeout(operationTimeout);
 
         final Flux<ServiceBusReceivedMessage> tracedMessages = tracer.traceSyncReceive("ServiceBus.peekMessages", messages);
+        // Subscribe to message flux so we can kick off this operation, but not to tracing - caller subscriber will take care of it.
+        messages.subscribe();
 
         return new IterableStream<>(tracedMessages);
     }
@@ -535,6 +568,9 @@ public final class ServiceBusReceiverClient implements AutoCloseable {
         final Flux<ServiceBusReceivedMessage> messagesFlux = emitter.asFlux();
         final Flux<ServiceBusReceivedMessage> tracedMessages = tracer.traceSyncReceive("ServiceBus.receiveMessages", messagesFlux);
 
+        // Subscribe to message flux so we can kick off this operation, but not to tracing - caller subscriber will take care of it.
+        messagesFlux.subscribe();
+
         return new IterableStream<>(tracedMessages);
     }
 
@@ -607,6 +643,8 @@ public final class ServiceBusReceiverClient implements AutoCloseable {
             sessionId).timeout(operationTimeout);
 
         final Flux<ServiceBusReceivedMessage> tracedMessages = tracer.traceSyncReceive("ServiceBus.receiveDeferredMessageBatch", messages);
+        // Subscribe so we can kick off this operation.
+        messages.subscribe();
 
         return new IterableStream<>(tracedMessages);
     }

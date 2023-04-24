@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +41,7 @@ public class ServiceBusTracer {
     private static final String TRACEPARENT_KEY = "traceparent";
     private static final String MESSAGING_SYSTEM_ATTRIBUTE_NAME = "messaging.system";
     public static final String MESSAGE_ENQUEUED_TIME_ATTRIBUTE_NAME = "messaging.servicebus.message.enqueued_time";
+    public static final String MESSAGE_ID_ATTRIBUTE_NAME = "messaging.message.id";
     public static final String MESSAGE_BATCH_SIZE_ATTRIBUTE_NAME = "messaging.batch.message_count";
 
     private static final String MESSAGING_OPERATION_ATTRIBUTE_NAME = "messaging.operation";
@@ -203,8 +205,9 @@ public class ServiceBusTracer {
                     if (signal.hasValue()) {
                         ServiceBusReceivedMessage message = signal.get();
                         if (message != null) {
-                            startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), getMessageContext.apply(message)));
+                            startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), null, getMessageContext.apply(message)));
                         }
+                        startOptions.setAttribute(MESSAGE_ID_ATTRIBUTE_NAME, message.getMessageId());
                     }
 
                     if (signal.isOnComplete() || signal.isOnError()) {
@@ -212,9 +215,7 @@ public class ServiceBusTracer {
                         tracer.end(null, signal.getThrowable(), span);
                     }
                 })
-                .doOnCancel(() ->  {
-                    cancelSpan(tracer.start(spanName, startOptions, Context.NONE));
-                })
+                .doOnCancel(() -> cancelSpan(tracer.start(spanName, startOptions, Context.NONE)))
                 .doOnSubscribe(s -> startOptions.setStartTimestamp(Instant.now()));
         }
         return publisher;
@@ -239,7 +240,7 @@ public class ServiceBusTracer {
                         if (signal.hasValue()) {
                             ServiceBusReceivedMessage message = signal.get();
                             if (message != null) {
-                                startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), Context.NONE));
+                                startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), message.getMessageId(), Context.NONE));
                             }
                         } else if (signal.isOnComplete() || signal.isOnError()) {
                             int batchSize = startOptions.getLinks() == null ? 0 : startOptions.getLinks().size();
@@ -259,7 +260,7 @@ public class ServiceBusTracer {
             StartSpanOptions startOptions = createStartOption(SpanKind.CLIENT, operationName);
             startOptions.setAttribute(MESSAGE_BATCH_SIZE_ATTRIBUTE_NAME, batch.size());
             for (ServiceBusMessage message : batch) {
-                startOptions.addLink(createLink(message.getApplicationProperties(), null, getMessageContext.apply(message)));
+                startOptions.addLink(createLink(message.getApplicationProperties(), null, message.getMessageId(), getMessageContext.apply(message)));
             }
 
             return tracer.start(spanName, startOptions, parent);
@@ -271,7 +272,8 @@ public class ServiceBusTracer {
     Context startSpanWithLink(String spanName, OperationName operationName, ServiceBusReceivedMessage message, Context messageContext, Context parent) {
         if (isEnabled() && message != null) {
             StartSpanOptions startOptions = createStartOption(SpanKind.CLIENT, operationName);
-            startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), messageContext));
+            startOptions.addLink(createLink(message.getApplicationProperties(), message.getEnqueuedTime(), null, messageContext));
+            startOptions.setAttribute(MESSAGE_ID_ATTRIBUTE_NAME, message.getMessageId());
             return tracer.start(spanName, startOptions, parent);
         }
 
@@ -296,7 +298,7 @@ public class ServiceBusTracer {
         return parent;
     }
 
-    private TracingLink createLink(Map<String, Object> applicationProperties, OffsetDateTime enqueuedTime, Context eventContext) {
+    private TracingLink createLink(Map<String, Object> applicationProperties, OffsetDateTime enqueuedTime, String messageId, Context eventContext) {
         Context link;
         Optional<Object> linkContext = eventContext.getData(SPAN_CONTEXT_KEY);
         if (linkContext.isPresent()) {
@@ -307,10 +309,23 @@ public class ServiceBusTracer {
 
         Map<String, Object> linkAttributes = null;
         if (enqueuedTime != null) {
-            linkAttributes = Collections.singletonMap(MESSAGE_ENQUEUED_TIME_ATTRIBUTE_NAME, enqueuedTime.toEpochSecond());
+            linkAttributes = addAttribute(linkAttributes, MESSAGE_ENQUEUED_TIME_ATTRIBUTE_NAME, enqueuedTime.toEpochSecond());
+        }
+
+        if (messageId != null) {
+            linkAttributes = addAttribute(linkAttributes, MESSAGE_ID_ATTRIBUTE_NAME, messageId);
         }
 
         return new TracingLink(link, linkAttributes);
+    }
+
+    private  Map<String, Object> addAttribute(Map<String, Object> map, String key, Object value)  {
+        if (map == null) {
+            map = new HashMap<>();
+        }
+
+        map.put(key, value);
+        return map;
     }
 
     private Context extractContext(Map<String, Object> applicationProperties) {
@@ -359,7 +374,8 @@ public class ServiceBusTracer {
                 StartSpanOptions startSpanOptions = createStartOption(SpanKind.CLIENT, operationName);
                 if (message != null) {
                     reportMessageSpan(message, messageContext);
-                    startSpanOptions.addLink(createLink(message.getApplicationProperties(), null, messageContext));
+                    startSpanOptions.addLink(createLink(message.getApplicationProperties(), null, null, messageContext));
+                    startSpanOptions.setAttribute(MESSAGE_ID_ATTRIBUTE_NAME, message.getMessageId());
                 }
 
                 Context span = tracer.start(spanName, startSpanOptions, Context.NONE);

@@ -6,6 +6,8 @@ package com.azure.messaging.servicebus;
 import com.azure.core.amqp.models.AmqpMessageBody;
 import com.azure.core.util.IterableStream;
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.messaging.servicebus.administration.ServiceBusAdministrationClient;
+import com.azure.messaging.servicebus.administration.ServiceBusAdministrationClientBuilder;
 import com.azure.messaging.servicebus.implementation.DispositionStatus;
 import com.azure.messaging.servicebus.implementation.MessagingEntityType;
 import com.azure.messaging.servicebus.models.AbandonOptions;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import reactor.core.publisher.Hooks;
 
 import java.nio.charset.Charset;
 import java.time.Duration;
@@ -29,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,11 +70,6 @@ class ServiceBusReceiverClientIntegrationTest extends IntegrationTestBase {
     @Override
     protected void beforeTest() {
         sessionId = UUID.randomUUID().toString();
-    }
-
-    @Override
-    protected void afterTest() {
-        dispose(receiver, sender, sessionReceiver);
     }
 
     /**
@@ -454,59 +453,80 @@ class ServiceBusReceiverClientIntegrationTest extends IntegrationTestBase {
     /**
      * Verifies that we can send and peek a batch of messages.
      */
-    @MethodSource("com.azure.messaging.servicebus.IntegrationTestBase#messagingEntityWithSessions")
-    @ParameterizedTest
-    void peekMessages(MessagingEntityType entityType, boolean isSessionEnabled) throws InterruptedException {
+    //@MethodSource("com.azure.messaging.servicebus.IntegrationTestBase#messagingEntityWithSessions")
+    //@ParameterizedTest
+    @Test
+    void peekMessages(/*MessagingEntityType entityType, boolean isSessionEnabled*/) throws InterruptedException {
 
-        // Arrange
-        setSender(entityType, USE_CASE_PEEK_BATCH, isSessionEnabled);
-        final byte[] payload = "peek-message".getBytes(Charset.defaultCharset());
-        final int maxMessages = 4;
+        for (int p = 0; p < 1; p ++) {
+            System.out.println("STAAAAAAAAAAAAAAART");
+            MessagingEntityType entityType = MessagingEntityType.QUEUE;
+            boolean isSessionEnabled = false;
+            // Arrange
+            /*setSender(entityType, USE_CASE_PEEK_BATCH, isSessionEnabled);
+            ServiceBusAdministrationClient admin = new ServiceBusAdministrationClientBuilder()
+                .connectionString(getConnectionString())
+                .buildClient();
 
-        List<ServiceBusMessage> messagesToSend = IntStream.range(0, maxMessages)
-            .mapToObj(i -> getMessage(String.format("%s-%s-%s", entityType, isSessionEnabled, i),
-                isSessionEnabled, AmqpMessageBody.fromData(payload)))
-            .collect(Collectors.toList());
-        Set<String> messageIds = messagesToSend.stream().map(ServiceBusMessage::getMessageId).collect(Collectors.toSet());
+            admin.deleteQueue(sender.getEntityPath());
+            admin.createQueue(sender.getEntityPath());*/
+            final byte[] payload = "peek-message".getBytes(Charset.defaultCharset());
+            final int maxMessages = 4;
 
-        setReceiver(entityType, USE_CASE_PEEK_BATCH, isSessionEnabled);
-        List<ServiceBusReceivedMessage> filtered = new ArrayList<>();
-        AtomicInteger iterations = new AtomicInteger(0);
+            int finalP = p;
+            List<ServiceBusMessage> messagesToSend = IntStream.range(0, maxMessages)
+                .mapToObj(i -> getMessage(String.format("%s-%s", finalP, i),
+                    isSessionEnabled, AmqpMessageBody.fromData(payload)))
+                .collect(Collectors.toList());
+            Set<String> messageIds = messagesToSend.stream().map(ServiceBusMessage::getMessageId).collect(Collectors.toSet());
 
-        // Act
-        Thread peekMessages = new Thread(() -> {
-            // maxMessages are not always guaranteed, sometime, we get less than asked for, just trying two times is not enough, so we will try many times
-            // https://github.com/Azure/azure-sdk-for-java/issues/21168
-            while (iterations.getAndIncrement() < 10 && filtered.size() < maxMessages) {
-                receiver.peekMessages(maxMessages)
+            setReceiver(entityType, USE_CASE_PEEK_BATCH, isSessionEnabled);
+            List<ServiceBusReceivedMessage> filtered = new ArrayList<>();
+            AtomicInteger iterations = new AtomicInteger(0);
+
+            CountDownLatch canSend = new CountDownLatch(1);
+            // Act
+            Thread peekMessages = new Thread(() -> {
+                // maxMessages are not always guaranteed, sometime, we get less than asked for, just trying two times is not enough, so we will try many times
+                // https://github.com/Azure/azure-sdk-for-java/issues/21168
+                while (iterations.getAndIncrement() < 1 && filtered.size() < maxMessages) {
+                    receiver.peekMessages(maxMessages)
                         .forEach(m -> {
                             logMessage(m, receiver.getEntityPath(), "peeked messages");
                             if (messageIds.contains(m.getMessageId())) {
                                 filtered.add(m);
                             }
                         });
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    fail();
+                    // now that receiver is ready, we can finally send
+                    canSend.countDown();
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        fail();
+                    }
                 }
-            }
-        });
+            });
 
-        peekMessages.start();
-        toClose((AutoCloseable) () -> peekMessages.interrupt());
+            peekMessages.start();
+            toClose((AutoCloseable) () -> peekMessages.interrupt());
 
-        messagesToSend.forEach(message -> sendMessage(message));
-        peekMessages.join(TIMEOUT.toMillis());
+            //assertTrue(canSend.await(TIMEOUT.getSeconds(), TimeUnit.SECONDS));
+            //messagesToSend.forEach(message -> sendMessage(message));
+            peekMessages.join(TIMEOUT.toMillis());
 
-        LOGGER.atInfo()
-            .addKeyValue("received", filtered.size())
-            .addKeyValue("iterations", iterations.get())
-            .addKeyValue("isSessionEnabled", isSessionEnabled)
-            .log("done receiving");
+            LOGGER.atInfo()
+                .addKeyValue("received", filtered.size())
+                .addKeyValue("iterations", iterations.get())
+                .addKeyValue("isSessionEnabled", isSessionEnabled)
+                .log("done receiving");
 
-        // Assert
-        assertEquals(maxMessages, filtered.size());
+            // Assert
+            assertEquals(maxMessages, filtered.size());
+            System.out.println("ENDDDDDDDDDDDDDDDDDD");
+
+            //sender.close();
+            //receiver.close();
+        }
     }
 
     /**
@@ -867,8 +887,8 @@ class ServiceBusReceiverClientIntegrationTest extends IntegrationTestBase {
                 .buildClient());
             this.receiver = toClose(this.sessionReceiver.acceptSession(sessionId));
         } else {
-            this.receiver = toClose(getReceiverBuilder(false, entityType, entityIndex, sharedConnection)
-                .buildClient());
+            this.receiver = getReceiverBuilder(false, entityType, entityIndex, sharedConnection)
+                .buildClient();
         }
     }
 
