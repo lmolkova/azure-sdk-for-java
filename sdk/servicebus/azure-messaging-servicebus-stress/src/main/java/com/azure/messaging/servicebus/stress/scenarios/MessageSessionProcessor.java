@@ -20,9 +20,6 @@ import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.getSessi
 public class MessageSessionProcessor extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(MessageSessionProcessor.class);
 
-    @Value("${DURATION_IN_MINUTES:15}")
-    private int durationInMinutes;
-
     @Value("${MAX_CONCURRENT_SESSIONS:1}")
     private int maxConcurrentSessions;
 
@@ -34,6 +31,8 @@ public class MessageSessionProcessor extends ServiceBusScenario {
 
     @Override
     public void run() {
+        beforeRun();
+
         ServiceBusProcessorClient processor = getSessionProcessorBuilder(options)
                 .maxConcurrentSessions(maxConcurrentSessions)
                 .maxConcurrentCalls(maxConcurrentCalls)
@@ -45,7 +44,7 @@ public class MessageSessionProcessor extends ServiceBusScenario {
                 .buildProcessorClient();
 
         processor.start();
-        blockingWait(Duration.ofMinutes(durationInMinutes));
+        blockingWait(options.getTestDuration());
         processor.close();
     }
 }

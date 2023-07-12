@@ -1,7 +1,42 @@
 matrix:
-  image:
-    - Dockerfile
   scenarios:
-    send-process:
+    send-process-3:
       chaos: "true"
       imageBuildDir: ..\..\..\
+      testDurationMin: 15
+      tryTimeout: 3
+      senderTestClass: MessageSenderAsync
+      receiverTestClass: MessageProcessor
+      processingConcurrency: 50
+    send-process-12:
+      chaos: "true"
+      imageBuildDir: ..\..\..\
+      testDurationMin: 15
+      tryTimeout: 12
+      senderTestClass: MessageSenderAsync
+      receiverTestClass: MessageProcessor
+      processingConcurrency: 50
+    send-process-24:
+      chaos: "true"
+      imageBuildDir: ..\..\..\
+      testDurationMin: 15
+      tryTimeout: 24
+      senderTestClass: MessageSenderAsync
+      receiverTestClass: MessageProcessor
+      processingConcurrency: 50
+    send-process-48:
+      chaos: "true"
+      imageBuildDir: ..\..\..\
+      testDurationMin: 15
+      tryTimeout: 48
+      senderTestClass: MessageSenderAsync
+      receiverTestClass: MessageProcessor
+      processingConcurrency: 50
+
+#    send-receive:
+#        chaos: "true"
+#        imageBuildDir: ..\..\..\
+#        testDurationMin: 15
+#        tryTimeout: 10
+#        senderTestClass: MessageSenderAsync
+#        receiverTestClass: MessageReceiverAsync

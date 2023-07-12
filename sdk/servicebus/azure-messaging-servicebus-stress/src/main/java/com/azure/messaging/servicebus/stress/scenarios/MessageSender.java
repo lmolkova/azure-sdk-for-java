@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 
 import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.blockingWait;
 import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.createBatch;
+import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.createBatchSync;
 import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.createMessagePayload;
 
 /**
@@ -22,9 +23,6 @@ import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.createMe
 @Component("MessageSender")
 public class MessageSender extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(MessageSender.class);
-
-    @Value("${DURATION_IN_MINUTES:15}")
-    private int durationInMinutes;
 
     @Value("${SEND_MESSAGE_RATE:100}")
     private int sendMessageRatePerSecond;
@@ -40,16 +38,18 @@ public class MessageSender extends ServiceBusScenario {
 
     @Override
     public void run() {
+        beforeRun();
+
         final byte[] messagePayload = createMessagePayload(messageSize);
         ServiceBusSenderClient client = TestUtils.getSenderBuilder(options, false).buildClient();
-        long endAtEpochMillis = Instant.now().plus(durationInMinutes, ChronoUnit.MINUTES).toEpochMilli();
+        long endAtEpochMillis = Instant.now().plus(options.getTestDuration()).toEpochMilli();
 
         int batchRatePerSecond = sendMessageRatePerSecond / batchSize;
         RateLimiter rateLimiter = new RateLimiter(batchRatePerSecond, sendConcurrency);
         while (Instant.now().toEpochMilli() < endAtEpochMillis) {
             if (rateLimiter.tryAcquire()) {
                 try {
-                    client.sendMessages(createBatch(messagePayload, batchSize));
+                    client.sendMessages(createBatchSync(client, messagePayload, batchSize));
                 } catch (Exception ex) {
                     LOGGER.error("send error", ex);
                 }

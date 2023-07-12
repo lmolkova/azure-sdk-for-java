@@ -22,12 +22,8 @@ import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.getProce
 public class MessageProcessor extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(MessageProcessor.class);
 
-    @Value("${DURATION_IN_MINUTES:15}")
-    private int testDurationInMinutes;
-
-    // lock duration is 5 sec, so in some cases we'll do lock renewal
-    @Value("${PROCESS_CALLBACK_DURATION_MAX_IN_SECONDS:7}")
-    private int processMessageDurationMaxInSeconds;
+    @Value("${PROCESS_CALLBACK_DURATION_MAX_IN_MS:1000}")
+    private int processMessageDurationMaxInMs;
 
     @Value("${MAX_CONCURRENT_CALLS:100}")
     private int maxConcurrentCalls;
@@ -37,8 +33,10 @@ public class MessageProcessor extends ServiceBusScenario {
 
     @Override
     public void run() {
+        beforeRun();
+
         ServiceBusProcessorClient processor = getProcessorBuilder(options)
-            .maxAutoLockRenewDuration(Duration.ofSeconds(processMessageDurationMaxInSeconds + 1))
+            .maxAutoLockRenewDuration(Duration.ofMillis(processMessageDurationMaxInMs + 1000))
             .maxConcurrentCalls(maxConcurrentCalls)
             .prefetchCount(prefetchCount)
             .processMessage(this::process)
@@ -48,19 +46,15 @@ public class MessageProcessor extends ServiceBusScenario {
             .buildProcessorClient();
 
         processor.start();
-        blockingWait(Duration.ofMinutes(testDurationInMinutes));
+        blockingWait(options.getTestDuration());
         processor.close();
     }
 
     private void process(ServiceBusReceivedMessageContext messageContext) {
-        try {
-            if (processMessageDurationMaxInSeconds != 0) {
-                int processTimeMs = ThreadLocalRandom.current().nextInt(processMessageDurationMaxInSeconds * 1000);
-                Thread.sleep(processTimeMs);
-            }
-            messageContext.complete();
-        } catch (Exception ex) {
-            LOGGER.logThrowableAsWarning(ex);
+        if (processMessageDurationMaxInMs != 0) {
+            int processTimeMs = ThreadLocalRandom.current().nextInt(processMessageDurationMaxInMs);
+            blockingWait(Duration.ofMillis(processTimeMs));
         }
+        messageContext.complete();
     }
 }

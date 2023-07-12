@@ -17,11 +17,11 @@ import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.getRecei
 @Component("MessageReceiverAsync")
 public class MessageReceiverAsync extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(MessageReceiverAsync.class);
-    @Value("${DURATION_IN_MINUTES:15}")
-    private int durationInMinutes;
 
     @Override
     public void run() {
+        beforeRun();
+
         ServiceBusReceiverAsyncClient client = getReceiverBuilder(options, false).buildAsyncClient();
 
         client.receiveMessages()
@@ -36,7 +36,7 @@ public class MessageReceiverAsync extends ServiceBusScenario {
                         return Mono.empty();
                     });
             })
-            .take(durationInMinutes)
+            .take(options.getTestDuration())
             .onErrorResume(error -> {
                 LOGGER.error("error receiving", error);
                 return Mono.empty();

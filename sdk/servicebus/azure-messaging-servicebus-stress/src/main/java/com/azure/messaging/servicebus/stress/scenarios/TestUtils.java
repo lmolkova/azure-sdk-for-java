@@ -4,22 +4,30 @@
 package com.azure.messaging.servicebus.stress.scenarios;
 
 import com.azure.core.amqp.AmqpRetryOptions;
+import com.azure.core.util.Context;
+import com.azure.core.util.TelemetryAttributes;
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.core.util.metrics.LongCounter;
+import com.azure.core.util.metrics.Meter;
+import com.azure.core.util.metrics.MeterProvider;
 import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusMessage;
+import com.azure.messaging.servicebus.ServiceBusMessageBatch;
+import com.azure.messaging.servicebus.ServiceBusSenderAsyncClient;
+import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import com.azure.messaging.servicebus.models.ServiceBusReceiveMode;
 import com.azure.messaging.servicebus.stress.util.EntityType;
 import com.azure.messaging.servicebus.stress.util.ScenarioOptions;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.Collections;
 import java.util.Random;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 final class TestUtils {
     private static final Random RANDOM = new Random();
-    private static final AmqpRetryOptions RETRY_OPTIONS = new AmqpRetryOptions().setTryTimeout(Duration.ofSeconds(5));
+
     private static final ClientLogger LOGGER = new ClientLogger(TestUtils.class);
 
     static ServiceBusClientBuilder.ServiceBusSenderClientBuilder getSenderBuilder(ScenarioOptions options, boolean session) {
@@ -42,7 +50,7 @@ final class TestUtils {
             builder.queueName(session ? options.getServiceBusSessionQueueName() : options.getServiceBusQueueName());
         } else if (options.getServiceBusEntityType() == EntityType.TOPIC) {
             builder.topicName(options.getServiceBusTopicName());
-            builder.subscriptionName(session ? options.getServicBusSessionSubscriptionName() : options.getServiceBusSubscriptionName());
+            builder.subscriptionName(session ? options.getServiceBusSessionSubscriptionName() : options.getServiceBusSubscriptionName());
         }
 
         return builder
@@ -80,10 +88,33 @@ final class TestUtils {
             .disableAutoComplete();
     }
 
-    static List<ServiceBusMessage> createBatch(byte[] messagePayload, int batchSize) {
-        return IntStream.range(0, batchSize)
-            .mapToObj(unused -> new ServiceBusMessage(messagePayload))
-            .collect(Collectors.toList());
+    private static final Meter METER = MeterProvider.getDefaultProvider().createMeter("stress_test", null, null);
+    private static final LongCounter batches = METER.createLongCounter("sender_batches_created", "foo", "messages");
+
+    private static final TelemetryAttributes ok = METER.createAttributes(Collections.singletonMap("status", "ok"));
+    private static final TelemetryAttributes error = METER.createAttributes(Collections.singletonMap("status", "error"));
+    private static final TelemetryAttributes cancel = METER.createAttributes(Collections.singletonMap("status", "cancel"));
+
+    static Mono<ServiceBusMessageBatch> createBatch(ServiceBusSenderAsyncClient client, byte[] messagePayload, int batchSize) {
+        return Mono.defer(() -> client.createMessageBatch()
+                .doOnNext(b -> IntStream.range(0, batchSize).boxed()
+                    .forEach(unused -> b.tryAddMessage(new ServiceBusMessage(messagePayload)))))
+            .doOnSuccess(i -> batches.add(1, ok, Context.NONE))
+            .doOnError(e -> batches.add(1, error, Context.NONE))
+            .doOnCancel(() -> batches.add(1, cancel, Context.NONE));
+    }
+
+    static ServiceBusMessageBatch createBatchSync(ServiceBusSenderClient client, byte[] messagePayload, int batchSize) {
+        try {
+            ServiceBusMessageBatch batch = client.createMessageBatch();
+            for (int i = 0; i < batchSize; i++) {
+                batch.tryAddMessage(new ServiceBusMessage(messagePayload));
+            }
+
+            return batch;
+        } catch (Exception e) {
+            throw LOGGER.logThrowableAsError(new RuntimeException("Error creating batch", e));
+        }
     }
 
     static byte[] createMessagePayload(int messageSize) {
@@ -94,7 +125,7 @@ final class TestUtils {
 
     private static ServiceBusClientBuilder getBuilder(ScenarioOptions options) {
         return new ServiceBusClientBuilder()
-            .retryOptions(RETRY_OPTIONS)
+            .retryOptions(new AmqpRetryOptions().setTryTimeout(options.getTryTimeout()))
             .connectionString(options.getServiceBusConnectionString());
     }
 

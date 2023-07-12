@@ -22,15 +22,14 @@ import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.getRecei
 public class MessageReceiver extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(MessageReceiver.class);
 
-    @Value("${DURATION_IN_MINUTES:15}")
-    private int durationInMinutes;
-
     @Value("${BATCH_SIZE:10}")
     private int batchSize;
 
     @Override
     public void run() {
-        long endAtEpochMillis = Instant.now().plus(durationInMinutes, ChronoUnit.MINUTES).toEpochMilli();
+        beforeRun();
+
+        long endAtEpochMillis = Instant.now().plus(options.getTestDuration()).toEpochMilli();
 
         ServiceBusReceiverClient client = getReceiverBuilder(options, false).buildClient();
 
