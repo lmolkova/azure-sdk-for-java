@@ -16,22 +16,20 @@ spec:
           set -a &&
           source $ENV_FILE &&
           export CONTAINER_NAME=sender &&
-          export AZURE_LOG_LEVEL=1 &&
+          export AZURE_LOG_LEVEL=3 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=sender-{{.Stress.Scenario}} &&
           export APPLICATIONINSIGHTS_ROLE_INSTANCE=sender-{{.Stress.Scenario}}_{{ .Stress.BaseName }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL=DEBUG &&
           export TEST_CLASS={{ .Stress.senderTestClass }}
           export DURATION_MINUTES={{ .Stress.testDurationMin }}
           export TRY_TIMEOUT_SECONDS={{ .Stress.tryTimeout }}
           java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.13.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize=100 \
-          -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar \
-          --TEST_CLASS=MessageSenderAsync
+          -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
         requests:
-          memory: "1G"
-          cpu: "1"
+          memory: "2G"
+          cpu: "2"
     - name: receiver
       image: {{ .Stress.imageTag }}
       imagePullPolicy: Always
@@ -41,25 +39,22 @@ spec:
           set -a &&
           source $ENV_FILE &&
           export CONTAINER_NAME=receiver &&
-          export AZURE_LOG_LEVEL=1 &&
+          export AZURE_LOG_LEVEL=3 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=receiver-{{.Stress.Scenario}} &&
           export APPLICATIONINSIGHTS_ROLE_INSTANCE=receiver-{{.Stress.Scenario}}_{{ .Stress.BaseName }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL=DEBUG &&
           export TEST_CLASS={{ .Stress.receiverTestClass }}
           export DURATION_MINUTES={{ .Stress.testDurationMin }}
           export TRY_TIMEOUT_SECONDS={{ .Stress.tryTimeout }}
           export MAX_CONCURRENT_CALLS={{ .Stress.processingConcurrency }}
           java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.13.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize=100 \
-          -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar \
-          --TEST_CLASS=MessageProcessor
+          -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
         requests:
-          memory: "1G"
-          cpu: "1"
+          memory: "2G"
+          cpu: "2"
 {{- end -}}
-
 {{- include "stress-test-addons.chaos-wrapper.tpl" (list . "stress.network-chaos") -}}
 {{- define "stress.network-chaos" -}}
 apiVersion: chaos-mesh.org/v1alpha1
@@ -73,8 +68,10 @@ spec:
       templateType: Parallel
       deadline: 1h
       children:
-        - loss
-    - name: loss
+        - loss-{{ .Stress.BaseName }}
+        - delay-{{ .Stress.BaseName }}
+        - bandwidth-{{ .Stress.BaseName }}
+    - name: loss-{{ .Stress.BaseName }}
       templateType: NetworkChaos
       networkChaos:
         direction: to
@@ -89,8 +86,61 @@ spec:
             chaos: "true"
         action: loss
         loss:
-          loss: '0'
-          correlation: '95'
+          loss: '30'
+          correlation: '60'
+        target:
+          selector:
+            namespaces:
+              - {{ .Release.Namespace }}
+            labelSelectors:
+              testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
+              chaos: "true"
+          mode: all
+    - name: delay-{{ .Stress.BaseName }}
+      templateType: NetworkChaos
+      networkChaos:
+        deadline: 1h
+        direction: to
+        externalTargets:
+          - {{ .Stress.BaseName }}.servicebus.windows.net
+        mode: all
+        selector:
+          namespaces:
+            - {{ .Release.Namespace }}
+          labelSelectors:
+            testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
+            chaos: "true"
+        action: delay
+        delay:
+          latency: '100ms'
+          correlation: '60'
+          jitter: '100ms'
+        target:
+          selector:
+            namespaces:
+              - {{ .Release.Namespace }}
+            labelSelectors:
+              testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
+              chaos: "true"
+          mode: all
+    - name: bandwidth-{{ .Stress.BaseName }}
+      templateType: NetworkChaos
+      networkChaos:
+        direction: to
+        externalTargets:
+          - {{ .Stress.BaseName }}.servicebus.windows.net
+        mode: all
+        selector:
+          namespaces:
+            - {{ .Release.Namespace }}
+          labelSelectors:
+            testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
+            chaos: "true"
+        action: bandwidth
+        bandwidth:
+          rate: '100kbps'
+          limit: 500000  #recommended to set to at least 2 * rate * latency (2 * 100kbps * ~1sec = ~200kb)
+          buffer: 1000000 #1mb
         target:
           selector:
             namespaces:

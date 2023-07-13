@@ -3,7 +3,7 @@ matrix:
     send-process-3:
       chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 15
+      testDurationMin: 60
       tryTimeout: 3
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
@@ -11,7 +11,7 @@ matrix:
     send-process-12:
       chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 15
+      testDurationMin: 60
       tryTimeout: 12
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
@@ -19,7 +19,7 @@ matrix:
     send-process-24:
       chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 15
+      testDurationMin: 60
       tryTimeout: 24
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
@@ -27,11 +27,43 @@ matrix:
     send-process-48:
       chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 15
+      testDurationMin: 60
       tryTimeout: 48
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
       processingConcurrency: 50
+    send-process-3-1:
+        chaos: "true"
+        imageBuildDir: ..\..\..\
+        testDurationMin: 60
+        tryTimeout: 3
+        senderTestClass: MessageSenderAsync
+        receiverTestClass: MessageProcessor
+        processingConcurrency: 50
+    send-process-12-1:
+        chaos: "true"
+        imageBuildDir: ..\..\..\
+        testDurationMin: 60
+        tryTimeout: 12
+        senderTestClass: MessageSenderAsync
+        receiverTestClass: MessageProcessor
+        processingConcurrency: 50
+    send-process-24-1:
+        chaos: "true"
+        imageBuildDir: ..\..\..\
+        testDurationMin: 60
+        tryTimeout: 24
+        senderTestClass: MessageSenderAsync
+        receiverTestClass: MessageProcessor
+        processingConcurrency: 50
+    send-process-48-1:
+        chaos: "true"
+        imageBuildDir: ..\..\..\
+        testDurationMin: 60
+        tryTimeout: 48
+        senderTestClass: MessageSenderAsync
+        receiverTestClass: MessageProcessor
+        processingConcurrency: 50
 
 #    send-receive:
 #        chaos: "true"
