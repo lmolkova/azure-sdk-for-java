@@ -4,12 +4,7 @@
 package com.azure.messaging.servicebus.stress.scenarios;
 
 import com.azure.core.amqp.AmqpRetryOptions;
-import com.azure.core.util.Context;
-import com.azure.core.util.TelemetryAttributes;
 import com.azure.core.util.logging.ClientLogger;
-import com.azure.core.util.metrics.LongCounter;
-import com.azure.core.util.metrics.Meter;
-import com.azure.core.util.metrics.MeterProvider;
 import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusMessageBatch;
@@ -21,7 +16,6 @@ import com.azure.messaging.servicebus.stress.util.ScenarioOptions;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Random;
 import java.util.stream.IntStream;
 
@@ -88,20 +82,10 @@ final class TestUtils {
             .disableAutoComplete();
     }
 
-    private static final Meter METER = MeterProvider.getDefaultProvider().createMeter("stress_test", null, null);
-    private static final LongCounter batches = METER.createLongCounter("sender_batches_created", "foo", "messages");
-
-    private static final TelemetryAttributes ok = METER.createAttributes(Collections.singletonMap("status", "ok"));
-    private static final TelemetryAttributes error = METER.createAttributes(Collections.singletonMap("status", "error"));
-    private static final TelemetryAttributes cancel = METER.createAttributes(Collections.singletonMap("status", "cancel"));
-
     static Mono<ServiceBusMessageBatch> createBatch(ServiceBusSenderAsyncClient client, byte[] messagePayload, int batchSize) {
         return Mono.defer(() -> client.createMessageBatch()
                 .doOnNext(b -> IntStream.range(0, batchSize).boxed()
-                    .forEach(unused -> b.tryAddMessage(new ServiceBusMessage(messagePayload)))))
-            .doOnSuccess(i -> batches.add(1, ok, Context.NONE))
-            .doOnError(e -> batches.add(1, error, Context.NONE))
-            .doOnCancel(() -> batches.add(1, cancel, Context.NONE));
+                    .forEach(unused -> b.tryAddMessage(new ServiceBusMessage(messagePayload)))));
     }
 
     static ServiceBusMessageBatch createBatchSync(ServiceBusSenderClient client, byte[] messagePayload, int batchSize) {
@@ -133,7 +117,7 @@ final class TestUtils {
         try {
             Thread.sleep(duration.toMillis());
         } catch (InterruptedException e) {
-            throw LOGGER.logExceptionAsError(new RuntimeException(e));
+            LOGGER.info("interrupted");
         }
     }
 

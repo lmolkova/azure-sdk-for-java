@@ -40,7 +40,7 @@ public class ScenarioOptions {
     @Value("${DURATION_MINUTES:15}")
     private int durationInMinutes;
 
-    @Value("${TRY_TIMEOUT_SECONDS:5}")
+    @Value("${TRY_TIMEOUT_SECONDS:30}")
     private int tryTimeoutSeconds;
 
     public String getTestClass() {

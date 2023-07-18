@@ -3,13 +3,7 @@
 
 package com.azure.messaging.servicebus.stress.scenarios;
 
-import com.azure.core.util.Context;
-import com.azure.core.util.TelemetryAttributes;
 import com.azure.core.util.logging.ClientLogger;
-import com.azure.core.util.metrics.LongCounter;
-import com.azure.core.util.metrics.Meter;
-import com.azure.core.util.metrics.MeterProvider;
-import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusMessageBatch;
 import com.azure.messaging.servicebus.ServiceBusSenderAsyncClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +12,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.azure.messaging.servicebus.stress.scenarios.TestUtils.blockingWait;
@@ -44,9 +37,6 @@ public class MessageSenderAsync extends ServiceBusScenario {
     private int sendConcurrency;
 
     private AtomicReference<ServiceBusSenderAsyncClient> client = new AtomicReference<>();
-    private static final Meter METER = MeterProvider.getDefaultProvider().createMeter("stress_test", null, null);
-    private static final LongCounter counter = METER.createLongCounter("sender_async_messages_after", "foo", "messages");
-    private static final LongCounter attemptSending = METER.createLongCounter("sender_async_messages_before", "foo", "messages");
 
     @Override
     public void run() {
@@ -60,21 +50,11 @@ public class MessageSenderAsync extends ServiceBusScenario {
         RateLimiter rateLimiter = new RateLimiter(batchRatePerSec, sendConcurrency);
         Flux<ServiceBusMessageBatch> batches = createBatch(client.get(), messagePayload, batchSize).repeat();
 
-        TelemetryAttributes ok = METER.createAttributes(Collections.singletonMap("status", "ok"));
-        TelemetryAttributes error = METER.createAttributes(Collections.singletonMap("status", "error"));
-        TelemetryAttributes cancel = METER.createAttributes(Collections.singletonMap("status", "cancel"));
-        TelemetryAttributes none = METER.createAttributes(Collections.emptyMap());
         batches
             .take(options.getTestDuration())
             .flatMap(batch ->
                 rateLimiter.acquire()
-                    .then(Mono.defer(() -> {
-                        attemptSending.add(batchSize, none, Context.NONE);
-                        return client.get().sendMessages(batch)
-                            .doOnSuccess(i -> counter.add(batchSize, ok, Context.NONE))
-                            .doOnError(t -> counter.add(batchSize, error, Context.NONE))
-                            .doOnCancel(() -> counter.add(batchSize, cancel, Context.NONE));
-                        })
+                    .then(client.get().sendMessages(batch)
                     .onErrorResume(t -> true, t -> {
                         LOGGER.error("error when sending", t);
                         client.set(TestUtils.getSenderBuilder(options, false).buildAsyncClient());
