@@ -1,45 +1,59 @@
 matrix:
   scenarios:
-    send-process-3-1:
+    send-process-2:
+      chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 30
+      testDurationMin: 60
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
-      tryTimeout: 5
+      tryTimeout: 2
       sendRate: 100
-      processingConcurrency: 32
-    send-process-3-2:
+      processingConcurrency: 128
+    send-process-4:
+      chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 30
+      testDurationMin: 60
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
-      tryTimeout: 5
+      tryTimeout: 4
       sendRate: 100
-      processingConcurrency: 32
-    send-process-3-3:
+      processingConcurrency: 128
+    send-process-8:
+      chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 30
+      testDurationMin: 60
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
-      tryTimeout: 5
+      tryTimeout: 8
       sendRate: 100
-      processingConcurrency: 32
-    send-process-3-4:
+      processingConcurrency: 128
+    send-process-16:
+      chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 30
+      testDurationMin: 60
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
-      tryTimeout: 5
+      tryTimeout: 16
       sendRate: 100
-      processingConcurrency: 32
-    send-process-3-5:
+      processingConcurrency: 128
+    send-process-32:
+      chaos: "true"
       imageBuildDir: ..\..\..\
-      testDurationMin: 30
+      testDurationMin: 60
       senderTestClass: MessageSenderAsync
       receiverTestClass: MessageProcessor
-      tryTimeout: 5
+      tryTimeout: 32
       sendRate: 100
-      processingConcurrency: 32
+      processingConcurrency: 128
+    send-process-64:
+      chaos: "true"
+      imageBuildDir: ..\..\..\
+      testDurationMin: 60
+      senderTestClass: MessageSenderAsync
+      receiverTestClass: MessageProcessor
+      tryTimeout: 64
+      sendRate: 100
+      processingConcurrency: 128
 #    send-process-64:
 #      imageBuildDir: ..\..\..\
 #      testDurationMin: 30
