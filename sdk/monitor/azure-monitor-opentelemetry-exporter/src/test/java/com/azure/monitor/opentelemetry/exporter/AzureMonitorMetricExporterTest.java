@@ -24,6 +24,8 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricExporter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -89,6 +91,27 @@ public class AzureMonitorMetricExporterTest {
 
         assertThat(metricData.getType()).isEqualTo(DOUBLE_SUM);
         assertThat(metricData.getName()).isEqualTo("testDoubleCounter");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"net.peer.name", "foo"})
+    public void testDoubleCounterAttributes(String attributeName) throws InterruptedException {
+        DoubleCounter counter = meter.counterBuilder("testDoubleCounter").ofDoubles().build();
+        counter.add(1, Attributes.of(AttributeKey.stringKey(attributeName), "bar"));
+
+        List<MetricData> metricDatas = getFinishedMetricItems(1);
+
+        MetricData metric = metricDatas.get(0);
+        PointData pointData = metric.getData().getPoints().stream().findFirst().get();
+        MetricTelemetryBuilder builder = MetricTelemetryBuilder.create();
+        MetricDataMapper.updateMetricPointBuilder(
+            builder, metric, pointData, true, false);
+
+        MetricsData metricsData = (MetricsData) builder.build().getData().getBaseData();
+        assertThat(metricsData.getMetrics().size()).isEqualTo(1);
+        Map<String, String> attributes = metricsData.getProperties();
+        assertThat(attributes.size()).isEqualTo(1);
+        assertThat(attributes.get(attributeName)).isEqualTo("bar");
     }
 
     @Test
