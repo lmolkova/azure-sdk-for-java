@@ -68,17 +68,18 @@ public final class ServiceBusReceiverInstrumentation {
 
         Context span = (tracer.isEnabled() && receiverKind != ReceiverKind.SYNC_RECEIVER) ? tracer.startProcessSpan(name, message, parent) : parent;
 
-        if (receiverKind == ReceiverKind.ASYNC_RECEIVER) {
+        // important to record metric after span is started
+        if (receiverKind != ReceiverKind.PROCESSOR) {
             meter.reportConsumerLag(message.getEnqueuedTime(), span);
         }
 
         return span;
     }
 
-    public void instrumentProcess(ServiceBusReceivedMessage message, Context parent, ReceiverKind caller, Function<ServiceBusReceivedMessage, Throwable> handleMessage) {
-        Context span = startProcessInstrumentation("ServiceBus.process", message, parent);
+    public void instrumentProcess(ServiceBusReceivedMessage message, ReceiverKind caller, Function<ServiceBusReceivedMessage, Throwable> handleMessage) {
+        Context span = startProcessInstrumentation("ServiceBus.process", message, Context.NONE);
 
-        if (span == parent || receiverKind != caller) {
+        if (span == Context.NONE || receiverKind != caller) {
             handleMessage.apply(message);
             return;
         }

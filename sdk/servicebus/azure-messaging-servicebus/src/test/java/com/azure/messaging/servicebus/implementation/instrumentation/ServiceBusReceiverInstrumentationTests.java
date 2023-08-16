@@ -28,7 +28,7 @@ public class ServiceBusReceiverInstrumentationTests {
         ServiceBusReceiverInstrumentation instrumentation = new ServiceBusReceiverInstrumentation(tracer, null,
             "fqdn", "entityPath", null, ReceiverKind.ASYNC_RECEIVER);
 
-        instrumentation.instrumentProcess(null, Context.NONE, ReceiverKind.ASYNC_RECEIVER, m -> null);
+        instrumentation.instrumentProcess(null, ReceiverKind.ASYNC_RECEIVER, m -> null);
         instrumentation.instrumentSettlement(Mono.just(1), null, Context.NONE, DispositionStatus.ABANDONED);
         verify(tracer, never()).start(anyString(), any(StartSpanOptions.class), any(Context.class));
     }
@@ -41,7 +41,7 @@ public class ServiceBusReceiverInstrumentationTests {
             "fqdn", "entityPath", null, ReceiverKind.ASYNC_RECEIVER);
 
         // does not throw
-        instrumentation.instrumentProcess(null, Context.NONE, ReceiverKind.ASYNC_RECEIVER, m -> null);
+        instrumentation.instrumentProcess(null, ReceiverKind.ASYNC_RECEIVER, m -> null);
         instrumentation.instrumentSettlement(Mono.just(1), null, Context.NONE, DispositionStatus.ABANDONED);
     }
 
@@ -51,7 +51,7 @@ public class ServiceBusReceiverInstrumentationTests {
             "fqdn", "entityPath", null, ReceiverKind.ASYNC_RECEIVER);
 
         // does not throw
-        instrumentation.instrumentProcess(null, Context.NONE, ReceiverKind.ASYNC_RECEIVER, m -> null);
+        instrumentation.instrumentProcess(null, ReceiverKind.ASYNC_RECEIVER, m -> null);
         instrumentation.instrumentSettlement(Mono.just(1), null, Context.NONE, DispositionStatus.ABANDONED);
     }
 }

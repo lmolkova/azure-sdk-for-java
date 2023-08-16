@@ -1770,7 +1770,7 @@ public final class ServiceBusReceiverAsyncClient implements AutoCloseable {
     }
 
     Flux<ServiceBusReceivedMessage> nonSessionSyncReceiveV2() {
-        assert  isOnV2 && !isSessionEnabled;
+        assert isOnV2 && !isSessionEnabled;
         return getOrCreateConsumer().receive();
     }
 

@@ -54,7 +54,7 @@ final class FluxTraceV2 extends FluxOperator<ServiceBusReceivedMessage, ServiceB
 
         @Override
         protected void hookOnNext(ServiceBusReceivedMessage message) {
-            instrumentation.instrumentProcess(message, Context.NONE, ReceiverKind.ASYNC_RECEIVER, msg -> {
+            instrumentation.instrumentProcess(message, ReceiverKind.ASYNC_RECEIVER, msg -> {
                 downstream.onNext(msg);
                 return null;
             });

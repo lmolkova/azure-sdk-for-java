@@ -3,11 +3,9 @@
 
 package com.azure.messaging.servicebus;
 
-import com.azure.core.util.Context;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.messaging.servicebus.implementation.instrumentation.ReceiverKind;
 import com.azure.messaging.servicebus.implementation.instrumentation.ServiceBusReceiverInstrumentation;
-import com.azure.messaging.servicebus.implementation.instrumentation.ServiceBusTracer;
 import org.reactivestreams.Publisher;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
@@ -55,7 +53,6 @@ final class NonSessionMessagePump {
     private final boolean enableAutoLockRenew;
     private final Scheduler workerScheduler;
     private final ServiceBusReceiverInstrumentation instrumentation;
-    private final ServiceBusTracer tracer;
 
     /**
      * Instantiate {@link NonSessionMessagePump} that pumps messages emitted by the given {@code client}. The messages
@@ -95,7 +92,6 @@ final class NonSessionMessagePump {
             this.workerScheduler = Schedulers.immediate();
         }
         this.instrumentation = this.client.getInstrumentation();
-        this.tracer = this.instrumentation.getTracer();
     }
 
     /**
@@ -136,7 +132,7 @@ final class NonSessionMessagePump {
     }
 
     private void handleMessage(ServiceBusReceivedMessage message) {
-        instrumentation.instrumentProcess(message, Context.NONE, ReceiverKind.PROCESSOR, msg -> {
+        instrumentation.instrumentProcess(message, ReceiverKind.PROCESSOR, msg -> {
             final Disposable lockRenewDisposable;
             if (enableAutoLockRenew) {
                 lockRenewDisposable = client.beginLockRenewal(message);

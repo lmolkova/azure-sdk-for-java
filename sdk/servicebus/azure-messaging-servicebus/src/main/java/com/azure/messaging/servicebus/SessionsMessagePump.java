@@ -472,7 +472,7 @@ final class SessionsMessagePump {
         private void handleMessage(Message qpidMessage) {
             final ServiceBusReceivedMessage message = serializer.deserialize(qpidMessage, ServiceBusReceivedMessage.class);
 
-            instrumentation.instrumentProcess(message, Context.NONE, ReceiverKind.PROCESSOR, msg -> {
+            instrumentation.instrumentProcess(message, ReceiverKind.PROCESSOR, msg -> {
                 logger.atVerbose()
                     .addKeyValue(SESSION_ID_KEY, message.getSessionId())
                     .addKeyValue(MESSAGE_ID_LOGGING_KEY, message.getMessageId())
