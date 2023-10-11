@@ -304,7 +304,7 @@ public class WebSocketsConnectionHandlerTest {
 
         TestMeter meter = new TestMeter();
         WebSocketsConnectionHandler handlerWithMetrics = new WebSocketsConnectionHandler(CONNECTION_ID, connectionOptions,
-            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, null));
+            peerDetails, new AmqpMetricsProvider(meter, null,  HOSTNAME, null));
 
         handlerWithMetrics.onConnectionInit(openEvent);
         handlerWithMetrics.onConnectionInit(openEvent);

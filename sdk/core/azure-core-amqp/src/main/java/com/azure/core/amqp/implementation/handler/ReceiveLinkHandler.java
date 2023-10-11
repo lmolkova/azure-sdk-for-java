@@ -56,7 +56,7 @@ public class ReceiveLinkHandler extends LinkHandler {
      */
     @Deprecated
     public ReceiveLinkHandler(String connectionId, String hostname, String linkName, String entityPath) {
-        this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(null, hostname, entityPath));
+        this(connectionId, hostname, linkName, entityPath, new AmqpMetricsProvider(null, null, hostname, entityPath));
     }
 
     public ReceiveLinkHandler(String connectionId, String hostname, String linkName, String entityPath, AmqpMetricsProvider metricsProvider) {

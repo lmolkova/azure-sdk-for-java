@@ -8,12 +8,15 @@ import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.MetricsOptions;
 import com.azure.core.util.TelemetryAttributes;
+import com.azure.core.util.TracingOptions;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.metrics.DoubleHistogram;
 import com.azure.core.util.metrics.LongCounter;
 import com.azure.core.util.metrics.LongGauge;
 import com.azure.core.util.metrics.Meter;
 import com.azure.core.util.metrics.MeterProvider;
+import com.azure.core.util.tracing.Tracer;
+import com.azure.core.util.tracing.TracerProvider;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
@@ -49,9 +52,11 @@ public class AmqpMetricsProvider {
     // all error codes + 1 for `null` - error, no response was received
     private static final int RESPONSE_CODES_COUNT = AmqpResponseCode.values().length + 1;
     private static final Meter DEFAULT_METER = MeterProvider.getDefaultProvider().createMeter("azure-core-amqp", AZURE_CORE_VERSION, new MetricsOptions());
+    private static final Tracer DEFAULT_TRACER = TracerProvider.getDefaultProvider().createTracer("azure-core-amqp", AZURE_CORE_VERSION, null, new TracingOptions());
     private static final AmqpMetricsProvider NOOP = new AmqpMetricsProvider();
     private final boolean isEnabled;
     private final Meter meter;
+    private final Tracer tracer;
     private Map<String, Object> commonAttributesMap;
     private DoubleHistogram sendDuration = null;
     private DoubleHistogram requestResponseDuration = null;
@@ -61,6 +66,10 @@ public class AmqpMetricsProvider {
     private LongCounter transportErrors = null;
     private LongGauge prefetchedSequenceNumber = null;
     private LongCounter addCredits = null;
+
+    public Tracer getTracer() {
+        return tracer;
+    }
 
     /**
      * Cache of sendDuration attributes. Each element has
@@ -94,6 +103,7 @@ public class AmqpMetricsProvider {
     private AmqpMetricsProvider() {
         this.isEnabled = false;
         this.meter = DEFAULT_METER;
+        this.tracer = DEFAULT_TRACER;
     }
 
     public enum ErrorSource {
@@ -102,8 +112,9 @@ public class AmqpMetricsProvider {
         TRANSPORT
     }
 
-    public AmqpMetricsProvider(Meter meter, String namespace, String entityPath) {
+    public AmqpMetricsProvider(Meter meter, Tracer tracer, String namespace, String entityPath) {
         this.meter = meter != null ? meter : DEFAULT_METER;
+        this.tracer = tracer != null ? tracer : DEFAULT_TRACER;
         this.isEnabled = this.meter.isEnabled();
 
         if (isEnabled) {
@@ -165,9 +176,9 @@ public class AmqpMetricsProvider {
     /**
      * Records duration of AMQP send call.
      */
-    public void recordSend(long start, DeliveryState.DeliveryStateType deliveryState) {
+    public void recordSend(long start, DeliveryState.DeliveryStateType deliveryState, Context context) {
         if (isEnabled && sendDuration.isEnabled()) {
-            sendDuration.record(Instant.now().toEpochMilli() - start, getDeliveryStateAttribute(deliveryState), Context.NONE);
+            sendDuration.record(Instant.now().toEpochMilli() - start, getDeliveryStateAttribute(deliveryState), context);
         }
     }
 

@@ -531,6 +531,7 @@ class ReactorSender implements AmqpSendLink, AsyncCloseable, AutoCloseable {
         synchronized (pendingSendLock) {
             this.pendingSendsMap.put(deliveryTag, workItem);
             this.pendingSendsQueue.offer(new WeightedDeliveryTag(deliveryTag, workItem.hasBeenRetried() ? 1 : 0));
+            workItem.incrementRetryAttempts();
         }
 
         this.scheduleWorkOnDispatcher();

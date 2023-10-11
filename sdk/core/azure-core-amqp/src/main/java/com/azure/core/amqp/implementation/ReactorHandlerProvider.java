@@ -172,6 +172,6 @@ public class ReactorHandlerProvider {
 
         return metricsCache.computeIfAbsent(
             namespace + (entityPath == null ? "" : "/" + entityPath),
-            ignored -> new AmqpMetricsProvider(meter, namespace, entityPath));
+            ignored -> new AmqpMetricsProvider(meter, null, namespace, entityPath));
     }
 }

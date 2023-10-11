@@ -312,7 +312,7 @@ public class WebSocketsProxyConnectionHandlerTest {
 
         TestMeter meter = new TestMeter();
         WebSocketsProxyConnectionHandler handlerWithMetrics = new WebSocketsProxyConnectionHandler(CONNECTION_ID, connectionOptions, PROXY_OPTIONS,
-            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, null));
+            peerDetails, new AmqpMetricsProvider(meter, null,  HOSTNAME, null));
 
         handlerWithMetrics.onConnectionInit(openEvent);
         handlerWithMetrics.onConnectionInit(openEvent);

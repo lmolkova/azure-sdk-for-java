@@ -76,7 +76,7 @@ public class ReactorReceiver implements AmqpReceiveLink, AsyncCloseable, AutoClo
                               ReceiveLinkHandler handler, TokenManager tokenManager, ReactorDispatcher dispatcher,
                               AmqpRetryOptions retryOptions) {
         this(amqpConnection, entityPath, receiver, handler, tokenManager, dispatcher, retryOptions,
-            new AmqpMetricsProvider(null, amqpConnection.getFullyQualifiedNamespace(), entityPath));
+            new AmqpMetricsProvider(null, null, amqpConnection.getFullyQualifiedNamespace(), entityPath));
     }
 
     protected ReactorReceiver(AmqpConnection amqpConnection, String entityPath, Receiver receiver,

@@ -779,7 +779,7 @@ public class ReactorSenderTest {
         TestMeter meter = new TestMeter();
         ReactorSender reactorSenderWithMetrics = new ReactorSender(amqpConnection, ENTITY_PATH, sender, handler,
             reactorProvider, tokenManager, messageSerializer, options, scheduler,
-            new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+            new AmqpMetricsProvider(meter, null,  HOSTNAME, ENTITY_PATH));
 
         // Act
         StepVerifier.create(reactorSenderWithMetrics.send(message))

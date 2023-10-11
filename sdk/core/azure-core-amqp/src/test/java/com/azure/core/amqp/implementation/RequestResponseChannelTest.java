@@ -431,7 +431,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, null,  NAMESPACE, ENTITY_PATH));
 
         final UnsignedLong messageId = UnsignedLong.valueOf(1);
         final Message message = mock(Message.class);
@@ -487,7 +487,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, null,NAMESPACE, ENTITY_PATH));
 
         final UnsignedLong messageId = UnsignedLong.valueOf(1);
         final Message message = mock(Message.class);
@@ -525,7 +525,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH));
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH));
 
         final AmqpException error = new AmqpException(true, "Message", new AmqpErrorContext("some-context"));
         final Message message = mock(Message.class);

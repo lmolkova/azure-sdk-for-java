@@ -256,7 +256,7 @@ public class LinkHandlerTest {
         when(link.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, null,  HOSTNAME, ENTITY_PATH));
         handlerWithMetrics.onLinkRemoteClose(event);
 
         // Assert
@@ -282,7 +282,7 @@ public class LinkHandlerTest {
         when(link.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, null,  HOSTNAME, ENTITY_PATH));
         handlerWithMetrics.onLinkRemoteClose(event);
 
         // Assert

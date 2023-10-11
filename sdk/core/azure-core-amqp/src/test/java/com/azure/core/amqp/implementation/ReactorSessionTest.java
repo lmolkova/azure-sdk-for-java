@@ -318,7 +318,7 @@ public class ReactorSessionTest {
         when(session.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, ENTITY_PATH));
+        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, null,  HOST, ENTITY_PATH));
         handlerWithMetrics.onSessionRemoteClose(event);
 
         // Assert
@@ -342,7 +342,7 @@ public class ReactorSessionTest {
         when(session.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, null));
+        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, null,  HOST, null));
         handlerWithMetrics.onSessionRemoteClose(event);
 
         // Assert

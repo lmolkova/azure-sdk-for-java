@@ -64,7 +64,7 @@ public class ConnectionHandler extends Handler {
     public ConnectionHandler(final String connectionId, final ConnectionOptions connectionOptions,
                              SslPeerDetails peerDetails) {
         this(connectionId, connectionOptions, peerDetails,
-            new AmqpMetricsProvider(null, connectionOptions.getFullyQualifiedNamespace(), null));
+            new AmqpMetricsProvider(null, null, connectionOptions.getFullyQualifiedNamespace(), null));
     }
 
     /**

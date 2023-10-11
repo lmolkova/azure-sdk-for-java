@@ -42,22 +42,22 @@ public class AmqpMetricsProviderTest {
 
     @Test
     public void nullNamespaceIsOk() {
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(null, null, null));
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, null));
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, "path"));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(null, null, null, null));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, null, null));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, null, "path"));
     }
 
     @Test
     public void disabledMeter() {
         TestMeter meter = new TestMeter(false);
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, null);
         assertDoesNotThrow(() -> provider.recordAddCredits(1));
         assertDoesNotThrow(() -> provider.recordConnectionClosed(null));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", AmqpResponseCode.OK));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, null, AmqpResponseCode.OK));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", null));
-        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted));
-        assertDoesNotThrow(() -> provider.recordSend(0, null));
+        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted, Context.NONE));
+        assertDoesNotThrow(() -> provider.recordSend(0, null, Context.NONE));
         assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> Long.valueOf(1)));
         assertDoesNotThrow(() -> provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, new ErrorCondition(TIMEOUT_SYMBOL, "")));
         assertDoesNotThrow(() -> provider.recordHandlerError(null, new ErrorCondition(TIMEOUT_SYMBOL, "")));
@@ -71,14 +71,14 @@ public class AmqpMetricsProviderTest {
         // sanity check
         assertFalse(DEFAULT_METER.isEnabled());
 
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(null, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(null, null, NAMESPACE, null);
         assertDoesNotThrow(() -> provider.recordAddCredits(1));
         assertDoesNotThrow(() -> provider.recordConnectionClosed(null));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", AmqpResponseCode.OK));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, null, AmqpResponseCode.OK));
         assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", null));
-        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted));
-        assertDoesNotThrow(() -> provider.recordSend(0, null));
+        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted, Context.NONE));
+        assertDoesNotThrow(() -> provider.recordSend(0, null, Context.NONE));
         assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> Long.valueOf(1)));
         assertDoesNotThrow(() -> provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, new ErrorCondition(TIMEOUT_SYMBOL, "")));
         assertDoesNotThrow(() -> provider.recordHandlerError(null, new ErrorCondition(TIMEOUT_SYMBOL, "")));
@@ -87,7 +87,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void addCredits() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH);
         provider.recordAddCredits(1);
         provider.recordAddCredits(2);
         provider.recordAddCredits(100);
@@ -115,7 +115,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void requestResponseDuration() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_NAME);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_NAME);
 
         long start = Instant.now().toEpochMilli() - 100;
         provider.recordRequestResponseDuration(start, "peek", AmqpResponseCode.FORBIDDEN);
@@ -149,14 +149,14 @@ public class AmqpMetricsProviderTest {
     @Test
     public void sendDuration() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_NAME);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_NAME);
 
         long start = Instant.now().toEpochMilli() - 100;
-        provider.recordSend(start, DeliveryState.DeliveryStateType.Rejected);
+        provider.recordSend(start, DeliveryState.DeliveryStateType.Rejected, Context.NONE);
         long end = Instant.now().toEpochMilli();
 
-        provider.recordSend(start, DeliveryState.DeliveryStateType.Accepted);
-        provider.recordSend(start, null);
+        provider.recordSend(start, DeliveryState.DeliveryStateType.Accepted, Context.NONE);
+        provider.recordSend(start, null, Context.NONE);
 
         assertTrue(meter.getHistograms().containsKey("messaging.az.amqp.producer.send.duration"));
         TestHistogram histogram = meter.getHistograms().get("messaging.az.amqp.producer.send.duration");
@@ -180,7 +180,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void initCloseConnection() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, null);
 
         provider.recordConnectionClosed(null);
         provider.recordConnectionClosed(new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -201,7 +201,7 @@ public class AmqpMetricsProviderTest {
     @SuppressWarnings("try")
     public void receivedMessage() throws Exception {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH);
 
         AtomicLong seqNo = new AtomicLong(0);
 
@@ -247,7 +247,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void linkErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -266,7 +266,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void sessionErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.SESSION, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.SESSION, new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -285,7 +285,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void transportErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, null, NAMESPACE, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, new ErrorCondition(TIMEOUT_SYMBOL, ""));

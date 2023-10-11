@@ -35,7 +35,7 @@ public class SessionHandler extends Handler {
     @Deprecated
     public SessionHandler(String connectionId, String hostname, String sessionName, ReactorDispatcher reactorDispatcher,
                           Duration openTimeout) {
-        this(connectionId, hostname, sessionName, reactorDispatcher, openTimeout, new AmqpMetricsProvider(null, hostname, null));
+        this(connectionId, hostname, sessionName, reactorDispatcher, openTimeout, new AmqpMetricsProvider(null, null, hostname, null));
     }
 
     public SessionHandler(String connectionId, String hostname, String sessionName, ReactorDispatcher reactorDispatcher,

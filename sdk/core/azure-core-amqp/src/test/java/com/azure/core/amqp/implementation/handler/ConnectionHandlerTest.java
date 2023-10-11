@@ -262,7 +262,7 @@ public class ConnectionHandlerTest {
 
         TestMeter meter = new TestMeter();
         ConnectionHandler handlerWithMetrics = new ConnectionHandler(CONNECTION_ID, connectionOptions,
-            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, null));
+            peerDetails, new AmqpMetricsProvider(meter, null, HOSTNAME, null));
 
         handlerWithMetrics.onConnectionInit(openEvent);
         handlerWithMetrics.onConnectionInit(openEvent);

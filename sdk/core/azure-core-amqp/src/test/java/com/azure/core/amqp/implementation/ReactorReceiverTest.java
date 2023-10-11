@@ -803,7 +803,7 @@ class ReactorReceiverTest {
         when(creditSupplier.get()).thenReturn(creditsToAdd);
 
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider metricsProvider = new AmqpMetricsProvider(meter, "namespace", "name/and/partition");
+        AmqpMetricsProvider metricsProvider = new AmqpMetricsProvider(meter, null,  "namespace", "name/and/partition");
         ReactorReceiver reactorReceiverWithMetrics = new ReactorReceiver(amqpConnection, "name/and/partition", receiver, receiverHandler, tokenManager,
             reactorDispatcher, retryOptions, metricsProvider);
 

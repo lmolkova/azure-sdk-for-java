@@ -11,6 +11,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static com.azure.core.util.tracing.Tracer.PARENT_TRACE_CONTEXT_KEY;
+
 /**
  * Contains convenience methods to instrument specific sender calls with traces and metrics.
  */
@@ -46,7 +48,8 @@ public final class ServiceBusSenderInstrumentation {
                     .doOnCancel(() -> {
                         meter.reportBatchSend(batch.size(), null, true, span);
                         tracer.cancelSpan(span);
-                    });
+                    })
+                    .contextWrite(ctx -> ctx.put(PARENT_TRACE_CONTEXT_KEY, span));
             });
         } else {
             return publisher
