@@ -189,6 +189,8 @@ class RetriableWorkItem {
 
         Channel channel = selectable.getChannel();
 
+        boolean isUdp = (DatagramChannel.class.isAssignableFrom(channel.getClass()));
+        startOptions.setAttribute("network.transport", isUdp ? "udp" : "tcp");
         setAttributes(startOptions, getRemoteAddress(channel), true);
         setAttributes(startOptions, getLocalAddress(channel), false);
     }
@@ -224,8 +226,8 @@ class RetriableWorkItem {
         if (InetSocketAddress.class.isAssignableFrom(address.getClass())) {
             InetSocketAddress inetAddress = (InetSocketAddress) address;
             if (remote) {
-                startOptions.setAttribute("server.address", inetAddress.getHostName());
                 // set it once:
+                startOptions.setAttribute("server.address", inetAddress.getHostName());
                 startOptions.setAttribute("network.type", inetAddress.getAddress() instanceof Inet6Address ? "ipv6" : "ipv4");
             }
 
