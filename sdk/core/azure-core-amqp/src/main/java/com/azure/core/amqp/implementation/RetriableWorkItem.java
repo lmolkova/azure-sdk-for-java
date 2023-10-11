@@ -224,7 +224,7 @@ class RetriableWorkItem {
         if (InetSocketAddress.class.isAssignableFrom(address.getClass())) {
             InetSocketAddress inetAddress = (InetSocketAddress) address;
             if (remote) {
-                startOptions.setAttribute("network.peer.name", inetAddress.getHostName());
+                startOptions.setAttribute("server.address", inetAddress.getHostName());
                 // set it once:
                 startOptions.setAttribute("network.type", inetAddress.getAddress() instanceof Inet6Address ? "ipv6" : "ipv4");
             }
