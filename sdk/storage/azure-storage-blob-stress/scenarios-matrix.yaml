@@ -4,9 +4,10 @@ matrix:
       testTarget: downloadToFile # not used
       async: false
       blobSizeBytes: 1024 # not used
-      parallel: 70
+      parallel: 20
       faultInjection: false
-      testTime: 36000
+      testTime: 300
+      chaos: true
       imageBuildDir: "../../.."
 
 #    download-small-file-no-fi:
