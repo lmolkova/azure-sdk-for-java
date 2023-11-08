@@ -1,12 +1,12 @@
 matrix:
   scenarios:
-    download-small-file-test:
-      testTarget: downloadToFile
+    download-10mb-huc:
+      testTarget: downloadToFile # not used
       async: false
-      blobSizeBytes: 1024
-      parallel: 100
-      faultInjection: true
-      testTime: 900
+      blobSizeBytes: 1024 # not used
+      parallel: 70
+      faultInjection: false
+      testTime: 36000
       imageBuildDir: "../../.."
 
 #    download-small-file-no-fi:

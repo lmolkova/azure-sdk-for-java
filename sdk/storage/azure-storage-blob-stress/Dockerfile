@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.m2 \
  mvn -f /stress/sdk/storage/azure-storage-stress/pom.xml clean install -Dcheckstyle.skip -Dgpg.skip -Dmaven.javadoc.skip -Drevapi.skip -Dspotbugs.skip -Djacoco.skip -DskipTests && \
  mvn -f /stress/sdk/storage/azure-storage-blob-stress/pom.xml clean install -Dcheckstyle.skip -Dgpg.skip -Dmaven.javadoc.skip -Drevapi.skip -Dspotbugs.skip -Djacoco.skip -DskipTests
 
-FROM mcr.microsoft.com/openjdk/jdk:11-mariner
+FROM openjdk:11.0.16-jdk
 
 # Copy target files from builder image
 WORKDIR /app

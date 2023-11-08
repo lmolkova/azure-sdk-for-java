@@ -2,8 +2,7 @@ package com.azure.storage.blob.stress;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.util.logging.ClientLogger;
-import com.azure.core.util.logging.LoggingEventBuilder;
-import com.azure.storage.blob.stress.builders.DownloadToFileScenarioBuilder;
+import com.azure.storage.blob.stress.builders.HucTls13StressScenarioBuilder;
 import com.azure.storage.stress.FaultInjectionProbabilities;
 import com.azure.storage.stress.HttpFaultInjectingHttpClient;
 import com.azure.storage.stress.StorageStressScenario;
@@ -11,9 +10,6 @@ import com.azure.storage.stress.StressScenarioBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +28,8 @@ public class BlobStorageStressRunner {
         // TODO: parse cmd line arguments
         // e.g. like it's don in perf-tests or in azure-messaging-servicebus-stress
 
-        DownloadToFileScenarioBuilder builder = new DownloadToFileScenarioBuilder();
+        HucTls13StressScenarioBuilder builder = new HucTls13StressScenarioBuilder();
+        //DownloadToFileScenarioBuilder builder = new DownloadToFileScenarioBuilder();
         builder.setBlobPrefix("foo");
         int size = Integer.parseInt(System.getProperty("blobSizeBytes"));
         //int size = 1024;
@@ -42,14 +39,13 @@ public class BlobStorageStressRunner {
         int parallel = Integer.parseInt(System.getProperty("parallel"));
         //int parallel = 100;
 
-
-        try {
+        /*try {
             Path tmpdir = Files.createTempDirectory("tmpDirPrefix");
             builder.setDirectoryPath(Paths.get(tmpdir.toString()));
         } catch (Exception e) {
             LOGGER.error("Unable to create tmpDirPrefix directory.", e);
             e.printStackTrace();
-        }
+        }*/
 
         builder.setParallel(parallel);
         int seconds = Integer.parseInt(System.getProperty("testTime"));

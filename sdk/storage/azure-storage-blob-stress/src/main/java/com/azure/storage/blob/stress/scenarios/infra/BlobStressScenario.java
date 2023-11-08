@@ -63,7 +63,7 @@ public abstract class BlobStressScenario<TBuilder extends BlobScenarioBuilder> e
     }
 
     protected void setupBlob() {
-        syncNoFaultClient.upload(new RandomInputStream(blobSize));
+        //syncNoFaultClient.upload(new RandomInputStream(blobSize));
     }
 
     public String makeBlobName()
