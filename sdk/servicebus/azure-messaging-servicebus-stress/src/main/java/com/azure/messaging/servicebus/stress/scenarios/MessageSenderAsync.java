@@ -9,10 +9,12 @@ import com.azure.messaging.servicebus.ServiceBusMessageBatch;
 import com.azure.messaging.servicebus.ServiceBusSenderAsyncClient;
 import com.azure.messaging.servicebus.stress.util.RunResult;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,7 +32,7 @@ public class MessageSenderAsync extends ServiceBusScenario {
     @Value("${SEND_MESSAGE_RATE:100}")
     private int sendMessageRatePerSecond;
 
-    @Value("${BATCH_SIZE:2}")
+    @Value("${BATCH_SIZE:12}")
     private int batchSize;
 
     @Value("${SEND_CONCURRENCY:5}")
@@ -80,7 +82,7 @@ public class MessageSenderAsync extends ServiceBusScenario {
     }
 
     private Mono<ServiceBusMessageBatch> createBatch() {
-        final byte[] messagePayload = createMessagePayload(options.getMessageSize());
+        final byte[] messagePayload = "Hello world!".getBytes(StandardCharsets.UTF_8);
 
         return Mono.defer(() -> client.get().createMessageBatch()
             .doOnNext(b -> IntStream.range(0, batchSize).boxed()

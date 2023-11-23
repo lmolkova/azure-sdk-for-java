@@ -29,9 +29,9 @@ RUN yum update -y
 WORKDIR /app
 COPY --from=builder /stress-sb/sdk/servicebus/azure-messaging-servicebus-stress/target .
 
-ARG AGENT_URL=https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.15/applicationinsights-agent-3.4.15.jar
+ARG AGENT_URL=https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.17/applicationinsights-agent-3.4.17.jar
 ADD ${AGENT_URL} ./BOOT-INF/classes/
 
-ENTRYPOINT ["java", "-javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.15.jar", \
+ENTRYPOINT ["java", "-javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.17.jar", \
             "-jar", "/app/azure-messaging-servicebus-stress/target/azure-messaging-servicebus-stress-1.0.0-beta.1.jar", \
             "--TEST_CLASS=MessageSender"]

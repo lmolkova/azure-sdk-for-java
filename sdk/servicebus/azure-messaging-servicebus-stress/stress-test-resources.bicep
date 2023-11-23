@@ -6,11 +6,12 @@ param location string = resourceGroup().location
 
 var serviceBusAuthRulesName = 'stress-test-auth-rule'
 var serviceBusQueueName = 'test-queue'
+var serviceBusQueueName2 = 'forward-queue'
 var serviceBusSessionQueueName = 'test-session-queue'
 var serviceBusTopicName = 'test-topic'
 var serviceBusSubscriptionName = 'test-subscription'
 var serviceBusSessionSubscriptionName = 'test-session-subscription'
-var serviceBusMessageLockDuration = 'PT05S'
+var serviceBusMessageLockDuration = 'PT01M'
 
 resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = {
   name: baseName
@@ -40,6 +41,11 @@ resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
   properties: {
     lockDuration: serviceBusMessageLockDuration
   }
+}
+
+resource serviceBusQueue2 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
+  parent: serviceBusNamespace
+  name: serviceBusQueueName2
 }
 
 resource serviceBusSessionQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
@@ -76,7 +82,11 @@ var serviceBusVersion = serviceBusNamespace.apiVersion
 var serviceBusConnectionString = listkeys(serviceBusAuthRulesName, serviceBusVersion).primaryConnectionString
 
 output SERVICEBUS_CONNECTION_STRING string ='"${serviceBusConnectionString}"'
+output SERVICEBUS_NAMESPACE string = baseName
+
 output SERVICEBUS_QUEUE_NAME string = serviceBusQueueName
+output FORWARD_CONNECTION_STRING string = '"${serviceBusConnectionString}"'
+output FORWARD_QUEUE_NAME string = serviceBusQueueName2
 output SERVICEBUS_SESSION_QUEUE_NAME string = serviceBusSessionQueueName
 output SERVICEBUS_TOPIC_NAME string = serviceBusTopicName
 output SERVICEBUS_SUBSCRIPTION_NAME string = serviceBusSubscriptionName
