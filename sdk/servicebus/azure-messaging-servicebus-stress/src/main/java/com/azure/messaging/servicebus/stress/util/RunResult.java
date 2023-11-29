@@ -7,7 +7,6 @@ package com.azure.messaging.servicebus.stress.util;
  * Test result
  */
 public enum RunResult {
-    SUCCESS,
     ERROR,
     WARNING,
     INCONCLUSIVE

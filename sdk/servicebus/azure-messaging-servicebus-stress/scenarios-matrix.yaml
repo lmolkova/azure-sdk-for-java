@@ -1,9 +1,11 @@
 matrix:
   scenarios:
-    happy-case:
+     happy-case-256-260:
       testDurationMin: 15
-      processingConcurrency: 64
+      processingConcurrency: 256
+      threadPoolSize: 260
       sendRate: 4000
+      sendBatchSize: 12
       receiverTestClass: MessageProcessor
       senderTestClass: MessageSenderAsync
       lockDurationInMs: 5000

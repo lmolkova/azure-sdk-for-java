@@ -36,6 +36,7 @@ public class MessageReceiverAsync extends ServiceBusScenario {
             .receiver()
             .queueName(forwardQueue)
             .receiveMode(ServiceBusReceiveMode.RECEIVE_AND_DELETE)
+            .prefetchCount(128)
             .buildAsyncClient());
 
         client.receiveMessages()
@@ -45,7 +46,7 @@ public class MessageReceiverAsync extends ServiceBusScenario {
                     LOGGER.error("error receiving", error);
                     return Mono.empty();
                 })
-                .parallel(32)
+                .parallel(64)
                 .runOn(Schedulers.boundedElastic())
                 .doOnNext(message -> {
                     LOGGER.atInfo()

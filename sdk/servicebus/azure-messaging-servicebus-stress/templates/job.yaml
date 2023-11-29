@@ -5,7 +5,6 @@ metadata:
     testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
     testName: java-sb-stress
     chaos: "{{ default false .Stress.chaos }}"
-    Skip.RemoveTestResources: "true"
 spec:
   nodeSelector:
     sku: chaosperf
@@ -22,14 +21,12 @@ spec:
           export TEST_CLASS="MessageSenderAsync"
           export DURATION_MINUTES={{ .Stress.testDurationMin }}
           export SEND_MESSAGE_RATE={{ .Stress.sendRate }}
+          export BATCH_SIZE={{ .Stress.sendBatchSize }}
           export TRY_TIMEOUT_SECONDS={{ default 60 .Stress.tryTimeout }}
           export START_DELAY_MINUTES=0 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=sender-{{ .Stress.BaseName }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL={{ default "INFO" .Stress.applicationInsightsLogLevel }} &&
-          export APPLICATIONINSIGHTS_SAMPLING_PERCENTAGE={{ default 100 .Stress.applicationInsightsSamplingRate }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_AZURE_SDK_ENABLED={{ default "true" .Stress.azureSdkTracingEnabled }} &&
           export AZURE_LOG_LEVEL={{ default 2 .Stress.azureSdkLogLevel }} &&
-          java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.17.jar \
+          java -javaagent:applicationinsights-agent.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize=20 \
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
@@ -52,26 +49,21 @@ spec:
           export TEST_CLASS="BinderConsumer"
           export DURATION_MINUTES={{ .Stress.testDurationMin }}
           export TRY_TIMEOUT_SECONDS={{ default 60 .Stress.tryTimeout }}
+          export PROCESSOR_CONCURRENCY={{ .Stress.processingConcurrency }}
           export START_DELAY_MINUTES=0 &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_REACTOR_ENABLED=false &&
           export APPLICATIONINSIGHTS_ROLE_NAME=binder-{{ .Stress.BaseName }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL={{ default "INFO" .Stress.applicationInsightsLogLevel }} &&
-          export APPLICATIONINSIGHTS_SAMPLING_PERCENTAGE={{ default 100 .Stress.applicationInsightsSamplingRate }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_AZURE_SDK_ENABLED={{ default "true" .Stress.azureSdkTracingEnabled }} &&
           export AZURE_LOG_LEVEL={{ default 2 .Stress.azureSdkLogLevel }} &&
-          java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.17.jar \
-          -Dcom.azure.core.amqp.receiversPumpingThreadPoolMaxSize=20 \
-          -Dreactor.schedulers.defaultPoolSize=8 \
-          -Dreactor.schedulers.defaultBoundedElasticSize=260 \
+          java -javaagent:applicationinsights-agent.jar \
+          -Dreactor.schedulers.defaultBoundedElasticSize={{ .Stress.threadPoolSize }} \
           -Dbinder.enabled=true \
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
         requests:
-          memory: "6Gi"
+          memory: "2Gi"
           cpu: "2"
         limits:
-          memory: "6Gi"
+          memory: "2Gi"
           cpu: "2"
     - name: receiver
       image: {{ .Stress.imageTag }}
@@ -85,15 +77,9 @@ spec:
           export TEST_CLASS="MessageReceiverAsync"
           export DURATION_MINUTES={{ .Stress.testDurationMin }}
           export START_DELAY_MINUTES={{ default 0 .Stress.delayStartMin }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_REACTOR_ENABLED=false &&
           export APPLICATIONINSIGHTS_ROLE_NAME=receiver-{{ .Stress.BaseName }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL={{ default "WARN" .Stress.applicationInsightsLogLevel }} &&
-          export APPLICATIONINSIGHTS_SAMPLING_PERCENTAGE={{ default 1  .Stress.applicationInsightsSamplingRate }} &&
-          export APPLICATIONINSIGHTS_INSTRUMENTATION_AZURE_SDK_ENABLED={{ default "true" .Stress.azureSdkTracingEnabled }} &&
           export AZURE_LOG_LEVEL={{ default 3 .Stress.azureSdkLogLevel }} &&
-          java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.17.jar \
-          -Dcom.azure.core.amqp.receiversPumpingThreadPoolMaxSize=10 \
-          -Dreactor.schedulers.defaultPoolSize=4 \
+          java -javaagent:applicationinsights-agent.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize=64 \
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}

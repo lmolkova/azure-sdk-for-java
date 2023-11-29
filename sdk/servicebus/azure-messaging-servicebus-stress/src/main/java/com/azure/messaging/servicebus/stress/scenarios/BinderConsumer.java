@@ -4,16 +4,15 @@
 package com.azure.messaging.servicebus.stress.scenarios;
 
 import com.azure.core.util.logging.ClientLogger;
-import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 import com.azure.messaging.servicebus.ServiceBusReceivedMessageContext;
-import com.azure.messaging.servicebus.ServiceBusSenderAsyncClient;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import com.azure.messaging.servicebus.stress.util.RunResult;
 import com.azure.spring.messaging.checkpoint.Checkpointer;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cloud.stream.binding.BindingsLifecycleController;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
@@ -32,15 +31,15 @@ import static com.azure.spring.messaging.AzureHeaders.CHECKPOINTER;
 @Component("BinderConsumer")
 public class BinderConsumer extends ServiceBusScenario {
     private static final ClientLogger LOGGER = new ClientLogger(BinderConsumer.class);
-    @Value("${FORWARD_CONNECTION_STRING:null}")
-    private String forwardConnectionString;
-
-    @Value("${FORWARD_QUEUE_NAME:null}")
-    private String forwardQueue;
     private final AtomicReference<RunResult> runResult = new AtomicReference<>(RunResult.INCONCLUSIVE);
     private byte[] expectedPayload = "Hello world!".getBytes(StandardCharsets.UTF_8);
 
-    private ServiceBusSenderAsyncClient senderClient;
+    @Autowired
+    private ServiceBusSenderClient senderClient;
+
+    @Autowired
+    private BindingsLifecycleController binderLifecycle;
+
     @Bean
     public Consumer<Message<String>> consume() {
         return message -> {
@@ -49,7 +48,8 @@ public class BinderConsumer extends ServiceBusScenario {
             ServiceBusReceivedMessage msg = messageContext.getMessage();
             try {
                 checkMessage(messageContext.getMessage());
-                getOrCreateSender().sendMessage(new ServiceBusMessage(message.getPayload())).block();
+                senderClient.sendMessage(new ServiceBusMessage(message.getPayload()));
+                //many.emitNext(MessageBuilder.withPayload(message.getPayload()).build(), Sinks.EmitFailureHandler.FAIL_FAST);
                 checkpoint(checkpointer.success(), msg).block();
             } catch (Exception ex) {
                 checkpoint(checkpointer.failure(), msg).block();
@@ -83,19 +83,8 @@ public class BinderConsumer extends ServiceBusScenario {
                 });
     }
 
-    private synchronized ServiceBusSenderAsyncClient getOrCreateSender() {
-        if (senderClient == null) {
-            senderClient = new ServiceBusClientBuilder()
-                    .connectionString(forwardConnectionString)
-                    .sender()
-                    .queueName(forwardQueue)
-                    .buildAsyncClient();
-        }
-        return senderClient;
-    }
     @Override
     public RunResult run() throws InterruptedException {
-
         blockingWait(options.getTestDuration());
 
         int activeMessages = getRemainingQueueMessages();
@@ -105,6 +94,13 @@ public class BinderConsumer extends ServiceBusScenario {
         }
 
         return activeMessages != 0 ? RunResult.WARNING : runResult.get();
+    }
+
+    @Override
+    public void afterRun(RunResult runResult) {
+        logRemainingQueueMessages();
+        binderLifecycle.stop("consume-in-0");
+        super.afterRun(runResult);
     }
 
     private boolean checkMessage(ServiceBusReceivedMessage message) {

@@ -4,10 +4,10 @@
 package com.azure.messaging.servicebus.stress.scenarios;
 
 import com.azure.core.util.ClientOptions;
-import com.azure.core.util.CoreUtils;
 import com.azure.core.util.IterableStream;
 import com.azure.core.util.TracingOptions;
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.core.util.logging.LogLevel;
 import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 import com.azure.messaging.servicebus.ServiceBusReceiverClient;
@@ -20,7 +20,6 @@ import com.azure.messaging.servicebus.stress.util.ScenarioOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.Disposable;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +38,6 @@ public abstract class ServiceBusScenario implements AutoCloseable {
     protected ServiceBusReceiverClient receiverClient;
 
     private final List<AutoCloseable> toClose = new ArrayList<>();
-    private Instant startTime;
     protected <T extends AutoCloseable> T toClose(T closeable) {
         toClose.add(closeable);
         return closeable;
@@ -57,7 +55,6 @@ public abstract class ServiceBusScenario implements AutoCloseable {
     public abstract RunResult run() throws InterruptedException;
 
     public void beforeRun() {
-        logTestConfiguration();
         adminClient = new ServiceBusAdministrationClientBuilder()
             .connectionString(options.getServiceBusConnectionString())
             .buildClient();
@@ -70,48 +67,14 @@ public abstract class ServiceBusScenario implements AutoCloseable {
             .queueName(options.getServiceBusQueueName())
             .buildClient() : null;
 
-        startTime = Instant.now();
         blockingWait(options.getStartDelay());
     }
 
     public void afterRun(RunResult result) {
-        LOGGER.atInfo()
-            .addKeyValue("testClass", options.getTestClass())
-            .addKeyValue("result", result.name())
-            .addKeyValue("durationSec", (Instant.now().toEpochMilli() - startTime.toEpochMilli()) / 1000d)
-            .log("test finished");
-
-        logRemainingQueueMessages();
     }
 
-    private void logTestConfiguration() {
-        String serviceBusPackageVersion = "unknown";
-        try {
-            Class<?> serviceBusPackage = Class.forName("com.azure.messaging.servicebus.ServiceBusClientBuilder");
-            serviceBusPackageVersion = serviceBusPackage.getPackage().getImplementationVersion();
-            if (serviceBusPackageVersion == null) {
-                serviceBusPackageVersion = "null";
-            }
-        } catch (ClassNotFoundException e) {
-            LOGGER.warning("could not find ServiceBusClientBuilder class", e);
-        }
-
-        LOGGER.atInfo()
-            .addKeyValue("duration", options.getTestDuration())
-            .addKeyValue("tryTimeout", options.getTryTimeout())
-            .addKeyValue("testClass", options.getTestClass())
-            .addKeyValue("entityType", options.getServiceBusEntityType())
-            .addKeyValue("queueName", options.getServiceBusQueueName())
-            .addKeyValue("sessionQueueName", options.getServiceBusSessionQueueName())
-            .addKeyValue("topicName", options.getServiceBusTopicName())
-            .addKeyValue("serviceBusPackageVersion", serviceBusPackageVersion)
-            .addKeyValue("subscriptionName", options.getServiceBusSubscriptionName())
-            .addKeyValue("annotation", options.getAnnotation())
-            .addKeyValue("connectionStringProvided", !CoreUtils.isNullOrEmpty(options.getServiceBusConnectionString()))
-            .log("starting test");
-    }
     @Override
-    public void close() {
+    public synchronized void close() {
         if (toClose == null || toClose.size() == 0) {
             return;
         }
@@ -129,7 +92,6 @@ public abstract class ServiceBusScenario implements AutoCloseable {
         }
 
         toClose.clear();
-
         receiverClient.close();
     }
 
@@ -150,13 +112,13 @@ public abstract class ServiceBusScenario implements AutoCloseable {
         return -1;
     }
 
-    private void logRemainingQueueMessages() {
-        if (options.getServiceBusEntityType() == EntityType.QUEUE) {
+    protected void logRemainingQueueMessages() {
+        if (receiverClient != null) {
             int activeMessages = getRemainingQueueMessages();
 
-            if (activeMessages > 0) {
+            if (activeMessages > 0 && LOGGER.canLogAtLevel(LogLevel.VERBOSE)) {
                 IterableStream<ServiceBusReceivedMessage> messages = receiverClient.peekMessages(activeMessages);
-                messages.forEach(message -> LOGGER.atInfo()
+                messages.forEach(message -> LOGGER.atVerbose()
                     .addKeyValue("messageId", message.getMessageId())
                     .addKeyValue("traceparent", message.getApplicationProperties().get("traceparent"))
                     .addKeyValue("deliveryCount", message.getDeliveryCount())

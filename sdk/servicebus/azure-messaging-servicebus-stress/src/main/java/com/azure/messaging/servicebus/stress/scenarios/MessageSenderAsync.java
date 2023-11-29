@@ -32,7 +32,7 @@ public class MessageSenderAsync extends ServiceBusScenario {
     @Value("${SEND_MESSAGE_RATE:100}")
     private int sendMessageRatePerSecond;
 
-    @Value("${BATCH_SIZE:12}")
+    @Value("${BATCH_SIZE:5}")
     private int batchSize;
 
     @Value("${SEND_CONCURRENCY:5}")
@@ -47,7 +47,6 @@ public class MessageSenderAsync extends ServiceBusScenario {
 
     @Override
     public RunResult run() {
-
         client.set(toClose(TestUtils.getSenderBuilder(options, false).buildAsyncClient()));
 
         int batchRatePerSec = sendMessageRatePerSecond / batchSize;
