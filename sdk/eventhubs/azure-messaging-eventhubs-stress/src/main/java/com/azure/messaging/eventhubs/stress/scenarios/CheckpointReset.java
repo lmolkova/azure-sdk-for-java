@@ -22,7 +22,7 @@ public class CheckpointReset extends EventHubsScenario {
     public void run() {
         String storageConnStr = options.getStorageConnectionString();
         String containerName = options.getStorageContainerName();
-        String eventHubConnStr = options.getEventhubsConnectionString();
+        String eventHubConnStr = options.getEventHubsConnectionString();
         String eventHub = options.getEventHubsEventHubName();
         String consumerGroup = options.getEventHubsConsumerGroup();
         BlobContainerClient containerClient = new BlobContainerClientBuilder()

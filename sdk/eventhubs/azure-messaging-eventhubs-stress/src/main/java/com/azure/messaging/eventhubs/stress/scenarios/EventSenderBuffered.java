@@ -39,7 +39,7 @@ public class EventSenderBuffered extends EventHubsScenario {
     @Override
     public void run() {
 
-        final String eventHubConnStr = options.getEventhubsConnectionString();
+        final String eventHubConnStr = options.getEventHubsConnectionString();
         final String eventHub = options.getEventHubsEventHubName();
 
         final EventHubBufferedProducerAsyncClient sender = new EventHubBufferedProducerClientBuilder()

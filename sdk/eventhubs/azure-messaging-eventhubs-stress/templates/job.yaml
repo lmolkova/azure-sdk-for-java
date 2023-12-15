@@ -3,9 +3,11 @@
 metadata:
   labels:
     testInstance: "eventhubs-{{ .Release.Name }}-{{ .Release.Revision }}"
-    testName: eventhubs-stress-test
-    chaos: "true"
+    testName: hava-eh-stress
+    chaos: "{{ default false .Stress.chaos }}"
 spec:
+  nodeSelector:
+    sku: chaosperf
   containers:
     - name: sender
       image: {{ .Stress.imageTag }}
@@ -15,16 +17,17 @@ spec:
         - |
           set -a &&
           source $ENV_FILE &&
-          export CONTAINER_NAME=sender &&
-          export APPLICATIONINSIGHTS_ROLE_NAME=sender &&
-          java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.13.jar \
+          export APPLICATIONINSIGHTS_ROLE_NAME=sender-{{ .Stress.BaseName }} &&
+          export TEST_CLASS={{ .Stress.senderTestClass }}
+          java -javaagent:applicationinsights-agent.jar \
+          -Dreactor.schedulers.defaultBoundedElasticSize={{ default 20 .Stress.senderConcurrency }} \
           -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar \
           --TEST_CLASS=EventSender
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
         requests:
           memory: "1G"
-          cpu: "1"
+          cpu: "0.5"
     - name: receiver
       image: {{ .Stress.imageTag }}
       imagePullPolicy: Always
@@ -33,14 +36,14 @@ spec:
         - |
           set -a &&
           source $ENV_FILE &&
-          export CONTAINER_NAME=receiver &&
-          export APPLICATIONINSIGHTS_ROLE_NAME=receiver &&
-          java -javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.13.jar \
-          -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar \
-          --TEST_CLASS=EventProcessor
+          export APPLICATIONINSIGHTS_ROLE_NAME=receiver-{{ .Stress.BaseName }} &&
+          export TEST_CLASS={{ .Stress.receiverTestClass }}
+          java -javaagent:applicationinsights-agent.jar \
+          -Dreactor.schedulers.defaultBoundedElasticSize={{ default 64 .Stress.processingConcurrency }} \
+          -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
-        requests:
+        limits:
           memory: "1G"
-          cpu: "1"
+          cpu: "0.5"
 {{- end -}}

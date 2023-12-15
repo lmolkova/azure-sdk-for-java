@@ -30,10 +30,9 @@ RUN yum update -y
 WORKDIR /app
 COPY --from=builder /stress-eh/sdk/eventhubs/azure-messaging-eventhubs-stress/target .
 
-ARG AGENT_URL=https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.13/applicationinsights-agent-3.4.13.jar
-ADD ${AGENT_URL} ./BOOT-INF/classes/
+ARG APPLICATION_INSIGHTS_AGENT_VERSION=3.4.18
+ARG AGENT_URL=https://github.com/microsoft/ApplicationInsights-Java/releases/download/${APPLICATION_INSIGHTS_AGENT_VERSION}/applicationinsights-agent-${APPLICATION_INSIGHTS_AGENT_VERSION}.jar
+ADD ${AGENT_URL} ./applicationinsights-agent.jar
 
-ENTRYPOINT ["java", "-javaagent:BOOT-INF/classes/applicationinsights-agent-3.4.13.jar", \
-            "-jar", "/app/azure-messaging-eventhubs-stress/target/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar", \
-            "--TEST_CLASS=EventSender"]
-
+# This is never executed (since job yaml overrides it)
+ENTRYPOINT ["bash"]

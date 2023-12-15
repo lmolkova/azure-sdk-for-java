@@ -3,17 +3,33 @@
 
 package com.azure.messaging.eventhubs.stress.scenarios;
 
+import com.azure.core.util.BinaryData;
 import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerAsyncClient;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.azure.messaging.eventhubs.stress.util.RateLimiter;
+import com.azure.messaging.eventhubs.stress.util.TestUtils;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+
+import static com.azure.messaging.eventhubs.stress.util.TestUtils.blockingWait;
+import static com.azure.messaging.eventhubs.stress.util.TestUtils.createMessagePayload;
+import static com.azure.messaging.eventhubs.stress.util.TestUtils.getBuilder;
 
 /**
  * Test for EventSender
@@ -21,37 +37,69 @@ import java.util.stream.IntStream;
 @Component("EventSender")
 public class EventSender extends EventHubsScenario {
 
-    private static final Random RANDOM = new Random();
+    @Value("${SEND_MESSAGE_RATE:100}")
+    private int sendMessageRatePerSecond;
 
-    @Value("${SEND_TIMES:1000000}")
-    private int sendTimes;
+    @Value("${SEND_CONCURRENCY:5}")
+    private int sendConcurrency;
 
-    @Value("${SEND_EVENTS:100}")
-    private int eventsToSend;
+    @Value("${BATCH_SIZE:2}")
+    private int batchSize;
 
-    @Value("${PAYLOAD_SIZE_IN_BYTE:8}")
-    private int payloadSize;
+    private EventHubProducerAsyncClient client;
+    private BinaryData messagePayload;
+    private final AtomicLong sentCounter = new AtomicLong();
+
+    private final String prefix = UUID.randomUUID().toString().substring(25);
 
     @Override
     public void run() {
-        final String eventHubConnStr = options.getEventhubsConnectionString();
-        final String eventHub = options.getEventHubsEventHubName();
+        messagePayload = createMessagePayload(options.getMessageSize());
+        client = toClose(getBuilder(options).buildAsyncProducerClient());
+        int batchRatePerSec = sendMessageRatePerSecond / batchSize;
+        RateLimiter rateLimiter = toClose(new RateLimiter(batchRatePerSec, sendConcurrency));
 
-        final byte[] payload = new byte[payloadSize];
-        RANDOM.nextBytes(payload);
+        toClose(createBatch().repeat()
+            .take(options.getTestDuration())
+            .flatMap(batch ->
+                rateLimiter.acquire()
+                    .then(send(batch)
+                        .doFinally(i -> rateLimiter.release())))
+            .parallel(sendConcurrency, sendConcurrency)
+            .runOn(Schedulers.boundedElastic())
+            .subscribe());
 
-        EventHubProducerAsyncClient client = new EventHubClientBuilder()
-            .connectionString(eventHubConnStr, eventHub)
-            .buildAsyncProducerClient();
+        blockingWait(options.getTestDuration().plusSeconds(30));
+    }
 
-        Flux.range(0, sendTimes).concatMap(i -> {
-            List<EventData> eventDataList = new ArrayList<>();
-            IntStream.range(0, eventsToSend).forEach(j -> {
-                eventDataList.add(new EventData(payload));
+    @Override
+    public void recordRunOptions(Span span) {
+        super.recordRunOptions(span);
+        span.setAttribute(AttributeKey.longKey("sendMessageRatePerSecond"), sendMessageRatePerSecond);
+        span.setAttribute(AttributeKey.longKey("sendConcurrency"), sendConcurrency);
+        span.setAttribute(AttributeKey.longKey("batchSize"), batchSize);
+    }
+
+    private Mono<Void> send(EventDataBatch batch) {
+        return client.send(batch)
+            .onErrorResume(t -> true,
+                t -> {
+                recordError("send error", t, "send");
+                return Mono.empty();
             });
-            return client.send(eventDataList);
-        }).blockLast();
+    }
 
-        client.close();
+    private Mono<EventDataBatch> createBatch() {
+        return Mono.defer(() -> client.createBatch()
+            .doOnNext(b -> {
+                for (int i = 0; i < batchSize; i ++) {
+                    EventData message = new EventData(messagePayload);
+                    message.setMessageId(prefix + sentCounter.getAndIncrement());
+                    if (!b.tryAdd(message)) {
+                        recordError("batch is full", null, "createBatch");
+                        break;
+                    }
+                }
+            }));
     }
 }

@@ -74,7 +74,7 @@ public class EventProcessorWithOptions extends EventHubsScenario {
     public void run() {
         final String storageConnStr = options.getStorageConnectionString();
         final String containerName = options.getStorageContainerName();
-        final String eventHubConnStr = options.getEventhubsConnectionString();
+        final String eventHubConnStr = options.getEventHubsConnectionString();
         final String eventHub = options.getEventHubsEventHubName();
         final String consumerGroup = options.getEventHubsConsumerGroup();
         final String writeEventHub = options.getSecondEventHubsEventHubName();

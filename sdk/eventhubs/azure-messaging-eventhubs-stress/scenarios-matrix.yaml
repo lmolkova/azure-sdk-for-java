@@ -1,7 +1,12 @@
 matrix:
-  image:
-    - Dockerfile
   scenarios:
-    send-process:
+    happy-case:
       chaos: "false"
       imageBuildDir: ..\..\..\
+      testDurationMin: 15
+      senderTestClass: EventSender
+      sendRate: 2600 # per each container, so 5.2k messages per sec total
+      batchSize: 10
+      senderConcurrency: 20
+      receiverTestClass: EventProcessor
+      processingConcurrency: 256
