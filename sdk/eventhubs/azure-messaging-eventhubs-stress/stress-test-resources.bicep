@@ -6,9 +6,7 @@ param location string = resourceGroup().location
 
 var eventHubName = 'test-event-hub'
 var eventHubsAuthRulesName = 'stress-test-auth-rule'
-var secondEventHubName = 'test-event-hub-2'
 
-// storage account must be between 3 and 24 characters in length and use numbers and lower-case letters only
 var storageContainerName = 'test-blob-container'
 
 resource eventHubsNamespace 'Microsoft.EventHub/namespaces@2021-11-01' = {
@@ -24,15 +22,6 @@ resource eventHubsNamespace 'Microsoft.EventHub/namespaces@2021-11-01' = {
 resource eventHub 'Microsoft.EventHub/namespaces/eventhubs@2021-11-01' = {
   parent: eventHubsNamespace
   name: eventHubName
-  properties: {
-    messageRetentionInDays: 1
-    partitionCount: 32
-  }
-}
-
-resource secondEventHub 'Microsoft.EventHub/namespaces/eventhubs@2021-11-01' = {
-  parent: eventHubsNamespace
-  name: secondEventHubName
   properties: {
     messageRetentionInDays: 1
     partitionCount: 32
@@ -84,4 +73,3 @@ output EVENTHUBS_EVENT_HUB_NAME string = eventHubName
 output EVENTHUBS_CONNECTION_STRING string = '"${eventHubsConnectionString}"'
 output STORAGE_CONTAINER_NAME string = storageContainerName
 output STORAGE_CONNECTION_STRING string = '"${storageConnectionString}"'
-output SECOND_EVENTHUBS_EVENT_HUB_NAME string = secondEventHubName

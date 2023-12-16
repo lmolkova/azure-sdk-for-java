@@ -97,7 +97,6 @@ public abstract class EventHubsScenario implements AutoCloseable {
         span.setAttribute(AttributeKey.stringKey("hostname"), System.getenv().get("HOSTNAME"));
     }
 
-
     public void recordError(String errorReason, Throwable ex, String method) {
         Attributes attributes = Attributes.builder()
             .put(AttributeKey.stringKey("error.type"), errorReason)

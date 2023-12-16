@@ -5,8 +5,9 @@ matrix:
       imageBuildDir: ..\..\..\
       testDurationMin: 15
       senderTestClass: EventSender
-      sendRate: 2600 # per each container, so 5.2k messages per sec total
-      batchSize: 10
-      senderConcurrency: 20
+      sendRate: -1
+      sendBatchSize: 50
+      sendConcurrency: 10
       receiverTestClass: EventProcessor
-      processingConcurrency: 256
+      processorBatchSize: 64
+      prefetchCount: 64

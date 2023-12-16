@@ -15,16 +15,19 @@ public class RateLimiter implements AutoCloseable {
     private final AtomicInteger inFlight = new AtomicInteger(0);
     private final AtomicInteger bucket = new AtomicInteger(0);
     private final Timer replenishTimer;
+    private final boolean enabled;
 
     public RateLimiter(int maxRps, int maxConcurrency) {
         this.maxConcurrency = maxConcurrency;
-
-        replenishTimer = new Timer("replenish");
-        replenishTimer.schedule(new TimerTask() {
-            public void run() {
-                bucket.set(maxRps);
-            }
-        }, 0, 1000L);
+        this.enabled = maxRps > 0;
+        this.replenishTimer = new Timer("replenish");
+        if (enabled) {
+            replenishTimer.schedule(new TimerTask() {
+                public void run() {
+                    bucket.set(maxRps);
+                }
+            }, 0, 1000L);
+        }
     }
 
     public Mono<Void> acquire() {
@@ -38,6 +41,10 @@ public class RateLimiter implements AutoCloseable {
     }
 
     public boolean tryAcquire() {
+        if (!enabled) {
+            return true;
+        }
+
         int concurrency;
         do {
             concurrency = inFlight.get();

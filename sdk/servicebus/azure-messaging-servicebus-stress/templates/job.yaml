@@ -2,8 +2,8 @@
 {{- define "stress.java-servicebus" -}}
 metadata:
   labels:
-    testInstance: "{{.Stress.Scenario}}-{{ .Release.Name }}-{{ .Release.Revision }}"
-    testName: java-sb-stress
+    testInstance: "{{ .Stress.Scenario }}-{{ .Release.Name }}-{{ .Release.Revision }}"
+    testName: "{{ .Release.Name }}"
     chaos: "{{ default false .Stress.chaos }}"
 spec:
   nodeSelector:
@@ -23,17 +23,13 @@ spec:
           export BATCH_SIZE={{ default 5 .Stress.batchSize }}
           export SEND_CONCURRENCY={{ default 20 .Stress.sendConcurrency }}
           export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
-          export APPLICATIONINSIGHTS_ROLE_INSTANCE=sender1 &&
+          export APPLICATIONINSIGHTS_ROLE_INSTANCE={{ .Release.Name }}-sender1 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=sender-{{ .Stress.BaseName }} &&
-          export OTEL_INSTRUMENTATION_REACTOR_ENABLED=false &&
           java -javaagent:applicationinsights-agent.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize={{ default 20 .Stress.sendConcurrency }} \
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
-        requests:
-          memory: "500Mi"
-          cpu: "0.5"
         limits:
           memory: "500Mi"
           cpu: "0.5"
@@ -52,7 +48,7 @@ spec:
           export SEND_CONCURRENCY={{ default 20 .Stress.sendConcurrency }}
           export TRY_TIMEOUT_SECONDS={{ default 60 .Stress.tryTimeout }}
           export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
-          export APPLICATIONINSIGHTS_ROLE_INSTANCE=sender2 &&
+          export APPLICATIONINSIGHTS_ROLE_INSTANCE={{ .Release.Name }}-sender2 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=sender-{{ .Stress.BaseName }} &&
           export OTEL_INSTRUMENTATION_REACTOR_ENABLED=false &&
           java -javaagent:applicationinsights-agent.jar \
@@ -60,9 +56,6 @@ spec:
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
-        requests:
-          memory: "500Mi"
-          cpu: "0.5"
         limits:
           memory: "500Mi"
           cpu: "0.5"
@@ -87,7 +80,7 @@ spec:
           export PROCESS_CALLBACK_DURATION_MAX_IN_MS={{ default 0 .Stress.processCallbackDurationMaxInMs }}
           export PREFETCH_COUNT={{ default 0 .Stress.prefetchCount }}
           export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
-          export APPLICATIONINSIGHTS_ROLE_INSTANCE=receiver1 &&
+          export APPLICATIONINSIGHTS_ROLE_INSTANCE={{ .Release.Name }}-receiver1 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=receiver-{{ .Stress.BaseName }} &&
           export OTEL_INSTRUMENTATION_REACTOR_ENABLED=false &&
           java -javaagent:applicationinsights-agent.jar \
@@ -95,9 +88,6 @@ spec:
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
-        requests:
-          memory: "1Gi"
-          cpu: "0.5"
         limits:
           memory: "1Gi"
           cpu: "0.5"
@@ -122,7 +112,7 @@ spec:
           export PROCESS_CALLBACK_DURATION_MAX_IN_MS={{ default 0 .Stress.processCallbackDurationMaxInMs }}
           export PREFETCH_COUNT={{ default 0 .Stress.prefetchCount }}
           export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
-          export APPLICATIONINSIGHTS_ROLE_INSTANCE=receiver2 &&
+          export APPLICATIONINSIGHTS_ROLE_INSTANCE={{ .Release.Name }}-receiver2 &&
           export APPLICATIONINSIGHTS_ROLE_NAME=receiver-{{ .Stress.BaseName }} &&
           export OTEL_INSTRUMENTATION_REACTOR_ENABLED=false &&
           java -javaagent:applicationinsights-agent.jar \
@@ -130,9 +120,6 @@ spec:
           -jar /app/azure-messaging-servicebus-stress-1.0.0-beta.1.jar
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
-        requests:
-          memory: "1Gi"
-          cpu: "0.5"
         limits:
           memory: "1Gi"
           cpu: "0.5"

@@ -3,7 +3,6 @@
 
 package com.azure.messaging.eventhubs.stress.util;
 
-import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
@@ -31,9 +30,6 @@ public class ScenarioOptions {
 
     @Value("${STORAGE_CONTAINER_NAME:#{null}}")
     private String storageContainerName;
-
-    @Value("${SECOND_EVENTHUBS_EVENT_HUB_NAME:#{null}}")
-    private String secondEventHubsEventHubName;
 
     @Value("${DURATION_MINUTES:15}")
     private int durationInMinutes;
@@ -66,10 +62,6 @@ public class ScenarioOptions {
 
     public String getStorageContainerName() {
         return storageContainerName;
-    }
-
-    public String getSecondEventHubsEventHubName() {
-        return secondEventHubsEventHubName;
     }
 
     public Duration getTestDuration() {
