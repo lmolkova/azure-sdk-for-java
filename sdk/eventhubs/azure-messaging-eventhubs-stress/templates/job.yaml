@@ -26,14 +26,15 @@ spec:
           export SEND_CONCURRENCY={{ default 20 .Stress.sendConcurrency }}
           export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
           java -javaagent:applicationinsights-agent.jar \
+          -Xms700m \
           -Dreactor.schedulers.defaultBoundedElasticSize={{ default 20 .Stress.senderConcurrency }} \
           -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar \
           --TEST_CLASS=EventSender
       {{- include "stress-test-addons.container-env" . | nindent 6 }}
       resources:
         limits:
-          memory: "3G"
-          cpu: "2"
+          memory: "1G"
+          cpu: "1"
     - name: receiver1
       image: {{ .Stress.imageTag }}
       imagePullPolicy: Always

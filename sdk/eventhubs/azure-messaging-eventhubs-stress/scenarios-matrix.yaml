@@ -6,8 +6,8 @@ matrix:
       testDurationMin: 15
       senderTestClass: EventSender
       sendRate: -1
-      sendBatchSize: 50
+      sendBatchSize: 64
       sendConcurrency: 10
       receiverTestClass: EventProcessor
-      processorBatchSize: 64
-      prefetchCount: 64
+      processorBatchSize: 128
+      prefetchCount: 0

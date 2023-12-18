@@ -7,6 +7,7 @@ import com.azure.core.util.BinaryData;
 import com.azure.messaging.eventhubs.EventData;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerAsyncClient;
+import com.azure.messaging.eventhubs.models.CreateBatchOptions;
 import com.azure.messaging.eventhubs.stress.util.RateLimiter;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -41,9 +43,11 @@ public class EventSender extends EventHubsScenario {
     private EventHubProducerAsyncClient client;
     private BinaryData messagePayload;
     private final AtomicLong sentCounter = new AtomicLong();
+    private CreateBatchOptions batchOptions;
 
     @Override
     public void run() {
+        batchOptions = new CreateBatchOptions().setMaximumSizeInBytes(batchSize * (options.getMessageSize() + 100));
         messagePayload = createMessagePayload(options.getMessageSize());
         client = toClose(getBuilder(options).buildAsyncProducerClient());
         int batchRatePerSec = sendMessageRatePerSecond / batchSize;
@@ -53,8 +57,7 @@ public class EventSender extends EventHubsScenario {
             .take(options.getTestDuration())
             .flatMap(batch ->
                 rateLimiter.acquire()
-                    .then(send(batch)
-                        .doFinally(i -> rateLimiter.release())))
+                    .then(send(batch).doFinally(i -> rateLimiter.release())))
             .parallel(sendConcurrency, sendConcurrency)
             .runOn(Schedulers.boundedElastic())
             .subscribe());
@@ -80,13 +83,12 @@ public class EventSender extends EventHubsScenario {
     }
 
     private Mono<EventDataBatch> createBatch() {
-        return Mono.defer(() -> client.createBatch()
+        return Mono.defer(() -> client.createBatch(batchOptions)
             .doOnNext(b -> {
                 for (int i = 0; i < batchSize; i ++) {
                     EventData message = new EventData(messagePayload);
                     message.setMessageId(PREFIX + sentCounter.getAndIncrement());
-                    if (!b.tryAdd(message)) {
-                        recordError("batch is full", null, "createBatch");
+                    if (batchOptions.getMaximumSizeInBytes() < b.getSizeInBytes() + options.getMessageSize() + 100 || !b.tryAdd(message)) {
                         break;
                     }
                 }
