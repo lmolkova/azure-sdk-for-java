@@ -52,7 +52,7 @@
               "allowCustom": true
             },
             "value": {
-              "durationMs": 3600000
+              "durationMs": 172800000
             }
           },
           {
@@ -69,7 +69,7 @@
             },
             "queryType": 0,
             "resourceType": "microsoft.insights/components",
-            "value": "sfbc62"
+            "value": null
           }
         ],
         "style": "pills",
@@ -249,9 +249,6 @@
         "showBorder": true
       }
     }
-  ],
-  "fallbackResourceIds": [
-    "/subscriptions/faa080af-c1d8-40ad-9cce-e1a450ca5b57/resourceGroups/rg-stress-cluster-pg/providers/Microsoft.Insights/components/stress-pg-ai-s7b6dif73rup6"
   ],
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }

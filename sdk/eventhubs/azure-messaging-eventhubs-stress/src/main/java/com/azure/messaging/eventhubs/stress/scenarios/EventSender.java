@@ -62,7 +62,7 @@ public class EventSender extends EventHubsScenario {
             .runOn(Schedulers.boundedElastic())
             .subscribe());
 
-        blockingWait(options.getTestDuration().plusSeconds(30));
+        blockingWait(options.getTestDuration());
     }
 
     @Override
