@@ -29,7 +29,7 @@ import static com.azure.messaging.eventhubs.stress.util.TestUtils.getBuilder;
  */
 @Component("EventSender")
 public class EventSender extends EventHubsScenario {
-    private static final String PREFIX = UUID.randomUUID().toString().substring(25);
+    private static final String PREFIX = UUID.randomUUID().toString().substring(25) + "-";
 
     @Value("${SEND_MESSAGE_RATE:-1}")
     private int sendMessageRatePerSecond;
@@ -37,20 +37,19 @@ public class EventSender extends EventHubsScenario {
     @Value("${SEND_CONCURRENCY:5}")
     private int sendConcurrency;
 
-    @Value("${BATCH_SIZE:2}")
-    private int batchSize;
+    @Value("${SEND_BATCH_SIZE:2}")
+    private int sendBatchSize;
 
     private EventHubProducerAsyncClient client;
     private BinaryData messagePayload;
     private final AtomicLong sentCounter = new AtomicLong();
-    private CreateBatchOptions batchOptions;
+    private final CreateBatchOptions batchOptions = new CreateBatchOptions();
 
     @Override
     public void run() {
-        batchOptions = new CreateBatchOptions().setMaximumSizeInBytes(batchSize * (options.getMessageSize() + 100));
         messagePayload = createMessagePayload(options.getMessageSize());
         client = toClose(getBuilder(options).buildAsyncProducerClient());
-        int batchRatePerSec = sendMessageRatePerSecond / batchSize;
+        int batchRatePerSec = sendMessageRatePerSecond / sendBatchSize;
         RateLimiter rateLimiter = toClose(new RateLimiter(batchRatePerSec, sendConcurrency));
 
         toClose(createBatch().repeat()
@@ -70,7 +69,7 @@ public class EventSender extends EventHubsScenario {
         super.recordRunOptions(span);
         span.setAttribute(AttributeKey.longKey("sendMessageRatePerSecond"), sendMessageRatePerSecond);
         span.setAttribute(AttributeKey.longKey("sendConcurrency"), sendConcurrency);
-        span.setAttribute(AttributeKey.longKey("batchSize"), batchSize);
+        span.setAttribute(AttributeKey.longKey("sendBatchSize"), sendBatchSize);
     }
 
     private Mono<Void> send(EventDataBatch batch) {
@@ -85,10 +84,11 @@ public class EventSender extends EventHubsScenario {
     private Mono<EventDataBatch> createBatch() {
         return Mono.defer(() -> client.createBatch(batchOptions)
             .doOnNext(b -> {
-                for (int i = 0; i < batchSize; i ++) {
+                for (int i = 0; i < sendBatchSize; i ++) {
                     EventData message = new EventData(messagePayload);
                     message.setMessageId(PREFIX + sentCounter.getAndIncrement());
-                    if (batchOptions.getMaximumSizeInBytes() < b.getSizeInBytes() + options.getMessageSize() + 100 || !b.tryAdd(message)) {
+                    if (!b.tryAdd(message)) {
+                        recordError("batch is full", null, "createBatch");
                         break;
                     }
                 }

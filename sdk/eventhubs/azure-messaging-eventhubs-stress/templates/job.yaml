@@ -2,9 +2,7 @@
 {{- define "stress.java-eventhubs" -}}
 metadata:
   labels:
-    testInstance: "{{ .Stress.Scenario }}-{{ .Release.Name }}-{{ .Release.Revision }}"
     testName: "{{ .Release.Name }}"
-    chaos: "{{ default false .Stress.chaos }}"
 spec:
   nodeSelector:
     sku: chaosperf
@@ -24,7 +22,6 @@ spec:
           export SEND_MESSAGE_RATE={{ .Stress.sendRate }}
           export SEND_BATCH_SIZE={{ default 5 .Stress.sendBatchSize }}
           export SEND_CONCURRENCY={{ default 20 .Stress.sendConcurrency }}
-          export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
           java -javaagent:applicationinsights-agent.jar \
           -Xms700m \
           -Dreactor.schedulers.defaultBoundedElasticSize={{ default 20 .Stress.senderConcurrency }} \
@@ -51,7 +48,6 @@ spec:
           export MAX_WAIT_TIME_IN_MS={{ default 0 .Stress.processorMaxWaitTime }}
           export PREFETCH_COUNT={{ default 0 .Stress.prefetchCount }}
           export PROCESS_CALLBACK_DURATION_MAX_IN_MS={{ default 0 .Stress.processCallbackDurationMaxInMs }}
-          export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
           java -javaagent:applicationinsights-agent.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize={{ default 64 .Stress.processingConcurrency }} \
           -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar
@@ -76,7 +72,6 @@ spec:
           export MAX_WAIT_TIME_IN_MS={{ default 0 .Stress.processorMaxWaitTime }}
           export PREFETCH_COUNT={{ default 0 .Stress.prefetchCount }}
           export PROCESS_CALLBACK_DURATION_MAX_IN_MS={{ default 0 .Stress.processCallbackDurationMaxInMs }}
-          export ANNOTATION={{ default .Stress.Scenario .Stress.annotation }}
           java -javaagent:applicationinsights-agent.jar \
           -Dreactor.schedulers.defaultBoundedElasticSize={{ default 64 .Stress.processingConcurrency }} \
           -jar /app/azure-messaging-eventhubs-stress-1.0.0-beta.1.jar
