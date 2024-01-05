@@ -1,5 +1,5 @@
-{{- include "stress-test-addons.deploy-job-template.from-pod" (list . "stress.java-template") -}}
-{{- define "stress.java-template" -}}
+{{- include "stress-test-addons.deploy-job-template.from-pod" (list . "stress.java-template2") -}}
+{{- define "stress.java-template2" -}}
 metadata:
   labels:
     testName: "{{ .Release.Name }}"

@@ -1,12 +1,5 @@
 matrix:
   scenarios:
-    netty-sync-get:
-      imageBuildDir: ..\..\..\
-      testDurationMin: 15
-      testScenario: httpget
-      concurrency: 75
-      sync: true
-      httpClient: NETTY
     netty-async-get:
       imageBuildDir: ..\..\..\
       testDurationMin: 15
@@ -20,11 +13,4 @@ matrix:
       testScenario: httpget
       concurrency: 75
       sync: true
-      httpClient: OKHTTP
-    okhttp-async-get:
-      imageBuildDir: ..\..\..\
-      testDurationMin: 15
-      testScenario: httpget
-      concurrency: 75
-      sync: false
       httpClient: OKHTTP
