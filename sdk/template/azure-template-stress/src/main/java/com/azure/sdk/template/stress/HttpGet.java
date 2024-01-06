@@ -9,6 +9,7 @@ import com.azure.core.http.HttpPipeline;
 import com.azure.core.http.HttpPipelineBuilder;
 import com.azure.core.http.HttpRequest;
 import com.azure.core.http.HttpResponse;
+import com.azure.core.http.jdk.httpclient.JdkHttpClientProvider;
 import com.azure.core.http.netty.NettyAsyncHttpClientProvider;
 import com.azure.core.http.okhttp.OkHttpAsyncClientProvider;
 import com.azure.core.http.policy.AddDatePolicy;
@@ -88,13 +89,7 @@ public class HttpGet extends ScenarioBase<StressOptions> {
 
         ArrayList<HttpPipelinePolicy> policies = new ArrayList<>();
 
-        policies.add(new UserAgentPolicy("java-stress-test"));
-        policies.add(new RequestIdPolicy());
-        HttpPolicyProviders.addBeforeRetryPolicies(policies);
-
         policies.add(new RetryPolicy());
-        policies.add(new AddDatePolicy());
-        policies.add(new RedirectPolicy());
         policies.add(new HttpLoggingPolicy(logOptions));
 
         HttpClientOptions httpClientOptions = new HttpClientOptions()
@@ -110,6 +105,8 @@ public class HttpGet extends ScenarioBase<StressOptions> {
                 return OkHttpAsyncClientProvider.class;
             case NETTY:
                 return NettyAsyncHttpClientProvider.class;
+            case JDK:
+                return JdkHttpClientProvider.class;
             default:
                 throw LOGGER.logThrowableAsError(new IllegalArgumentException("Unknown HTTP Client provider: " + options.getHttpClient()));
         }
