@@ -64,9 +64,9 @@ public class HttpGet extends ScenarioBase<StressOptions> {
     private void runInternal() {
         HttpRequest request = new HttpRequest(HttpMethod.GET, url);
         // no need to handle exceptions here, they will be handled (and recorded) by the telemetry helper
-        HttpResponse response = pipeline.sendSync(request, Context.NONE);
-        response.buffer().close();
-        response.close();
+        try(HttpResponse response = pipeline.sendSync(request, Context.NONE)) {
+            response.getBodyAsBinaryData().toBytes();
+        }
     }
 
     @Override
@@ -75,7 +75,7 @@ public class HttpGet extends ScenarioBase<StressOptions> {
     }
 
     private Mono<Void> runInternalAsync() {
-        HttpRequest request = new HttpRequest(HttpMethod.GET, options.getServiceEndpoint());
+        HttpRequest request = new HttpRequest(HttpMethod.GET, url);
         // no need to handle exceptions here, they will be handled (and recorded) by the telemetry helper
         return pipeline.send(request)
                 .flatMapMany(response -> response.getBody()

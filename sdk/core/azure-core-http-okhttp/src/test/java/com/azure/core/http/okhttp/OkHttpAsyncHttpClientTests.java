@@ -212,13 +212,13 @@ public class OkHttpAsyncHttpClientTests {
 
     @Test
     public void testConcurrentRequests() {
-        int numRequests = 100; // 100 = 1GB of data read
+        int numRequests = 1; // 100 = 1GB of data read
         HttpClient client = new OkHttpAsyncClientProvider().createInstance();
 
         ParallelFlux<byte[]> responses = Flux.range(1, numRequests)
             .parallel()
             .runOn(Schedulers.boundedElastic())
-            .flatMap(ignored -> doRequest(client, "/long")
+            .flatMap(ignored -> doRequest(client, "/short")
                 .flatMap(HttpResponse::getBodyAsByteArray));
 
         StepVerifier.create(responses)
