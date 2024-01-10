@@ -18,8 +18,10 @@ import okhttp3.OkHttpClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.X509TrustManager;
 import java.net.URI;
 import java.security.KeyManagementException;
@@ -100,6 +102,7 @@ public abstract class ApiPerfTestBase<TOptions extends PerfStressOptions> extend
                         OkHttpClient okHttpClient = new OkHttpClient.Builder()
                             .sslSocketFactory(sslContext.getSocketFactory(),
                                 (X509TrustManager) InsecureTrustManagerFactory.INSTANCE.getTrustManagers()[0])
+                            .hostnameVerifier((h, s) -> true)
                             .build();
                         return new OkHttpAsyncHttpClientBuilder(okHttpClient).build();
                     } catch (NoSuchAlgorithmException | KeyManagementException e) {
