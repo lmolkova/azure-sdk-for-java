@@ -12,6 +12,7 @@ import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.exception.OperationCancelledException;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.util.AsyncCloseable;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.FluxUtil;

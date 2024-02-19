@@ -24,3 +24,15 @@ matrix:
       processorInstancesCount: 2
       processorFailureRatio: 0.000003125
       messageSizeInBytes: 1024
+    reconnect:
+      imageBuildDir: ..\..\..\
+      testDurationMin: 30
+      senderTestClass: EventSenderReconnect
+      sendRate: 1000
+      sendBatchSize: 2
+      sendConcurrency: 10
+      receiverTestClass: EventProcessor
+      processorBatchSize: 128
+      processorInstancesCount: 1
+      processorFailureRatio: 0
+      messageSizeInBytes: 16

@@ -14,6 +14,7 @@ import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.exception.AmqpResponseCode;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestGauge;
 import com.azure.core.test.utils.metrics.TestMeasurement;
 import com.azure.core.test.utils.metrics.TestMeter;
@@ -55,6 +56,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -803,7 +806,7 @@ class ReactorReceiverTest {
         when(creditSupplier.get()).thenReturn(creditsToAdd);
 
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider metricsProvider = new AmqpMetricsProvider(meter, "namespace", "name/and/partition");
+        AmqpMetricsProvider metricsProvider = new AmqpMetricsProvider(meter, "namespace", 5672, "name/and/partition");
         ReactorReceiver reactorReceiverWithMetrics = new ReactorReceiver(amqpConnection, "name/and/partition", receiver, new ReceiveLinkHandlerWrapper(receiverHandler), tokenManager,
             reactorDispatcher, retryOptions, metricsProvider);
 
@@ -831,8 +834,8 @@ class ReactorReceiverTest {
         TestMeasurement<Long> measurement = seqNumbers.get(0);
         assertEquals(sequenceNumber, measurement.getValue());
         assertEquals(Context.NONE, measurement.getContext());
-        assertEquals("namespace", measurement.getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals("name", measurement.getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("namespace", measurement.getAttributes().get(SERVER_ADDRESS));
+        assertEquals("name", measurement.getAttributes().get(MESSAGING_DESTINATION_NAME));
         assertEquals("name/and/partition", measurement.getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
 
         List<TestMeasurement<Long>> requestedCredits = meter.getCounters().get("messaging.az.amqp.consumer.credits.requested").getMeasurements();

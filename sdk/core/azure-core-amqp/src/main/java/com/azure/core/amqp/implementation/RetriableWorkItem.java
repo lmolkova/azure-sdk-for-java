@@ -3,6 +3,7 @@
 
 package com.azure.core.amqp.implementation;
 
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.codec.ReadableBuffer;
 import org.apache.qpid.proton.engine.Sender;
@@ -28,7 +29,7 @@ class RetriableWorkItem {
     private Exception lastKnownException;
 
     private final AmqpMetricsProvider metricsProvider;
-    private long tryStartTime = 0;
+    private Instant tryStartTime;
 
     RetriableWorkItem(ReadableBuffer buffer, int messageFormat, MonoSink<DeliveryState> monoSink, Duration timeout,
         DeliveryState deliveryState, AmqpMetricsProvider metricsProvider) {
@@ -82,7 +83,7 @@ class RetriableWorkItem {
 
     void beforeTry() {
         if (metricsProvider.isSendDeliveryEnabled()) {
-            this.tryStartTime = Instant.now().toEpochMilli();
+            this.tryStartTime = Instant.now();
         }
     }
 

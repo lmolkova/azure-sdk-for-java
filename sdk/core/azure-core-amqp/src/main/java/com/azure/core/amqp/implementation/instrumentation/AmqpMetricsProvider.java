@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-package com.azure.core.amqp.implementation;
+package com.azure.core.amqp.implementation.instrumentation;
 
 import com.azure.core.amqp.exception.AmqpResponseCode;
+import com.azure.core.amqp.implementation.ClientConstants;
 import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.MetricsOptions;
@@ -24,13 +25,19 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MANAGEMENT_OPERATION_KEY;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.NETWORK_PEER_PORT;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.STATUS_CODE_KEY;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.getDurationInSeconds;
+
 /**
  * Helper class responsible for efficient reporting metrics in AMQP core. It's efficient and safe to use when there is no
  * meter configured by client SDK when metrics are disabled.
  */
 public class AmqpMetricsProvider {
-    public static final String STATUS_CODE_KEY = "amqpStatusCode";
-    public static final String MANAGEMENT_OPERATION_KEY = "amqpOperation";
     private static final ClientLogger LOGGER = new ClientLogger(AmqpMetricsProvider.class);
 
     private static final String AZURE_CORE_AMQP_PROPERTIES_NAME = "azure-core.properties";
@@ -55,7 +62,9 @@ public class AmqpMetricsProvider {
     private final Map<String, Object> commonAttributesMap;
     private final DoubleHistogram sendDuration;
     private final DoubleHistogram requestResponseDuration;
-    private final LongCounter closedConnections;
+    private final LongCounter openConnections;
+    private final DoubleHistogram connectDuration;
+    private final DoubleHistogram connectionDuration;
     private final LongCounter sessionErrors;
     private final LongCounter linkErrors;
     private final LongCounter transportErrors;
@@ -97,7 +106,11 @@ public class AmqpMetricsProvider {
         this.commonAttributesMap = null;
         this.sendDuration = null;
         this.requestResponseDuration = null;
-        this.closedConnections = null;
+
+        this.openConnections = null;
+        this.connectDuration = null;
+        this.connectionDuration = null;
+
         this.sessionErrors = null;
         this.linkErrors = null;
         this.transportErrors = null;
@@ -122,34 +135,40 @@ public class AmqpMetricsProvider {
      * Creates an instance of {@link AmqpMetricsProvider}.
      *
      * @param meter The meter to use for metrics.
-     * @param namespace The namespace to use for metrics.
+     * @param hostname The remote endpoint domain name.
+     * @param port The remote endpoint port.
      * @param entityPath The entity path to use for metrics.
      */
-    public AmqpMetricsProvider(Meter meter, String namespace, String entityPath) {
+    public AmqpMetricsProvider(Meter meter, String hostname, int port, String entityPath) {
         this.meter = meter != null ? meter : DEFAULT_METER;
         this.isEnabled = this.meter.isEnabled();
 
         if (isEnabled) {
             this.commonAttributesMap = new HashMap<>();
-            commonAttributesMap.put(ClientConstants.HOSTNAME_KEY, namespace);
+            commonAttributesMap.put(SERVER_ADDRESS, hostname);
+            commonAttributesMap.put(NETWORK_PEER_PORT, port);
 
             if (entityPath != null) {
                 int entityNameEnd = entityPath.indexOf('/');
                 if (entityNameEnd > 0) {
-                    commonAttributesMap.put(ClientConstants.ENTITY_NAME_KEY,  entityPath.substring(0, entityNameEnd));
+                    commonAttributesMap.put(MESSAGING_DESTINATION_NAME,  entityPath.substring(0, entityNameEnd));
                     commonAttributesMap.put(ClientConstants.ENTITY_PATH_KEY, entityPath);
                 } else {
-                    commonAttributesMap.put(ClientConstants.ENTITY_NAME_KEY,  entityPath);
+                    commonAttributesMap.put(MESSAGING_DESTINATION_NAME,  entityPath);
                 }
             }
 
             this.commonAttributes = this.meter.createAttributes(commonAttributesMap);
             this.requestResponseAttributeCache = new AttributeCache[RESPONSE_CODES_COUNT];
             this.sendAttributeCache = new TelemetryAttributes[DELIVERY_STATES_COUNT];
-            this.amqpErrorAttributeCache = new AttributeCache(ClientConstants.ERROR_CONDITION_KEY, commonAttributesMap);
-            this.sendDuration = this.meter.createDoubleHistogram("messaging.az.amqp.producer.send.duration", "Duration of AMQP-level send call.", "ms");
-            this.requestResponseDuration = this.meter.createDoubleHistogram("messaging.az.amqp.management.request.duration", "Duration of AMQP request-response operation.", "ms");
-            this.closedConnections = this.meter.createLongCounter("messaging.az.amqp.client.connections.closed", "Closed connections", "connections");
+            this.amqpErrorAttributeCache = new AttributeCache(ERROR_TYPE, commonAttributesMap);
+            this.sendDuration = this.meter.createDoubleHistogram("messaging.az.amqp.producer.send.duration", "Duration of AMQP-level send call.", "s");
+            this.requestResponseDuration = this.meter.createDoubleHistogram("messaging.az.amqp.management.request.duration", "Duration of AMQP request-response operation.", "s");
+
+            this.openConnections = this.meter.createLongCounter("connection.client.open_connections", "Number of currently open connections", "{connection}");
+            this.connectDuration = this.meter.createDoubleHistogram("connection.client.connect_duration", "Duration of AMQP connection establishment", "s");
+            this.connectionDuration = this.meter.createDoubleHistogram("connection.client.connection_duration", "Duration of AMQP connection", "s");
+
             this.sessionErrors = this.meter.createLongCounter("messaging.az.amqp.client.session.errors", "AMQP session errors", "errors");
             this.linkErrors = this.meter.createLongCounter("messaging.az.amqp.client.link.errors", "AMQP link errors", "errors");
             this.transportErrors = this.meter.createLongCounter("messaging.az.amqp.client.transport.errors", "AMQP session errors", "errors");
@@ -159,7 +178,11 @@ public class AmqpMetricsProvider {
             this.commonAttributesMap = null;
             this.sendDuration = null;
             this.requestResponseDuration = null;
-            this.closedConnections = null;
+
+            this.openConnections = null;
+            this.connectDuration = null;
+            this.connectionDuration = null;
+
             this.sessionErrors = null;
             this.linkErrors = null;
             this.transportErrors = null;
@@ -211,29 +234,51 @@ public class AmqpMetricsProvider {
 
 
     /**
+     * Checks if connection metrics are enabled (for micro-optimizations).
+     *
+     * @return true if one of the conneciton-level metrics is enabled, false otherwise.
+     */
+    public boolean areConnectionMetricEnabled() {
+        return isEnabled && (connectionDuration.isEnabled() || connectDuration.isEnabled() || openConnections.isEnabled());
+    }
+
+
+    /**
      * Records duration of AMQP send call.
      *
-     * @param start start time of the call.
+     * @param startTime start time of the call.
      * @param deliveryState delivery state.
      */
-    public void recordSend(long start, DeliveryState.DeliveryStateType deliveryState) {
+    public void recordSend(Instant startTime, DeliveryState.DeliveryStateType deliveryState) {
         if (isEnabled && sendDuration.isEnabled()) {
-            sendDuration.record(Instant.now().toEpochMilli() - start, getDeliveryStateAttribute(deliveryState), Context.NONE);
+            sendDuration.record(getDurationInSeconds(startTime), getDeliveryStateAttribute(deliveryState), Context.NONE);
         }
     }
 
     /**
      * Records duration of AMQP management call.
      *
-     * @param start start time of the call.
+     * @param startTime start time of the call.
      * @param operationName operation name.
      * @param responseCode response code.
      */
-    public void recordRequestResponseDuration(long start, String operationName, AmqpResponseCode responseCode) {
+    public void recordRequestResponseDuration(Instant startTime, String operationName, AmqpResponseCode responseCode) {
         if (isEnabled && requestResponseDuration.isEnabled()) {
-            requestResponseDuration.record(Instant.now().toEpochMilli() - start,
+            requestResponseDuration.record(getDurationInSeconds(startTime),
                 getResponseCodeAttributes(responseCode, operationName),
                 Context.NONE);
+        }
+    }
+
+    /**
+     * Records connect attempt duration and increases the number of opened connections.
+     *
+     * @param initTime connection init time.
+     */
+    public void recordConnectionEstablished(Instant initTime) {
+        if (isEnabled && connectDuration.isEnabled()) {
+            openConnections.add(1, commonAttributes, Context.NONE);
+            connectDuration.record(getDurationInSeconds(initTime), commonAttributes, Context.NONE);
         }
     }
 
@@ -241,12 +286,20 @@ public class AmqpMetricsProvider {
      * Records connection close.
      *
      * @param condition error condition.
+     * @param initTime connection init time.
+     * @param establishedTime connection established time.
      */
-    public void recordConnectionClosed(ErrorCondition condition) {
-        if (isEnabled && closedConnections.isEnabled()) {
-            Symbol conditionSymbol = condition != null ? condition.getCondition() : null;
-            String conditionStr = conditionSymbol != null ? conditionSymbol.toString() : "ok";
-            closedConnections.add(1, amqpErrorAttributeCache.getOrCreate(conditionStr), Context.NONE);
+    public void recordConnectionClosed(ErrorCondition condition, Instant initTime, Instant establishedTime) {
+        if (isEnabled && (openConnections.isEnabled() || connectionDuration.isEnabled())) {
+            TelemetryAttributes attributes = amqpErrorAttributeCache.getOrCreate(condition);
+            openConnections.add(-1, attributes, Context.NONE);
+            if (establishedTime == null) {
+                // connection was never established, we should record error on connect duration
+                // and not record connection duration
+                connectDuration.record(getDurationInSeconds(initTime), attributes, Context.NONE);
+            } else {
+                connectionDuration.record(getDurationInSeconds(establishedTime), attributes, Context.NONE);
+            }
         }
     }
 
@@ -283,7 +336,7 @@ public class AmqpMetricsProvider {
      */
     public void recordHandlerError(ErrorSource source, ErrorCondition condition) {
         if (isEnabled && condition != null && condition.getCondition() != null) {
-            TelemetryAttributes attributes = amqpErrorAttributeCache.getOrCreate(condition.getCondition().toString());
+            TelemetryAttributes attributes = amqpErrorAttributeCache.getOrCreate(condition);
             switch (source) {
                 case LINK:
                     if (linkErrors.isEnabled()) {
@@ -305,6 +358,7 @@ public class AmqpMetricsProvider {
             }
         }
     }
+
     private TelemetryAttributes getDeliveryStateAttribute(DeliveryState.DeliveryStateType state) {
         // if there was no response, state is null and indicates a network (probably) error.
         // we don't have an enum for network issues and metric attributes cannot have arbitrary
@@ -347,7 +401,7 @@ public class AmqpMetricsProvider {
 
     private static String deliveryStateToLowerCaseString(DeliveryState.DeliveryStateType state) {
         if (state == null) {
-            return "error";
+            return "_OTHER";
         }
 
         switch (state) {
@@ -366,7 +420,7 @@ public class AmqpMetricsProvider {
             case Transactional:
                 return "transactional";
             default:
-                return "unknown";
+                return "_OTHER";
         }
     }
 
@@ -484,8 +538,18 @@ public class AmqpMetricsProvider {
             this.common = common;
         }
 
-        public TelemetryAttributes getOrCreate(String value) {
-            return attr.computeIfAbsent(value, this::create);
+        public TelemetryAttributes getOrCreate(ErrorCondition errorCondition) {
+            String error = null;
+            if (errorCondition != null) {
+                Symbol conditionSymbol = errorCondition.getCondition();
+                error = conditionSymbol != null ? conditionSymbol.toString() : null;
+            }
+
+            return error == null ? commonAttributes : attr.computeIfAbsent(error, this::create);
+        }
+
+        public TelemetryAttributes getOrCreate(String error) {
+            return error == null ? commonAttributes : attr.computeIfAbsent(error, this::create);
         }
 
         private TelemetryAttributes create(String value) {

@@ -17,6 +17,7 @@ import com.azure.core.amqp.exception.AmqpErrorCondition;
 import com.azure.core.amqp.exception.AmqpResponseCode;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
 import com.azure.core.amqp.implementation.handler.SessionHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestMeasurement;
 import com.azure.core.test.utils.metrics.TestMeter;
 import org.apache.qpid.proton.amqp.Symbol;
@@ -47,6 +48,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -318,16 +322,16 @@ public class ReactorSessionTest {
         when(session.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, ENTITY_PATH));
+        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, 5672, ENTITY_PATH));
         handlerWithMetrics.onSessionRemoteClose(event);
 
         // Assert
         List<TestMeasurement<Long>> errors = meter.getCounters().get("messaging.az.amqp.client.session.errors").getMeasurements();
         assertEquals(1, errors.size());
         assertEquals(1, errors.get(0).getValue());
-        assertEquals("amqp:resource-limit-exceeded", errors.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
-        assertEquals(HOST, errors.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_PATH, errors.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("amqp:resource-limit-exceeded", errors.get(0).getAttributes().get(ERROR_TYPE));
+        assertEquals(HOST, errors.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_PATH, errors.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
     }
 
     /**
@@ -342,7 +346,7 @@ public class ReactorSessionTest {
         when(session.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, null));
+        SessionHandler handlerWithMetrics = new SessionHandler(ID, HOST, ENTITY_PATH,  reactorDispatcher, Duration.ofSeconds(60), new AmqpMetricsProvider(meter, HOST, 5672, null));
         handlerWithMetrics.onSessionRemoteClose(event);
 
         // Assert

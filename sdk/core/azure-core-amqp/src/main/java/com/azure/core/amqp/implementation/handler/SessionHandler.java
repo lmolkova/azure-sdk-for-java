@@ -6,9 +6,9 @@ package com.azure.core.amqp.implementation.handler;
 import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.exception.SessionErrorContext;
-import com.azure.core.amqp.implementation.AmqpMetricsProvider;
 import com.azure.core.amqp.implementation.ExceptionUtil;
 import com.azure.core.amqp.implementation.ReactorDispatcher;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.util.logging.LoggingEventBuilder;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.EndpointState;
@@ -47,7 +47,7 @@ public class SessionHandler extends Handler {
     public SessionHandler(String connectionId, String hostname, String sessionName, ReactorDispatcher reactorDispatcher,
         Duration openTimeout) {
         this(connectionId, hostname, sessionName, reactorDispatcher, openTimeout,
-            new AmqpMetricsProvider(null, hostname, null));
+            new AmqpMetricsProvider(null, hostname, 5672, null));
     }
 
     /**

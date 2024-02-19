@@ -14,6 +14,7 @@ import com.azure.core.amqp.implementation.handler.SendLinkHandler;
 import com.azure.core.amqp.implementation.handler.SessionHandler;
 import com.azure.core.amqp.implementation.handler.WebSocketsConnectionHandler;
 import com.azure.core.amqp.implementation.handler.WebSocketsProxyConnectionHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.metrics.Meter;
 import org.apache.qpid.proton.Proton;
@@ -196,6 +197,6 @@ public class ReactorHandlerProvider {
 
         return metricsCache.computeIfAbsent(
             namespace + (entityPath == null ? "" : "/" + entityPath),
-            ignored -> new AmqpMetricsProvider(meter, namespace, entityPath));
+            ignored -> new AmqpMetricsProvider(meter, namespace, 5672, entityPath));
     }
 }

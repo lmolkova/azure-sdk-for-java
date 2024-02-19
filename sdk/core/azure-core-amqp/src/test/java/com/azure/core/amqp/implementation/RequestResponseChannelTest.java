@@ -11,6 +11,7 @@ import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestMeasurement;
 import com.azure.core.test.utils.metrics.TestMeter;
 import org.apache.qpid.proton.amqp.Binary;
@@ -43,6 +44,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MANAGEMENT_OPERATION_KEY;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.STATUS_CODE_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -432,7 +437,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH), isV2);
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, 5672, ENTITY_PATH), isV2);
 
         final UnsignedLong messageId = UnsignedLong.valueOf(1);
         final Message message = mock(Message.class);
@@ -473,9 +478,9 @@ class RequestResponseChannelTest {
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start >= durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("accepted", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("accepted", durations.get(0).getAttributes().get(STATUS_CODE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
     }
 
@@ -488,7 +493,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH), isV2);
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, 5672, ENTITY_PATH), isV2);
 
         final UnsignedLong messageId = UnsignedLong.valueOf(1);
         final Message message = mock(Message.class);
@@ -511,9 +516,9 @@ class RequestResponseChannelTest {
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start >= durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("error", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("error", durations.get(0).getAttributes().get(STATUS_CODE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
     }
 
@@ -526,7 +531,7 @@ class RequestResponseChannelTest {
         TestMeter meter = new TestMeter();
         final RequestResponseChannel channel = new RequestResponseChannel(amqpConnection, CONNECTION_ID, NAMESPACE,
             LINK_NAME, ENTITY_PATH, session, retryOptions, handlerProvider, reactorProvider, serializer,
-            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH), isV2);
+            SenderSettleMode.SETTLED, ReceiverSettleMode.SECOND, new AmqpMetricsProvider(meter, NAMESPACE, 5672, ENTITY_PATH), isV2);
 
         final AmqpException error = new AmqpException(true, "Message", new AmqpErrorContext("some-context"));
         final Message message = mock(Message.class);
@@ -554,11 +559,11 @@ class RequestResponseChannelTest {
         assertEquals(1, durations.size());
         assertTrue(Instant.now().toEpochMilli() - start >= durations.get(0).getValue());
         assertTrue(durations.get(0).getValue() >= 0, "Expected positive or null, got - " + durations.get(0));
-        assertEquals("error", durations.get(0).getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("error", durations.get(0).getAttributes().get(STATUS_CODE_KEY));
+        assertEquals(NAMESPACE, durations.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_NAME, durations.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
         assertEquals(ENTITY_PATH, durations.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
-        assertEquals(operationName, durations.get(0).getAttributes().get(ClientConstants.OPERATION_NAME_KEY));
+        assertEquals(operationName, durations.get(0).getAttributes().get(MANAGEMENT_OPERATION_KEY));
     }
 
     @Test

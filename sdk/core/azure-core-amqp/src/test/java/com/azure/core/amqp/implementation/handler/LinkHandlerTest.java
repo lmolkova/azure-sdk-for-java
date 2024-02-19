@@ -7,8 +7,8 @@ import com.azure.core.amqp.exception.AmqpErrorCondition;
 import com.azure.core.amqp.exception.AmqpErrorContext;
 import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.exception.LinkErrorContext;
-import com.azure.core.amqp.implementation.AmqpMetricsProvider;
 import com.azure.core.amqp.implementation.ClientConstants;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestMeasurement;
 import com.azure.core.test.utils.metrics.TestMeter;
 import org.apache.qpid.proton.amqp.Symbol;
@@ -36,6 +36,9 @@ import java.util.stream.Stream;
 
 import static com.azure.core.amqp.exception.AmqpErrorCondition.LINK_STOLEN;
 import static com.azure.core.amqp.exception.AmqpErrorCondition.TRACKING_ID_PROPERTY;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -256,16 +259,16 @@ public class LinkHandlerTest {
         when(link.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, 5672, ENTITY_PATH));
         handlerWithMetrics.onLinkRemoteClose(event);
 
         // Assert
         List<TestMeasurement<Long>> errors = meter.getCounters().get("messaging.az.amqp.client.link.errors").getMeasurements();
         assertEquals(1, errors.size());
         assertEquals(1, errors.get(0).getValue());
-        assertEquals("amqp:link:stolen", errors.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
-        assertEquals(HOSTNAME, errors.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_NAME, errors.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals("amqp:link:stolen", errors.get(0).getAttributes().get(ERROR_TYPE));
+        assertEquals(HOSTNAME, errors.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_NAME, errors.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
         assertEquals(ENTITY_PATH, errors.get(0).getAttributes().get(ClientConstants.ENTITY_PATH_KEY));
     }
 
@@ -282,7 +285,7 @@ public class LinkHandlerTest {
         when(link.getLocalState()).thenReturn(EndpointState.CLOSED);
 
         TestMeter meter = new TestMeter();
-        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+        LinkHandler handlerWithMetrics = new MockLinkHandler(CONNECTION_ID, HOSTNAME, ENTITY_PATH, new AmqpMetricsProvider(meter, HOSTNAME, 5672, ENTITY_PATH));
         handlerWithMetrics.onLinkRemoteClose(event);
 
         // Assert

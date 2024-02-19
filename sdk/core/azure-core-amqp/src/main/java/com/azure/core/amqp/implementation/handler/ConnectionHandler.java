@@ -4,10 +4,10 @@
 package com.azure.core.amqp.implementation.handler;
 
 import com.azure.core.amqp.exception.AmqpErrorContext;
-import com.azure.core.amqp.implementation.AmqpMetricsProvider;
 import com.azure.core.amqp.implementation.ClientConstants;
 import com.azure.core.amqp.implementation.ConnectionOptions;
 import com.azure.core.amqp.implementation.ExceptionUtil;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.UserAgentUtil;
@@ -25,6 +25,7 @@ import org.apache.qpid.proton.reactor.Handshaker;
 
 import javax.net.ssl.SSLContext;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -52,7 +53,8 @@ public class ConnectionHandler extends Handler {
     private final ConnectionOptions connectionOptions;
     private final SslPeerDetails peerDetails;
     private final AmqpMetricsProvider metricProvider;
-
+    private Instant connectionRemoteOpenTimestamp;
+    private Instant connectionInitTimestamp;
     /**
      * Creates a handler that handles proton-j's connection events.
      *
@@ -66,7 +68,7 @@ public class ConnectionHandler extends Handler {
     public ConnectionHandler(final String connectionId, final ConnectionOptions connectionOptions,
                              SslPeerDetails peerDetails) {
         this(connectionId, connectionOptions, peerDetails,
-            new AmqpMetricsProvider(null, connectionOptions.getFullyQualifiedNamespace(), null));
+            new AmqpMetricsProvider(null, peerDetails.getHostname(), peerDetails.getPort(), null));
     }
 
     /**
@@ -208,6 +210,10 @@ public class ConnectionHandler extends Handler {
 
         connection.setProperties(properties);
         connection.open();
+
+        if (metricProvider.areConnectionMetricEnabled()) {
+            connectionInitTimestamp = Instant.now();
+        }
     }
 
     @Override
@@ -289,6 +295,10 @@ public class ConnectionHandler extends Handler {
     @Override
     public void onConnectionRemoteOpen(Event event) {
         final Connection connection = event.getConnection();
+        if (metricProvider.areConnectionMetricEnabled()) {
+            metricProvider.recordConnectionEstablished(connectionInitTimestamp);
+            connectionRemoteOpenTimestamp = Instant.now();
+        }
 
         logger.atInfo()
             .addKeyValue(HOSTNAME_KEY, connection.getHostname())
@@ -335,7 +345,7 @@ public class ConnectionHandler extends Handler {
         logErrorCondition("onConnectionFinal", connection, error);
         onNext(EndpointState.CLOSED);
 
-        metricProvider.recordConnectionClosed(error);
+        metricProvider.recordConnectionClosed(error, connectionInitTimestamp, connectionRemoteOpenTimestamp);
         // Complete the processors because they no longer have any work to do.
         close();
     }

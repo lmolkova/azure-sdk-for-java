@@ -8,9 +8,8 @@ import com.azure.core.amqp.AmqpTransportType;
 import com.azure.core.amqp.ProxyAuthenticationType;
 import com.azure.core.amqp.ProxyOptions;
 import com.azure.core.amqp.implementation.AmqpErrorCode;
-import com.azure.core.amqp.implementation.AmqpMetricsProvider;
-import com.azure.core.amqp.implementation.ClientConstants;
 import com.azure.core.amqp.implementation.ConnectionOptions;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.amqp.models.CbsAuthorizationType;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.test.utils.metrics.TestMeasurement;
@@ -46,7 +45,10 @@ import java.net.ProxySelector;
 import java.util.Collections;
 import java.util.List;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -312,22 +314,20 @@ public class WebSocketsProxyConnectionHandlerTest {
 
         TestMeter meter = new TestMeter();
         WebSocketsProxyConnectionHandler handlerWithMetrics = new WebSocketsProxyConnectionHandler(CONNECTION_ID, connectionOptions, PROXY_OPTIONS,
-            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, null));
+            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, 5672, null));
 
         handlerWithMetrics.onConnectionInit(openEvent);
         handlerWithMetrics.onConnectionInit(openEvent);
+        handlerWithMetrics.onConnectionRemoteOpen(openEvent);
         handlerWithMetrics.onConnectionFinal(closeEventWithError);
         handlerWithMetrics.onConnectionFinal(closeEventNoError);
 
         // Assert
-        List<TestMeasurement<Long>> closedConnections = meter.getCounters().get("messaging.az.amqp.client.connections.closed").getMeasurements();
-        assertEquals(2, closedConnections.size());
+        List<TestMeasurement<Double>> connectionDuration = meter.getHistograms().get("connection.client.connection_duration").getMeasurements();
+        assertEquals(2, connectionDuration.size());
 
-        assertEquals(1, closedConnections.get(0).getValue());
-        assertEquals(1, closedConnections.get(1).getValue());
-
-        assertEquals(HOSTNAME, closedConnections.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals("com.microsoft:server-busy", closedConnections.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
-        assertEquals("ok", closedConnections.get(1).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals(HOSTNAME, connectionDuration.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals("com.microsoft:server-busy", connectionDuration.get(0).getAttributes().get(ERROR_TYPE));
+        assertNull(connectionDuration.get(1).getAttributes().get(ERROR_TYPE));
     }
 }

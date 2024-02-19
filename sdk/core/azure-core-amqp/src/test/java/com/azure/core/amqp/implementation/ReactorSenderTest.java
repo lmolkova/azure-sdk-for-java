@@ -14,6 +14,7 @@ import com.azure.core.amqp.exception.AmqpException;
 import com.azure.core.amqp.exception.AmqpResponseCode;
 import com.azure.core.amqp.exception.OperationCancelledException;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestHistogram;
 import com.azure.core.test.utils.metrics.TestMeasurement;
 import com.azure.core.test.utils.metrics.TestMeter;
@@ -56,6 +57,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -779,7 +782,7 @@ public class ReactorSenderTest {
         TestMeter meter = new TestMeter();
         ReactorSender reactorSenderWithMetrics = new ReactorSender(amqpConnection, ENTITY_PATH, sender, handler,
             reactorProvider, tokenManager, messageSerializer, options, scheduler,
-            new AmqpMetricsProvider(meter, HOSTNAME, ENTITY_PATH));
+            new AmqpMetricsProvider(meter, HOSTNAME, 5672, ENTITY_PATH));
 
         // Act
         StepVerifier.create(reactorSenderWithMetrics.send(message))
@@ -790,8 +793,8 @@ public class ReactorSenderTest {
         TestHistogram sendDuration = meter.getHistograms().get("messaging.az.amqp.producer.send.duration");
         List<TestMeasurement<Double>> measurements = sendDuration.getMeasurements();
         assertEquals(1, measurements.size());
-        assertEquals(HOSTNAME, measurements.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals(ENTITY_PATH, measurements.get(0).getAttributes().get(ClientConstants.ENTITY_NAME_KEY));
+        assertEquals(HOSTNAME, measurements.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(ENTITY_PATH, measurements.get(0).getAttributes().get(MESSAGING_DESTINATION_NAME));
 
         // TODO: how to test retries?
     }

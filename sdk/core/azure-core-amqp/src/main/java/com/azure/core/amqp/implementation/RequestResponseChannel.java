@@ -13,6 +13,7 @@ import com.azure.core.amqp.implementation.handler.DeliverySettleMode;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler;
 import com.azure.core.amqp.implementation.handler.ReceiveLinkHandler2;
 import com.azure.core.amqp.implementation.handler.SendLinkHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.util.AsyncCloseable;
 import com.azure.core.util.logging.ClientLogger;
 import org.apache.qpid.proton.Proton;
@@ -561,7 +562,7 @@ public class RequestResponseChannel implements AsyncCloseable {
             AmqpResponseCode responseCode = response == null ? null : RequestResponseUtils.getStatusCode(response);
             if (startTimestamp instanceof Instant && operationName instanceof String) {
                 metricsProvider.recordRequestResponseDuration(
-                    ((Instant) startTimestamp).toEpochMilli(),
+                    (Instant) startTimestamp,
                     (String) operationName,
                     responseCode);
             }

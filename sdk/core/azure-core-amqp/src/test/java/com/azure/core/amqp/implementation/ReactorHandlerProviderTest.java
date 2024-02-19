@@ -10,6 +10,7 @@ import com.azure.core.amqp.ProxyOptions;
 import com.azure.core.amqp.implementation.handler.ConnectionHandler;
 import com.azure.core.amqp.implementation.handler.WebSocketsConnectionHandler;
 import com.azure.core.amqp.implementation.handler.WebSocketsProxyConnectionHandler;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.amqp.models.CbsAuthorizationType;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.test.utils.metrics.TestMeter;
@@ -447,7 +448,7 @@ public class ReactorHandlerProviderTest {
         ReactorHandlerProvider providerWithMetrics = new ReactorHandlerProvider(reactorProvider, meter);
 
         AmqpMetricsProvider metricsProvider = providerWithMetrics.getMetricProvider(HOSTNAME, null);
-        metricsProvider.recordConnectionClosed(null);
+        metricsProvider.recordConnectionClosed(null, null, null);
         assertTrue(meter.getUpDownCounters().isEmpty());
         assertTrue(meter.getCounters().isEmpty());
         assertTrue(meter.getHistograms().isEmpty());

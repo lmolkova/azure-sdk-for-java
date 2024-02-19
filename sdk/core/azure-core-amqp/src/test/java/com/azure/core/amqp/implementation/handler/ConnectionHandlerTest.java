@@ -7,9 +7,10 @@ import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.core.amqp.AmqpTransportType;
 import com.azure.core.amqp.ProxyOptions;
 import com.azure.core.amqp.implementation.AmqpErrorCode;
-import com.azure.core.amqp.implementation.AmqpMetricsProvider;
 import com.azure.core.amqp.implementation.ClientConstants;
 import com.azure.core.amqp.implementation.ConnectionOptions;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
+import com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils;
 import com.azure.core.amqp.models.CbsAuthorizationType;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.test.utils.metrics.TestMeasurement;
@@ -49,8 +50,11 @@ import static com.azure.core.amqp.implementation.handler.ConnectionHandler.PLATF
 import static com.azure.core.amqp.implementation.handler.ConnectionHandler.PRODUCT;
 import static com.azure.core.amqp.implementation.handler.ConnectionHandler.USER_AGENT;
 import static com.azure.core.amqp.implementation.handler.ConnectionHandler.VERSION;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -262,22 +266,22 @@ public class ConnectionHandlerTest {
 
         TestMeter meter = new TestMeter();
         ConnectionHandler handlerWithMetrics = new ConnectionHandler(CONNECTION_ID, connectionOptions,
-            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, null));
+            peerDetails, new AmqpMetricsProvider(meter, HOSTNAME, 5672, null));
 
         handlerWithMetrics.onConnectionInit(openEvent);
         handlerWithMetrics.onConnectionInit(openEvent);
+        handlerWithMetrics.onConnectionRemoteOpen(openEvent);
         handlerWithMetrics.onConnectionFinal(closeEventWithError);
         handlerWithMetrics.onConnectionFinal(closeEventNoError);
 
         // Assert
-        List<TestMeasurement<Long>> closedConnections = meter.getCounters().get("messaging.az.amqp.client.connections.closed").getMeasurements();
-        assertEquals(2, closedConnections.size());
+        List<TestMeasurement<Double>> connectionDuration = meter.getHistograms().get("connection.client.connection_duration").getMeasurements();
+        assertEquals(2, connectionDuration.size());
 
-        assertEquals(1, closedConnections.get(0).getValue());
-        assertEquals(1, closedConnections.get(1).getValue());
 
-        assertEquals(HOSTNAME, closedConnections.get(0).getAttributes().get(ClientConstants.HOSTNAME_KEY));
-        assertEquals("com.microsoft:server-busy", closedConnections.get(0).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
-        assertEquals("ok", closedConnections.get(1).getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals(HOSTNAME, connectionDuration.get(0).getAttributes().get(SERVER_ADDRESS));
+        assertEquals(5672, connectionDuration.get(0).getAttributes().get(InstrumentationUtils.NETWORK_PEER_PORT));
+        assertEquals("com.microsoft:server-busy", connectionDuration.get(0).getAttributes().get(ERROR_TYPE));
+        assertNull(connectionDuration.get(1).getAttributes().get(ERROR_TYPE));
     }
 }

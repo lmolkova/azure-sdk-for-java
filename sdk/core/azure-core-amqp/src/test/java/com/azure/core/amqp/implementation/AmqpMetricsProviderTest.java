@@ -4,6 +4,7 @@
 package com.azure.core.amqp.implementation;
 
 import com.azure.core.amqp.exception.AmqpResponseCode;
+import com.azure.core.amqp.implementation.instrumentation.AmqpMetricsProvider;
 import com.azure.core.test.utils.metrics.TestCounter;
 import com.azure.core.test.utils.metrics.TestGauge;
 import com.azure.core.test.utils.metrics.TestHistogram;
@@ -12,23 +13,25 @@ import com.azure.core.test.utils.metrics.TestMeter;
 import com.azure.core.util.Context;
 import com.azure.core.util.metrics.Meter;
 import com.azure.core.util.metrics.MeterProvider;
-import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Symbol;
-import org.apache.qpid.proton.amqp.messaging.AmqpValue;
-import org.apache.qpid.proton.amqp.messaging.MessageAnnotations;
 import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
-import org.apache.qpid.proton.message.Message;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.ERROR_TYPE;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MANAGEMENT_OPERATION_KEY;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.MESSAGING_DESTINATION_NAME;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.SERVER_ADDRESS;
+import static com.azure.core.amqp.implementation.instrumentation.InstrumentationUtils.STATUS_CODE_KEY;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,29 +39,33 @@ public class AmqpMetricsProviderTest {
     private static final Meter DEFAULT_METER = MeterProvider.getDefaultProvider().createMeter("tests", "version", null);
     private static final Symbol TIMEOUT_SYMBOL = Symbol.valueOf(AmqpErrorCode.TIMEOUT_ERROR.toString());
     private static final String NAMESPACE = "namespace";
+    private static final int PORT = 5672;
     private static final String ENTITY_NAME = "name";
     private static final String ENTITY_PATH = "name/and/partition";
 
 
     @Test
     public void nullNamespaceIsOk() {
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(null, null, null));
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, null));
-        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, "path"));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(null, null,  -1, null));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, -1, null));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, null, -1, "path"));
+        assertDoesNotThrow(() -> new AmqpMetricsProvider(DEFAULT_METER, NAMESPACE, -1, "path"));
     }
 
     @Test
     public void disabledMeter() {
         TestMeter meter = new TestMeter(false);
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, -1, null);
         assertDoesNotThrow(() -> provider.recordAddCredits(1));
-        assertDoesNotThrow(() -> provider.recordConnectionClosed(null));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", AmqpResponseCode.OK));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, null, AmqpResponseCode.OK));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", null));
-        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted));
-        assertDoesNotThrow(() -> provider.recordSend(0, null));
-        assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> Long.valueOf(1)));
+        assertDoesNotThrow(() -> provider.recordConnectionClosed(null, null, null));
+        assertDoesNotThrow(() -> provider.recordConnectionClosed(null, Instant.now(), null));
+        assertDoesNotThrow(() -> provider.recordConnectionClosed(null, null, Instant.now()));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, "foo", AmqpResponseCode.OK));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, null, AmqpResponseCode.OK));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, "foo", null));
+        assertDoesNotThrow(() -> provider.recordSend(null, DeliveryState.DeliveryStateType.Accepted));
+        assertDoesNotThrow(() -> provider.recordSend(null, null));
+        assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> 1L));
         assertDoesNotThrow(() -> provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, new ErrorCondition(TIMEOUT_SYMBOL, "")));
         assertDoesNotThrow(() -> provider.recordHandlerError(null, new ErrorCondition(TIMEOUT_SYMBOL, "")));
 
@@ -71,15 +78,15 @@ public class AmqpMetricsProviderTest {
         // sanity check
         assertFalse(DEFAULT_METER.isEnabled());
 
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(null, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(null, NAMESPACE, PORT, null);
         assertDoesNotThrow(() -> provider.recordAddCredits(1));
-        assertDoesNotThrow(() -> provider.recordConnectionClosed(null));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", AmqpResponseCode.OK));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, null, AmqpResponseCode.OK));
-        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(0, "foo", null));
-        assertDoesNotThrow(() -> provider.recordSend(0, DeliveryState.DeliveryStateType.Accepted));
-        assertDoesNotThrow(() -> provider.recordSend(0, null));
-        assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> Long.valueOf(1)));
+        assertDoesNotThrow(() -> provider.recordConnectionClosed(null, null, null));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, "foo", AmqpResponseCode.OK));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, null, AmqpResponseCode.OK));
+        assertDoesNotThrow(() -> provider.recordRequestResponseDuration(null, "foo", null));
+        assertDoesNotThrow(() -> provider.recordSend(null, DeliveryState.DeliveryStateType.Accepted));
+        assertDoesNotThrow(() -> provider.recordSend(null, null));
+        assertDoesNotThrow(() -> provider.trackPrefetchSequenceNumber(() -> 1L));
         assertDoesNotThrow(() -> provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, new ErrorCondition(TIMEOUT_SYMBOL, "")));
         assertDoesNotThrow(() -> provider.recordHandlerError(null, new ErrorCondition(TIMEOUT_SYMBOL, "")));
     }
@@ -87,7 +94,7 @@ public class AmqpMetricsProviderTest {
     @Test
     public void addCredits() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_PATH);
         provider.recordAddCredits(1);
         provider.recordAddCredits(2);
         provider.recordAddCredits(100);
@@ -115,11 +122,11 @@ public class AmqpMetricsProviderTest {
     @Test
     public void requestResponseDuration() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_NAME);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_NAME);
 
-        long start = Instant.now().toEpochMilli() - 100;
+        double deltaSec = 0.1;
+        Instant start = Instant.now().minusMillis((int) (deltaSec * 1000));
         provider.recordRequestResponseDuration(start, "peek", AmqpResponseCode.FORBIDDEN);
-        long end = Instant.now().toEpochMilli();
 
         provider.recordRequestResponseDuration(start, "schedule", AmqpResponseCode.AMBIGUOUS);
         provider.recordRequestResponseDuration(start, "complete", null);
@@ -132,28 +139,27 @@ public class AmqpMetricsProviderTest {
         TestMeasurement<Double> measurement1 = histogram.getMeasurements().get(0);
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, null);
-        assertEquals("forbidden", measurement1.getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals("peek", measurement1.getAttributes().get(ClientConstants.OPERATION_NAME_KEY));
-        assertTrue(100 <= measurement1.getValue());
-        assertTrue(end - start >= measurement1.getValue());
+        assertEquals("forbidden", measurement1.getAttributes().get(STATUS_CODE_KEY));
+        assertEquals("peek", measurement1.getAttributes().get(MANAGEMENT_OPERATION_KEY));
+        assertTrue(deltaSec <= measurement1.getValue());
 
         TestMeasurement<Double> measurement2 = histogram.getMeasurements().get(1);
-        assertEquals("ambiguous", measurement2.getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals("schedule", measurement2.getAttributes().get(ClientConstants.OPERATION_NAME_KEY));
+        assertEquals("ambiguous", measurement2.getAttributes().get(STATUS_CODE_KEY));
+        assertEquals("schedule", measurement2.getAttributes().get(MANAGEMENT_OPERATION_KEY));
 
         TestMeasurement<Double> measurement3 = histogram.getMeasurements().get(2);
-        assertEquals("error", measurement3.getAttributes().get(AmqpMetricsProvider.STATUS_CODE_KEY));
-        assertEquals("complete", measurement3.getAttributes().get(ClientConstants.OPERATION_NAME_KEY));
+        assertEquals("error", measurement3.getAttributes().get(STATUS_CODE_KEY));
+        assertEquals("complete", measurement3.getAttributes().get(MANAGEMENT_OPERATION_KEY));
     }
 
     @Test
     public void sendDuration() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_NAME);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_NAME);
 
-        long start = Instant.now().toEpochMilli() - 100;
+        double deltaSec = 0.1;
+        Instant start = Instant.now().minusMillis((int) (deltaSec * 1000));
         provider.recordSend(start, DeliveryState.DeliveryStateType.Rejected);
-        long end = Instant.now().toEpochMilli();
 
         provider.recordSend(start, DeliveryState.DeliveryStateType.Accepted);
         provider.recordSend(start, null);
@@ -167,41 +173,40 @@ public class AmqpMetricsProviderTest {
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, null);
         assertEquals("rejected", measurement1.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
-        assertTrue(100 <= measurement1.getValue());
-        assertTrue(end - start >= measurement1.getValue());
+        assertTrue(deltaSec <= measurement1.getValue());
 
         TestMeasurement<Double> measurement2 = histogram.getMeasurements().get(1);
         assertEquals("accepted", measurement2.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
 
         TestMeasurement<Double> measurement3 = histogram.getMeasurements().get(2);
-        assertEquals("error", measurement3.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
+        assertEquals("_OTHER", measurement3.getAttributes().get(ClientConstants.DELIVERY_STATE_KEY));
     }
 
     @Test
     public void initCloseConnection() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, null);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE,  PORT, null);
 
-        provider.recordConnectionClosed(null);
-        provider.recordConnectionClosed(new ErrorCondition(TIMEOUT_SYMBOL, ""));
+        provider.recordConnectionClosed(null, null, Instant.now());
+        provider.recordConnectionClosed(new ErrorCondition(TIMEOUT_SYMBOL, ""), null, Instant.now());
 
-        assertTrue(meter.getCounters().containsKey("messaging.az.amqp.client.connections.closed"));
-        TestCounter closedCounter = meter.getCounters().get("messaging.az.amqp.client.connections.closed");
+        TestHistogram connectionDuration = meter.getHistograms().get("connection.client.connection_duration");
+        assertNotNull(connectionDuration);
 
-        assertEquals(2, closedCounter.getMeasurements().size());
+        assertEquals(2, connectionDuration.getMeasurements().size());
 
-        TestMeasurement<Long> closed1 = closedCounter.getMeasurements().get(0);
-        assertEquals("ok", closed1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        TestMeasurement<Double> closed1 = connectionDuration.getMeasurements().get(0);
+        assertNull(closed1.getAttributes().get(ERROR_TYPE));
 
-        TestMeasurement<Long> closed2 = closedCounter.getMeasurements().get(1);
-        assertEquals("com.microsoft:timeout", closed2.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        TestMeasurement<Double> closed2 = connectionDuration.getMeasurements().get(1);
+        assertEquals("com.microsoft:timeout", closed2.getAttributes().get(ERROR_TYPE));
     }
 
     @Test
     @SuppressWarnings("try")
     public void receivedMessage() throws Exception {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_PATH);
 
         AtomicLong seqNo = new AtomicLong(0);
 
@@ -235,19 +240,10 @@ public class AmqpMetricsProviderTest {
         assertEquals(0, gauge.getSubscriptions().size());
     }
 
-    private Message createMessage(Object seqNo) {
-        Message msg = Proton.message();
-        MessageAnnotations annotations = new MessageAnnotations(Collections.singletonMap(Symbol.valueOf("x-opt-sequence-number"), seqNo));
-        msg.setMessageAnnotations(annotations);
-        msg.setBody(new AmqpValue("body"));
-
-        return msg;
-    }
-
     @Test
     public void linkErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.LINK, new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -260,13 +256,13 @@ public class AmqpMetricsProviderTest {
         assertEquals(1, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
-        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ERROR_TYPE));
     }
 
     @Test
     public void sessionErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.SESSION, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.SESSION, new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -279,13 +275,13 @@ public class AmqpMetricsProviderTest {
         assertEquals(1, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
-        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ERROR_TYPE));
     }
 
     @Test
     public void transportErrors() {
         TestMeter meter = new TestMeter();
-        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, ENTITY_PATH);
+        AmqpMetricsProvider provider = new AmqpMetricsProvider(meter, NAMESPACE, PORT, ENTITY_PATH);
 
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, null);
         provider.recordHandlerError(AmqpMetricsProvider.ErrorSource.TRANSPORT, new ErrorCondition(TIMEOUT_SYMBOL, ""));
@@ -298,13 +294,13 @@ public class AmqpMetricsProviderTest {
         assertEquals(1, measurement1.getValue());
         assertEquals(Context.NONE, measurement1.getContext());
         assertCommonAttributes(measurement1.getAttributes(), NAMESPACE, ENTITY_NAME, ENTITY_PATH);
-        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ClientConstants.ERROR_CONDITION_KEY));
+        assertEquals("com.microsoft:timeout", measurement1.getAttributes().get(ERROR_TYPE));
     }
 
     public void assertCommonAttributes(Map<String, Object> actual, String expectedNamespace, String expectedEntityName, String expectedEntityPath) {
-        assertEquals(expectedNamespace, actual.get(ClientConstants.HOSTNAME_KEY));
+        assertEquals(expectedNamespace, actual.get(SERVER_ADDRESS));
         if (expectedEntityName != null) {
-            assertEquals(expectedEntityName, actual.get(ClientConstants.ENTITY_NAME_KEY));
+            assertEquals(expectedEntityName, actual.get(MESSAGING_DESTINATION_NAME));
         }
         if (expectedEntityPath != null) {
             assertEquals(expectedEntityPath, actual.get(ClientConstants.ENTITY_PATH_KEY));
