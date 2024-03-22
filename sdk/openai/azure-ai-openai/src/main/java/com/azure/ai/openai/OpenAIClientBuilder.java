@@ -7,6 +7,7 @@ import static com.azure.ai.openai.implementation.NonAzureOpenAIClientImpl.OPEN_A
 
 import com.azure.ai.openai.implementation.NonAzureOpenAIClientImpl;
 import com.azure.ai.openai.implementation.OpenAIClientImpl;
+import com.azure.ai.openai.implementation.OpenAITracer;
 import com.azure.core.annotation.Generated;
 import com.azure.core.annotation.ServiceClientBuilder;
 import com.azure.core.client.traits.ConfigurationTrait;
@@ -38,9 +39,14 @@ import com.azure.core.http.policy.UserAgentPolicy;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.Configuration;
 import com.azure.core.util.CoreUtils;
+import com.azure.core.util.TracingOptions;
 import com.azure.core.util.builder.ClientBuilderUtil;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.serializer.JacksonAdapter;
+import com.azure.core.util.serializer.SerializerAdapter;
+import com.azure.core.util.tracing.Tracer;
+import com.azure.core.util.tracing.TracerProvider;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,8 @@ import java.util.Objects;
 public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>,
     ConfigurationTrait<OpenAIClientBuilder>, TokenCredentialTrait<OpenAIClientBuilder>,
     KeyCredentialTrait<OpenAIClientBuilder>, EndpointTrait<OpenAIClientBuilder> {
+
+    public static final String AZURE_OPENAI_TRACING_NAMESPACE_VALUE = "Microsoft.CognitiveServices";
 
     @Generated
     private static final String SDK_NAME = "name";
@@ -320,7 +328,9 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
         HttpPolicyProviders.addAfterRetryPolicies(policies);
         policies.add(new HttpLoggingPolicy(httpLogOptions));
         HttpPipeline httpPipeline = new HttpPipelineBuilder().policies(policies.toArray(new HttpPipelinePolicy[0]))
-            .httpClient(httpClient).clientOptions(localClientOptions).build();
+            .httpClient(httpClient)
+            .tracer(createTracer(localClientOptions))
+            .clientOptions(localClientOptions).build();
         return httpPipeline;
     }
 
@@ -347,8 +357,13 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
      * @return an instance of OpenAIClient.
      */
     public OpenAIClient buildClient() {
-        return useNonAzureOpenAIService() ? new OpenAIClient(buildInnerNonAzureOpenAIClient())
-            : new OpenAIClient(buildInnerClient());
+        if (useNonAzureOpenAIService()) {
+            NonAzureOpenAIClientImpl inner = buildInnerNonAzureOpenAIClient();
+            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), OPEN_AI_ENDPOINT, inner.getSerializerAdapter()));
+        } else {
+            OpenAIClientImpl inner = buildInnerClient();
+            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), endpoint, inner.getSerializerAdapter()));
+        }
     }
 
     private static final ClientLogger LOGGER = new ClientLogger(OpenAIClientBuilder.class);
@@ -359,5 +374,15 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
      */
     private boolean useNonAzureOpenAIService() {
         return endpoint == null || endpoint.startsWith(OPEN_AI_ENDPOINT);
+    }
+
+    private static Tracer createTracer(ClientOptions clientOptions) {
+        TracingOptions tracingOptions = clientOptions == null ? null : clientOptions.getTracingOptions();
+        return TracerProvider.getDefaultProvider()
+            .createTracer(SDK_NAME, SDK_VERSION, AZURE_OPENAI_TRACING_NAMESPACE_VALUE, tracingOptions);
+    }
+
+    private OpenAITracer createOpenAITracer(Tracer tracer, String endpoint, SerializerAdapter serializer) {
+        return new OpenAITracer(tracer, endpoint, configuration, serializer);
     }
 }

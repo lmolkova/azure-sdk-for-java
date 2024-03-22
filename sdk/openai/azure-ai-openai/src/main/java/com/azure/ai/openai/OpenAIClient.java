@@ -16,6 +16,7 @@ import com.azure.ai.openai.implementation.MultipartDataSerializationResult;
 import com.azure.ai.openai.implementation.NonAzureOpenAIClientImpl;
 import com.azure.ai.openai.implementation.OpenAIClientImpl;
 import com.azure.ai.openai.implementation.OpenAIServerSentEvents;
+import com.azure.ai.openai.implementation.OpenAITracer;
 import com.azure.ai.openai.models.AudioTranscription;
 import com.azure.ai.openai.models.AudioTranscriptionOptions;
 import com.azure.ai.openai.models.AudioTranslation;
@@ -41,6 +42,7 @@ import com.azure.core.http.rest.RequestOptions;
 import com.azure.core.http.rest.Response;
 import com.azure.core.http.rest.SimpleResponse;
 import com.azure.core.util.BinaryData;
+import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.IterableStream;
 import com.azure.core.util.logging.ClientLogger;
@@ -55,6 +57,7 @@ import reactor.core.publisher.Flux;
 public final class OpenAIClient {
 
     private static final ClientLogger LOGGER = new ClientLogger(OpenAIClient.class);
+    private final OpenAITracer tracer;
 
     @Generated
     private final OpenAIClientImpl serviceClient;
@@ -66,9 +69,10 @@ public final class OpenAIClient {
      *
      * @param serviceClient the service client implementation.
      */
-    OpenAIClient(OpenAIClientImpl serviceClient) {
+    OpenAIClient(OpenAIClientImpl serviceClient, OpenAITracer tracer) {
         this.serviceClient = serviceClient;
-        openAIServiceClient = null;
+        this.tracer = tracer;
+        this.openAIServiceClient = null;
     }
 
     /**
@@ -76,9 +80,10 @@ public final class OpenAIClient {
      *
      * @param serviceClient the service client implementation.
      */
-    OpenAIClient(NonAzureOpenAIClientImpl serviceClient) {
+    OpenAIClient(NonAzureOpenAIClientImpl serviceClient, OpenAITracer tracer) {
         this.serviceClient = null;
-        openAIServiceClient = serviceClient;
+        this.tracer = tracer;
+        this.openAIServiceClient = serviceClient;
     }
 
     /**
@@ -312,11 +317,28 @@ public final class OpenAIClient {
     @ServiceMethod(returns = ReturnType.SINGLE)
     public Response<BinaryData> getChatCompletionsWithResponse(String deploymentOrModelName,
         BinaryData chatCompletionsOptions, RequestOptions requestOptions) {
-        return openAIServiceClient != null
-            ? openAIServiceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
+
+        Context span = tracer.startChatCompletionsSpan(deploymentOrModelName, chatCompletionsOptions, requestOptions.getContext());
+        AutoCloseable scope = tracer.makeSpanCurrent(span);
+        Throwable exception = null;
+
+        requestOptions.setContext(span);
+
+        try {
+            Response<BinaryData> response = openAIServiceClient != null
+                ? openAIServiceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
                 requestOptions)
-            : serviceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
+                : serviceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
                 requestOptions);
+
+            tracer.setResponse(response.getValue(), span);
+            return response;
+        } catch (RuntimeException e) {
+            exception = e;
+            throw LOGGER.logExceptionAsError(e);
+        } finally {
+            tracer.endSpan(scope, exception, span);
+        }
     }
 
     /**
