@@ -359,10 +359,10 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
     public OpenAIClient buildClient() {
         if (useNonAzureOpenAIService()) {
             NonAzureOpenAIClientImpl inner = buildInnerNonAzureOpenAIClient();
-            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), OPEN_AI_ENDPOINT, inner.getSerializerAdapter()));
+            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), OPEN_AI_ENDPOINT));
         } else {
             OpenAIClientImpl inner = buildInnerClient();
-            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), endpoint, inner.getSerializerAdapter()));
+            return new OpenAIClient(inner, createOpenAITracer(inner.getHttpPipeline().getTracer(), endpoint));
         }
     }
 
@@ -382,7 +382,7 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
             .createTracer(SDK_NAME, SDK_VERSION, AZURE_OPENAI_TRACING_NAMESPACE_VALUE, tracingOptions);
     }
 
-    private OpenAITracer createOpenAITracer(Tracer tracer, String endpoint, SerializerAdapter serializer) {
-        return new OpenAITracer(tracer, endpoint, configuration, serializer);
+    private OpenAITracer createOpenAITracer(Tracer tracer, String endpoint) {
+        return new OpenAITracer(tracer, endpoint, configuration);
     }
 }

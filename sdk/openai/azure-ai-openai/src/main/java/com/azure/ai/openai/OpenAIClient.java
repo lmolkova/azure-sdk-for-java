@@ -139,14 +139,27 @@ public final class OpenAIClient {
     @ServiceMethod(returns = ReturnType.SINGLE)
     public Response<BinaryData> getEmbeddingsWithResponse(String deploymentOrModelName, BinaryData embeddingsOptions,
         RequestOptions requestOptions) {
+        Context span = tracer.startEmbeddingsSpan(deploymentOrModelName, embeddingsOptions, requestOptions.getContext());
+        AutoCloseable scope = tracer.makeSpanCurrent(span);
+        Throwable exception = null;
+
+        requestOptions.setContext(span);
+
         try {
             embeddingsOptions = addEncodingFormat(embeddingsOptions);
+            Response<BinaryData> response = openAIServiceClient != null
+                ? openAIServiceClient.getEmbeddingsWithResponse(deploymentOrModelName, embeddingsOptions, requestOptions)
+                : serviceClient.getEmbeddingsWithResponse(deploymentOrModelName, embeddingsOptions, requestOptions);
+            return response;
         } catch (JsonProcessingException e) {
+            exception = e;
             throw LOGGER.logExceptionAsWarning(new RuntimeException(e));
+        } catch (RuntimeException e) {
+            exception = e;
+            throw LOGGER.logExceptionAsError(e);
+        } finally {
+            tracer.endSpan(scope, exception, span);
         }
-        return openAIServiceClient != null
-            ? openAIServiceClient.getEmbeddingsWithResponse(deploymentOrModelName, embeddingsOptions, requestOptions)
-            : serviceClient.getEmbeddingsWithResponse(deploymentOrModelName, embeddingsOptions, requestOptions);
     }
 
     /**
@@ -325,13 +338,11 @@ public final class OpenAIClient {
         requestOptions.setContext(span);
 
         try {
-            Response<BinaryData> response = openAIServiceClient != null
-                ? openAIServiceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
-                requestOptions)
-                : serviceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
+            Response<BinaryData> response = getChatCompletionsInner(deploymentOrModelName, chatCompletionsOptions,
                 requestOptions);
 
-            tracer.setResponse(response.getValue(), span);
+            tracer.setChatCompletionResponse(response.getValue(), span);
+
             return response;
         } catch (RuntimeException e) {
             exception = e;
@@ -339,6 +350,15 @@ public final class OpenAIClient {
         } finally {
             tracer.endSpan(scope, exception, span);
         }
+    }
+
+    private Response<BinaryData> getChatCompletionsInner(String deploymentOrModelName,
+                                                               BinaryData chatCompletionsOptions, RequestOptions requestOptions) {
+        return openAIServiceClient != null
+            ? openAIServiceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
+            requestOptions)
+            : serviceClient.getChatCompletionsWithResponse(deploymentOrModelName, chatCompletionsOptions,
+            requestOptions);
     }
 
     /**
@@ -751,11 +771,8 @@ public final class OpenAIClient {
         ChatCompletionsOptions chatCompletionsOptions) {
         chatCompletionsOptions.setStream(true);
         RequestOptions requestOptions = new RequestOptions();
-        Flux<ByteBuffer> responseStream = getChatCompletionsWithResponse(deploymentOrModelName,
-            BinaryData.fromObject(chatCompletionsOptions), requestOptions).getValue().toFluxByteBuffer();
-        OpenAIServerSentEvents<ChatCompletions> chatCompletionsStream
-            = new OpenAIServerSentEvents<>(responseStream, ChatCompletions.class);
-        return new IterableStream<>(chatCompletionsStream.getEvents());
+        return getChatCompletionsStreamWithResponse(deploymentOrModelName,
+            chatCompletionsOptions, requestOptions).getValue();
     }
 
     /**
@@ -804,12 +821,32 @@ public final class OpenAIClient {
     public Response<IterableStream<ChatCompletions>> getChatCompletionsStreamWithResponse(String deploymentOrModelName,
         ChatCompletionsOptions chatCompletionsOptions, RequestOptions requestOptions) {
         chatCompletionsOptions.setStream(true);
-        Response<BinaryData> response = getChatCompletionsWithResponse(deploymentOrModelName,
-            BinaryData.fromObject(chatCompletionsOptions), requestOptions);
-        Flux<ByteBuffer> responseStream = response.getValue().toFluxByteBuffer();
-        OpenAIServerSentEvents<ChatCompletions> chatCompletionsStream
-            = new OpenAIServerSentEvents<>(responseStream, ChatCompletions.class);
-        return new SimpleResponse<>(response, new IterableStream<>(chatCompletionsStream.getEvents()));
+
+        Context span = tracer.startChatCompletionsSpan(deploymentOrModelName, chatCompletionsOptions, requestOptions.getContext());
+        AutoCloseable scope = tracer.makeSpanCurrent(span);
+        Throwable exception = null;
+
+        requestOptions.setContext(span);
+
+        try {
+            Response<BinaryData> response = getChatCompletionsInner(deploymentOrModelName,
+                BinaryData.fromObject(chatCompletionsOptions), requestOptions);
+            Flux<ByteBuffer> responseStream = response.getValue().toFluxByteBuffer();
+            OpenAIServerSentEvents<ChatCompletions> chatCompletionsStream
+                = new OpenAIServerSentEvents<>(responseStream, ChatCompletions.class);
+            return new SimpleResponse<>(response, new IterableStream<>(tracer.setChatCompletionsStream(chatCompletionsStream.getEvents(), span)));
+        } catch (RuntimeException e) {
+            tracer.endSpan(scope, e, span);
+            throw LOGGER.logExceptionAsError(e);
+        } finally {
+            try {
+                scope.close();
+            } catch (Exception e) {
+                // TODO
+            }
+
+            // don't end span - it should continue until the stream is closed
+        }
     }
 
     /**

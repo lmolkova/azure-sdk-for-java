@@ -95,6 +95,10 @@ public final class OpenAIServerSentEvents<T> {
             dataValue = split[1].substring(1);
         }
 
+        /*LOGGER.atInfo()
+            .addKeyValue("dataValue", dataValue)
+            .log("ServerEvent received");*/
+
         T value = SERIALIZER.readValue(dataValue, type);
         values.add(value);
     }
