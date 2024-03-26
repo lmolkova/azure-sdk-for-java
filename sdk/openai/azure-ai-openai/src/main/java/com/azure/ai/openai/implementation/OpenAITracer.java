@@ -25,11 +25,14 @@ import reactor.core.publisher.Flux;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class OpenAITracer {
     private static final ClientLogger LOGGER = new ClientLogger(OpenAITracer.class);
@@ -140,49 +143,65 @@ public class OpenAITracer {
         recordChoices(chatCompletions, span);
     }
 
+    private class ChoiceBuffer {
+        private final StringBuilder message = new StringBuilder();
+        private ChatRole role;
+        private final Context span;
+        private Integer tokenCount = 0;
+
+        public ChoiceBuffer(Context span) {
+            this.span = span;
+        }
+
+        private void addChunk(ChatChoice choice) {
+            if (choice.getFinishReason() != null) {
+                recordChoice(choice.getFinishReason(), role, message.toString(), span);
+                return;
+            }
+            ChatResponseMessage delta = choice.getDelta();
+            if (delta == null) {
+                return;
+            }
+
+            if (delta.getRole() != null) {
+                // TODO log if not the  first chunk
+                role = delta.getRole();
+            }
+            if (delta.getContent() != null) {
+                tokenCount ++;
+                message.append(delta.getContent());
+            }
+        }
+    }
+
     public Flux<ChatCompletions> setChatCompletionsStream(Flux<ChatCompletions> completions, Context span) {
         if (!tracer.isEnabled() || !tracer.isRecording(span)) {
             return completions;
         }
 
-        AtomicInteger tokenCount = new AtomicInteger();
-        AtomicReference<ChatRole> role = new AtomicReference<>();
-        AtomicReference<StringBuilder> message = new AtomicReference<>(new StringBuilder());
+        List<ChoiceBuffer> messages = new ArrayList<>();
         AtomicReference<String> responseId = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicReference<String> errorType  = new AtomicReference<>();
-        return completions.doOnNext(c -> {
-                if (CoreUtils.isNullOrEmpty(c.getChoices())) {
-                    return;
-                }
+        return completions
+            .filter(c -> !CoreUtils.isNullOrEmpty(c.getChoices()))
+            .doOnNext(c -> {
                 responseId.set(c.getId());
 
-                OffsetDateTime created = c.getCreatedAt() == null ? OffsetDateTime.now() : c.getCreatedAt();
                 for (ChatChoice choice : c.getChoices()) {
-                    if (choice.getFinishReason() != null) {
-                        recordChoice(choice.getFinishReason(), role.get(), message.toString(), created, span);
-                        role.set(null);
-                        message.set(new StringBuilder());
+                    int index = choice.getIndex();
+                    while (messages.size() <= index) {
+                        messages.add(new ChoiceBuffer(span));
                     }
-                    ChatResponseMessage delta = choice.getDelta();
-                    if (delta == null) {
-                        continue;
-                    }
-
-                    if (delta.getRole() != null) {
-                        // TODO log if not null
-                        role.compareAndSet(null, delta.getRole());
-                    }
-                    if (delta.getContent() != null) {
-                        tokenCount.incrementAndGet();
-                        message.get().append(delta.getContent());
-                    }
+                    messages.get(index).addChunk(choice);
                 }
             })
             .doOnError(e -> error.set(e))
             .doOnCancel(() -> errorType.set("cancel"))
             .doFinally(st -> {
-                recordChatCompletion(responseId.get(), tokenCount.get(), null, span);
+                recordChatCompletion(responseId.get(), messages.stream()
+                    .map(m -> m.tokenCount)
+                    .collect(Collectors.summingInt(Integer::intValue)), null, span);
                 tracer.end(errorType.get(), error.get(), span);
             });
     }
@@ -245,7 +264,7 @@ public class OpenAITracer {
                 recordChoice(choice.getFinishReason(),
                     choice.getMessage() == null ? null : choice.getMessage().getRole(),
                     choice.getMessage() == null ? null : choice.getMessage().getContent(),
-                    completions.getCreatedAt(), span);
+                    span);
             }
         }
     }
@@ -263,7 +282,7 @@ public class OpenAITracer {
         }
     }
 
-    private void recordChoice(CompletionsFinishReason finishReason, ChatRole role, String message, OffsetDateTime created, Context span) {
+    private void recordChoice(CompletionsFinishReason finishReason, ChatRole role, String message, Context span) {
         if (!isEventCollectionEnabled) {
             return;
         }
