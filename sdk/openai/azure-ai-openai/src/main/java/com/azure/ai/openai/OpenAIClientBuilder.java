@@ -60,7 +60,7 @@ public final class OpenAIClientBuilder implements HttpTrait<OpenAIClientBuilder>
     ConfigurationTrait<OpenAIClientBuilder>, TokenCredentialTrait<OpenAIClientBuilder>,
     KeyCredentialTrait<OpenAIClientBuilder>, EndpointTrait<OpenAIClientBuilder> {
 
-    public static final String AZURE_OPENAI_TRACING_NAMESPACE_VALUE = "Microsoft.CognitiveServices";
+    private static final String AZURE_OPENAI_TRACING_NAMESPACE_VALUE = "Microsoft.CognitiveServices";
 
     @Generated
     private static final String SDK_NAME = "name";

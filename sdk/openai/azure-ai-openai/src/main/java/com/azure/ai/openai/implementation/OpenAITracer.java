@@ -3,6 +3,7 @@ package com.azure.ai.openai.implementation;
 import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
+import com.azure.ai.openai.models.ChatRequestAssistantMessage;
 import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
@@ -17,12 +18,17 @@ import com.azure.core.util.ConfigurationPropertyBuilder;
 import com.azure.core.util.Context;
 import com.azure.core.util.CoreUtils;
 import com.azure.core.util.logging.ClientLogger;
+import com.azure.core.util.serializer.JacksonAdapter;
+import com.azure.core.util.serializer.JsonSerializer;
+import com.azure.core.util.serializer.JsonSerializerProviders;
 import com.azure.core.util.serializer.SerializerAdapter;
+import com.azure.core.util.serializer.SerializerEncoding;
 import com.azure.core.util.tracing.SpanKind;
 import com.azure.core.util.tracing.StartSpanOptions;
 import com.azure.core.util.tracing.Tracer;
 import reactor.core.publisher.Flux;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -36,6 +42,7 @@ import java.util.stream.Collectors;
 
 public class OpenAITracer {
     private static final ClientLogger LOGGER = new ClientLogger(OpenAITracer.class);
+    private static final SerializerAdapter SERIALIZER_ADAPTER = JacksonAdapter.createDefaultSerializerAdapter();
 
     private static final ConfigurationProperty<Boolean> ENABLE_EVENT_COLLECTION_PROPERTY = ConfigurationPropertyBuilder
         .ofBoolean("openai.distributed_tracing.event_collection_enabled")
@@ -230,7 +237,7 @@ public class OpenAITracer {
         // TODO otel: we should eventually be able to pass it as a structured event payload
         for (ChatRequestMessage message : options.getMessages()) {
             Map<String, Object> attributes = new HashMap<>();
-            if (message instanceof ChatRequestSystemMessage) {
+            /*if (message instanceof ChatRequestSystemMessage) {
                 ChatRequestSystemMessage systemMessage = (ChatRequestSystemMessage) message;
                 attributes.put("gen_ai.chat.role", "system");
                 attributes.put("gen_ai.chat.participant_name", systemMessage.getName());
@@ -239,7 +246,15 @@ public class OpenAITracer {
                 ChatRequestUserMessage userMessage = (ChatRequestUserMessage) message;
                 attributes.put("gen_ai.chat.role", "user");
                 attributes.put("gen_ai.chat.participant_name", userMessage.getName());
-                attributes.put("event.body", userMessage.getContent().toString());
+            } else if (message instanceof ChatRequestUserMessage) {
+                ChatRequestAssistantMessage assistantMessage = (ChatRequestAssistantMessage) message;
+                attributes.put("gen_ai.chat.role", "assistant");
+                attributes.put("gen_ai.chat.participant_name", assistantMessage.getName());
+            }*/
+            try {
+                attributes.put("event.body", SERIALIZER_ADAPTER.serialize(message, SerializerEncoding.JSON));
+            } catch (IOException e) {
+                LOGGER.verbose("Failed to serialize message", e);
             }
             tracer.addEvent("gen_ai.prompt", attributes, OffsetDateTime.now(), span);
         }
@@ -261,10 +276,15 @@ public class OpenAITracer {
     private void recordChoices(ChatCompletions completions, Context span) {
         if (isEventCollectionEnabled) {
             for (ChatChoice choice : completions.getChoices()) {
-                recordChoice(choice.getFinishReason(),
-                    choice.getMessage() == null ? null : choice.getMessage().getRole(),
-                    choice.getMessage() == null ? null : choice.getMessage().getContent(),
-                    span);
+                try {
+                    recordChoice(choice.getFinishReason(),
+                        choice.getMessage() == null ? null : choice.getMessage().getRole(),
+                        //choice.getMessage() == null ? null : choice.getMessage().getContent(),
+                        SERIALIZER_ADAPTER.serialize(choice, SerializerEncoding.JSON),
+                        span);
+                } catch (IOException e) {
+                    LOGGER.verbose("Failed to serialize choice", e);
+                }
             }
         }
     }
