@@ -4,8 +4,10 @@ import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatRequestAssistantMessage;
+import com.azure.ai.openai.models.ChatRequestFunctionMessage;
 import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
+import com.azure.ai.openai.models.ChatRequestToolMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.ChatResponseMessage;
 import com.azure.ai.openai.models.ChatRole;
@@ -229,37 +231,48 @@ public class OpenAITracer {
     }
 
     private void recordPrompt(ChatCompletionsOptions options, Context span) {
-        if (!isEventCollectionEnabled) {
-            return;
-        }
-
         // TODO optimize serialization
         // TODO otel: we should eventually be able to pass it as a structured event payload
         for (ChatRequestMessage message : options.getMessages()) {
-            Map<String, Object> attributes = new HashMap<>();
-            /*if (message instanceof ChatRequestSystemMessage) {
-                ChatRequestSystemMessage systemMessage = (ChatRequestSystemMessage) message;
-                attributes.put("gen_ai.chat.role", "system");
-                attributes.put("gen_ai.chat.participant_name", systemMessage.getName());
-                attributes.put("event.body", systemMessage.getContent());
-            } else if (message instanceof ChatRequestUserMessage) {
-                ChatRequestUserMessage userMessage = (ChatRequestUserMessage) message;
-                attributes.put("gen_ai.chat.role", "user");
-                attributes.put("gen_ai.chat.participant_name", userMessage.getName());
-            } else if (message instanceof ChatRequestUserMessage) {
-                ChatRequestAssistantMessage assistantMessage = (ChatRequestAssistantMessage) message;
-                attributes.put("gen_ai.chat.role", "assistant");
-                attributes.put("gen_ai.chat.participant_name", assistantMessage.getName());
-            }*/
+            recordChatMessageEvent(message, span);
+        }
+    }
+
+    private void recordChatMessageEvent(ChatRequestMessage message, Context span) {
+        Map<String, Object> attributes = new HashMap<>();
+        if (isEventCollectionEnabled) {
             try {
                 attributes.put("event.body", SERIALIZER_ADAPTER.serialize(message, SerializerEncoding.JSON));
             } catch (IOException e) {
                 LOGGER.verbose("Failed to serialize message", e);
             }
-            tracer.addEvent("gen_ai.prompt", attributes, OffsetDateTime.now(), span);
         }
-    }
 
+        String eventName = "gen_ai.message";
+        if (message instanceof ChatRequestSystemMessage) {
+            attributes.put("gen_ai.chat.role", "system");
+            attributes.put("gen_ai.chat.participant_name", ((ChatRequestSystemMessage) message).getName());
+            eventName = "gen_ai.system.message";
+        } else if (message instanceof ChatRequestUserMessage) {
+            attributes.put("gen_ai.chat.role", "user");
+            attributes.put("gen_ai.chat.participant_name", ((ChatRequestUserMessage) message).getName());
+            eventName = "gen_ai.user.message";
+        } else if (message instanceof ChatRequestAssistantMessage) {
+            attributes.put("gen_ai.chat.role", "assistant");
+            attributes.put("gen_ai.chat.participant_name", ((ChatRequestAssistantMessage) message).getName());
+            eventName = "gen_ai.assistant.message";
+        } else if (message instanceof ChatRequestFunctionMessage) {
+            attributes.put("gen_ai.chat.role", "function");
+            attributes.put("gen_ai.chat.participant_name", ((ChatRequestFunctionMessage) message).getName());
+            eventName = "gen_ai.function.message";
+        } else if (message instanceof ChatRequestToolMessage) {
+            attributes.put("gen_ai.chat.role", "tool");
+            eventName = "gen_ai.function.message";
+            attributes.put("gen_ai.tool.call_id", ((ChatRequestToolMessage) message).getToolCallId());
+        }
+
+        tracer.addEvent(eventName, attributes, OffsetDateTime.now(), span);
+    }
     private void recordEmbeddingInput(EmbeddingsOptions options, Context span) {
         if (!isEventCollectionEnabled) {
             return;
@@ -309,15 +322,15 @@ public class OpenAITracer {
 
         Map<String, Object> attributes = new HashMap<>();
         if (finishReason != null) {
-            attributes.put("gen_ai.choice.finish_reason", finishReason.toString());
+            attributes.put("gen_ai.response.finish_reason", finishReason.toString());
         }
         if (role != null) {
-            attributes.put("gen_ai.choice.role", role.toString());
+            attributes.put("gen_ai.message.role", role.toString());
         }
         if (message != null) {
             attributes.put("event.body", message);
         }
 
-        tracer.addEvent("gen_ai.choice", attributes, OffsetDateTime.now(), span);
+        tracer.addEvent("gen_ai.response.message", attributes, OffsetDateTime.now(), span);
     }
 }
