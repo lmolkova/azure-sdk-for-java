@@ -267,7 +267,7 @@ public class OpenAITracer {
             eventName = "gen_ai.function.message";
         } else if (message instanceof ChatRequestToolMessage) {
             attributes.put("gen_ai.chat.role", "tool");
-            eventName = "gen_ai.function.message";
+            eventName = "gen_ai.tool.message";
             attributes.put("gen_ai.tool.call_id", ((ChatRequestToolMessage) message).getToolCallId());
         }
 
