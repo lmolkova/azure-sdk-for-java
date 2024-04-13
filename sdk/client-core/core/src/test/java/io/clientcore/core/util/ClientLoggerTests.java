@@ -5,16 +5,18 @@ package io.clientcore.core.util;
 
 import io.clientcore.core.implementation.AccessibleByteArrayOutputStream;
 import io.clientcore.core.implementation.util.DefaultLogger;
-import io.clientcore.core.util.ClientLogger;
-import io.clientcore.core.util.ClientLogger.LogLevel;
 import io.clientcore.core.json.implementation.jackson.core.io.JsonStringEncoder;
+import io.clientcore.core.util.ClientLogger.LogLevel;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -23,7 +25,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link ClientLogger}.
  */
+@Execution(ExecutionMode.SAME_THREAD)
 public class ClientLoggerTests {
     private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
     private static final String ESCAPED_NEW_LINE = new String(JSON_STRING_ENCODER.quoteAsString(System.lineSeparator()));
@@ -46,6 +52,22 @@ public class ClientLoggerTests {
         this.globalContext.put("connectionId", "foo");
         this.globalContext.put("linkName", 1);
         this.globalContext.put("anotherKey", new LoggableObject("hello world"));
+    }
+
+    /**
+     * Test whether the logger supports a given JUL log level based on its configured log level.
+     */
+    @ParameterizedTest
+    @MethodSource("singleJulLevelCheckSupplier")
+    public void julConfiguration(Level logLevelToConfigure, LogLevel logLevelToValidate, boolean expected) throws IOException {
+        ClientLogger logger = setupLogLevelAndGetLogger(LogLevel.NOTSET, logLevelToConfigure, null);
+        assertEquals(expected, logger.canLogAtLevel(logLevelToValidate));
+
+        logger.atLevel(logLevelToValidate).addKeyValue("key", "value").log("message");
+        String logValues = byteArraySteamToString(logCaptureStream);
+        if (expected) {
+            assertTrue(logValues.contains("{\"message\":\"message\",\"key\":\"value\"}"), logValues);
+        }
     }
 
     /**
@@ -157,13 +179,13 @@ public class ClientLoggerTests {
      */
     @ParameterizedTest
     @MethodSource("logExceptionAsErrorSupplier")
-    public void logThrowableAsError(LogLevel logLevelToConfigure, boolean logContainsMessage,
+    public void logThrowableAsError(LogLevel logLevelToConfigure, Level julLevel, boolean logContainsMessage,
         boolean logContainsStackTrace) {
         String exceptionMessage = "An exception message";
         IllegalStateException illegalStateException = createIllegalStateException(exceptionMessage);
 
         assertThrows(IllegalStateException.class, () -> {
-            throw setupLogLevelAndGetLogger(logLevelToConfigure).logThrowableAsError(illegalStateException);
+            throw setupLogLevelAndGetLogger(logLevelToConfigure, julLevel, null).logThrowableAsError(illegalStateException);
         });
 
         String logValues = byteArraySteamToString(logCaptureStream);
@@ -177,13 +199,13 @@ public class ClientLoggerTests {
      */
     @ParameterizedTest
     @MethodSource("logExceptionAsErrorSupplier")
-    public void logCheckedExceptionAsError(LogLevel logLevelToConfigure, boolean logContainsMessage,
+    public void logCheckedExceptionAsError(LogLevel logLevelToConfigure, Level julLevel, boolean logContainsMessage,
         boolean logContainsStackTrace) {
         String exceptionMessage = "An exception message";
         IOException ioException = createIOException(exceptionMessage);
 
         assertThrows(IOException.class, () -> {
-            throw setupLogLevelAndGetLogger(logLevelToConfigure).logThrowableAsError(ioException);
+            throw setupLogLevelAndGetLogger(logLevelToConfigure, julLevel, null).logThrowableAsError(ioException);
         });
 
         String logValues = byteArraySteamToString(logCaptureStream);
@@ -233,12 +255,12 @@ public class ClientLoggerTests {
 
     @Test
     public void logWithNewLine() {
-        String message = String.format("Param 1: %s%s, Param 2: %s%s, Param 3: %s", "test1", System.lineSeparator(), "test2", System.lineSeparator(), "test3");
+        String message = "log " + System.lineSeparator() + "message" + System.lineSeparator() + "!";
         ClientLogger logger = setupLogLevelAndGetLogger(LogLevel.INFORMATIONAL);
         logger.atInfo().log(message);
 
         String logValues = byteArraySteamToString(logCaptureStream);
-        assertTrue(logValues.contains("{\"message\":\"Param 1: test1, Param 2: test2, Param 3: test3\"}"));
+        assertTrue(logValues.contains("{\"message\":\"log message!\"}"));
     }
 
     @ParameterizedTest
@@ -258,7 +280,7 @@ public class ClientLoggerTests {
         }
 
         String logValues = byteArraySteamToString(logCaptureStream);
-        assertTrue(logValues.isEmpty());
+        assertTrue(logValues.contains("{\"message\":\"\"}"));
     }
 
     @ParameterizedTest
@@ -313,7 +335,7 @@ public class ClientLoggerTests {
     public void logWithContext(LogLevel logLevelToConfigure) {
         ClientLogger logger = setupLogLevelAndGetLogger(logLevelToConfigure);
 
-        String message = String.format("Param 1: %s, Param 2: %s, Param 3: %s", "test1", "test2", "test3");
+        String message = "log message";
 
         logger.atWarning()
             .addKeyValue("connectionId", "foo")
@@ -321,7 +343,7 @@ public class ClientLoggerTests {
             .log(message);
 
         assertMessage(
-            "{\"message\":\"Param 1: test1, Param 2: test2, Param 3: test3\",\"connectionId\":\"foo\",\"linkName\":1}",
+            "{\"message\":\"log message\",\"connectionId\":\"foo\",\"linkName\":1}",
             byteArraySteamToString(logCaptureStream),
             logLevelToConfigure,
             LogLevel.WARNING);
@@ -467,10 +489,10 @@ public class ClientLoggerTests {
     public void contextualLogWithoutContext(LogLevel logLevelToConfigure) {
         ClientLogger logger = setupLogLevelAndGetLogger(logLevelToConfigure);
 
-        logger.atWarning().log(String.format("Param 1: %s, Param 2: %s, Param 3: %s", "test1", "test2", "test3"));
+        logger.atWarning().log("This is a static message");
 
         assertMessage(
-            "{\"message\":\"Param 1: test1, Param 2: test2, Param 3: test3\"}",
+            "{\"message\":\"This is a static message\"}",
             byteArraySteamToString(logCaptureStream),
             logLevelToConfigure,
             LogLevel.WARNING);
@@ -643,10 +665,10 @@ public class ClientLoggerTests {
         logger.atWarning()
             .addKeyValue("connectionId", () -> null)
             .addKeyValue("linkName", "bar")
-            .log(String.format("Param 1: %s, Param 2: %s, Param 3: %s", "test1", "test2", "test3"));
+            .log("log message");
 
         assertMessage(
-            "{\"message\":\"Param 1: test1, Param 2: test2, Param 3: test3\",\"connectionId\":null,\"linkName\":\"bar\"}",
+            "{\"message\":\"log message\",\"connectionId\":null,\"linkName\":\"bar\"}",
             byteArraySteamToString(logCaptureStream),
             logLevelToConfigure,
             LogLevel.WARNING);
@@ -695,12 +717,11 @@ public class ClientLoggerTests {
         logger.atWarning()
             .addKeyValue("connectionId", "foo")
             .addKeyValue("linkName", "bar")
-            .log(String.format("hello %s", "world"), ioException);
+            .log("hello world", ioException);
 
         String message = "{\"message\":\"hello world\",\"connectionId\":\"foo\",\"linkName\":\"bar\",\"exception.message\":\"" + exceptionMessage + "\"}";
         if (logLevelToConfigure.equals(LogLevel.VERBOSE)) {
             message = message.substring(0, message.length() - 1);
-            StringBuilder stackTrace = new StringBuilder();
             message += ",\"exception.stacktrace\":\""  + stackTraceToString(ioException) + "\"}";
         }
 
@@ -841,14 +862,32 @@ public class ClientLoggerTests {
     }
 
     private ClientLogger setupLogLevelAndGetLogger(LogLevel logLevelToSet) {
-        return setupLogLevelAndGetLogger(logLevelToSet, null);
+        return setupLogLevelAndGetLogger(logLevelToSet, Level.OFF, null);
     }
 
     private ClientLogger setupLogLevelAndGetLogger(LogLevel logLevelToSet, Map<String, Object> globalContext) {
-        Logger logger = new DefaultLogger(ClientLogger.class.getName(), new PrintStream(logCaptureStream),
+        return setupLogLevelAndGetLogger(logLevelToSet, Level.OFF, globalContext);
+    }
+
+    private ClientLogger setupLogLevelAndGetLogger(LogLevel logLevelToSet, Level julLevelToSet, Map<String, Object> globalContext) {
+        setupJulLevel(julLevelToSet);
+        DefaultLogger logger = new DefaultLogger(UUID.randomUUID().toString(), new PrintStream(logCaptureStream, true),
             logLevelToSet);
 
         return new ClientLogger(logger, globalContext);
+    }
+
+    private void setupJulLevel(Level julLevelToSet) {
+        String config = "handlers=java.util.logging.ConsoleHandler\n"
+                + String.format(".level = %s\n", julLevelToSet.getName())
+                + String.format("java.util.logging.ConsoleHandler.level = %s\n", julLevelToSet.getName())
+                + "java.util.logging.ConsoleHandler.formatter = java.util.logging.SimpleFormatter\n";
+                //+ "java.util.logging.SimpleFormatter.format=%1$tF %1$tH:%1$tM:%1$tS.%1$tL [%4$s] %3$s - %5$s %n";
+        try {
+            LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(config.getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException e) {
+            Assertions.fail(e);
+        }
     }
 
     private void logMessage(ClientLogger logger, LogLevel logLevel, String logMessage, RuntimeException runtimeException) {
@@ -1134,6 +1173,22 @@ public class ClientLoggerTests {
             Arguments.of(LogLevel.ERROR));
     }
 
+    private static Stream<Arguments> singleJulLevelCheckSupplier() {
+        return Stream.of(
+                Arguments.of(Level.ALL, LogLevel.VERBOSE, true),
+                Arguments.of(Level.FINEST, LogLevel.VERBOSE, true),
+                Arguments.of(Level.FINER, LogLevel.VERBOSE, true),
+                Arguments.of(Level.FINE, LogLevel.VERBOSE, true),
+                Arguments.of(Level.CONFIG, LogLevel.VERBOSE, false),
+                Arguments.of(Level.CONFIG, LogLevel.INFORMATIONAL, true),
+                Arguments.of(Level.INFO, LogLevel.INFORMATIONAL, true),
+                Arguments.of(Level.WARNING, LogLevel.INFORMATIONAL, false),
+                Arguments.of(Level.WARNING, LogLevel.WARNING, true),
+                Arguments.of(Level.SEVERE, LogLevel.WARNING, false),
+                Arguments.of(Level.SEVERE, LogLevel.ERROR, true),
+                Arguments.of(Level.OFF, LogLevel.ERROR, false));
+    }
+
     private static Stream<Arguments> logExceptionAsWarningSupplier() {
         return Stream.of(
             Arguments.of(LogLevel.VERBOSE, true, true),
@@ -1146,11 +1201,11 @@ public class ClientLoggerTests {
 
     private static Stream<Arguments> logExceptionAsErrorSupplier() {
         return Stream.of(
-            Arguments.of(LogLevel.VERBOSE, true, true),
-            Arguments.of(LogLevel.INFORMATIONAL, true, false),
-            Arguments.of(LogLevel.WARNING, true, false),
-            Arguments.of(LogLevel.ERROR, true, false),
-            Arguments.of(LogLevel.NOTSET, false, false)
+            Arguments.of(LogLevel.VERBOSE, Level.SEVERE, true, true),
+            Arguments.of(LogLevel.INFORMATIONAL, Level.SEVERE, true, false),
+            Arguments.of(LogLevel.WARNING, Level.SEVERE, true, false),
+            Arguments.of(LogLevel.ERROR, Level.SEVERE, true, false),
+            Arguments.of(LogLevel.NOTSET, Level.OFF, false, false)
         );
     }
 

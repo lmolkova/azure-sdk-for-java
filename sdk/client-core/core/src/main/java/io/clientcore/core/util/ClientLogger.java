@@ -7,10 +7,6 @@ import io.clientcore.core.annotation.Metadata;
 import io.clientcore.core.implementation.util.CoreUtils;
 import io.clientcore.core.implementation.util.DefaultLogger;
 import io.clientcore.core.util.configuration.Configuration;
-import io.clientcore.core.json.implementation.jackson.core.io.JsonStringEncoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.helpers.NOPLogger;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,7 +22,7 @@ import java.util.function.Supplier;
 import static io.clientcore.core.annotation.TypeConditions.FLUENT;
 
 /**
- * This is a fluent logger helper class that wraps a pluggable {@link Logger}.
+ * This is a fluent logger helper class that wraps a pluggable {@link java.util.logging.Logger}.
  *
  * <p>This logger logs format-able messages that use {@code {}} as the placeholder. When a {@link Throwable throwable}
  * is the last argument of the format varargs and the logger is enabled for the stack trace for the throwable is
@@ -41,13 +37,13 @@ import static io.clientcore.core.annotation.TypeConditions.FLUENT;
  * @see Configuration
  */
 public class ClientLogger {
-    private final Logger logger;
-    private final String globalContextSerialized;
+    private final DefaultLogger logger;
     private static final char CR = '\r';
     private static final char LF = '\n';
 
+    private final Map<String, Object> globalContext;
     /**
-     * Retrieves a logger for the passed class using the {@link LoggerFactory}.
+     * Retrieves a logger for the passed class using the {@link java.util.logging.Logger#getLogger(String)}.
      *
      * @param clazz Class creating the logger.
      */
@@ -56,17 +52,17 @@ public class ClientLogger {
     }
 
     /**
-     * Retrieves a logger for the passed class name using the {@link LoggerFactory}.
+     * Retrieves a logger for the passed class name using the {@link java.util.logging.Logger#getLogger(String)}.
      *
      * @param className Class name creating the logger.
-     * @throws RuntimeException when logging configuration is invalid depending on SLF4J implementation.
+     * @throws RuntimeException when logging configuration is invalid.
      */
     public ClientLogger(String className) {
         this(className, Collections.emptyMap());
     }
 
     /**
-     * Retrieves a logger for the passed class using the {@link LoggerFactory}.
+     * Retrieves a logger for the passed class using the {@link java.util.logging.Logger#getLogger(String)}.
      *
      * @param clazz Class creating the logger.
      * @param context Context to be populated on every log record written with this logger.
@@ -77,7 +73,7 @@ public class ClientLogger {
     }
 
     /**
-     * Retrieves a logger for the passed class name using the {@link LoggerFactory} with
+     * Retrieves a logger for the passed class name using the {@link java.util.logging.Logger#getLogger(String)} with
      * context that will be populated on all log records produced with this logger.
      *
      * <p><strong>Code samples</strong></p>
@@ -96,17 +92,16 @@ public class ClientLogger {
      * @param className Class name creating the logger.
      * @param context Context to be populated on every log record written with this logger.
      * Objects are serialized with {@code toString()} method.
-     * @throws RuntimeException when logging configuration is invalid depending on SLF4J implementation.
+     * @throws RuntimeException when logging configuration is invalid.
      */
     public ClientLogger(String className, Map<String, Object> context) {
-        Logger initLogger = LoggerFactory.getLogger(className);
-        logger = initLogger instanceof NOPLogger ? new DefaultLogger(className) : initLogger;
-        globalContextSerialized = LoggingEventBuilder.writeJsonFragment(context);
+        logger = new DefaultLogger(className);
+        globalContext = context;
     }
 
-    ClientLogger(Logger logger, Map<String, Object> context) {
+    public ClientLogger(DefaultLogger logger, Map<String, Object> context) {
         this.logger = logger;
-        this.globalContextSerialized = LoggingEventBuilder.writeJsonFragment(context);
+        this.globalContext = context;
     }
 
     /**
@@ -121,8 +116,8 @@ public class ClientLogger {
      */
     public <T extends Throwable> T logThrowableAsWarning(T throwable) {
         Objects.requireNonNull(throwable, "'throwable' cannot be null.");
-        if (logger.isWarnEnabled()) {
-            LoggingEventBuilder.create(logger, LogLevel.WARNING, globalContextSerialized, true)
+        if (logger.isEnabled(LogLevel.WARNING)) {
+            LoggingEventBuilder.create(logger, LogLevel.WARNING, globalContext, true)
                 .log(throwable.getMessage(), throwable);
         }
 
@@ -141,8 +136,8 @@ public class ClientLogger {
      */
     public <T extends Throwable> T logThrowableAsError(T throwable) {
         Objects.requireNonNull(throwable, "'throwable' cannot be null.");
-        if (logger.isErrorEnabled()) {
-            LoggingEventBuilder.create(logger, LogLevel.ERROR, globalContextSerialized, true)
+        if (logger.isEnabled(LogLevel.ERROR)) {
+            LoggingEventBuilder.create(logger, LogLevel.ERROR, globalContext, true)
                 .log(throwable.getMessage(), throwable);
         }
         return throwable;
@@ -155,21 +150,7 @@ public class ClientLogger {
      * @return Flag indicating if the environment and logger are configured to support logging at the given log level.
      */
     public boolean canLogAtLevel(LogLevel logLevel) {
-        if (logLevel == null) {
-            return false;
-        }
-        switch (logLevel) {
-            case VERBOSE:
-                return logger.isDebugEnabled();
-            case INFORMATIONAL:
-                return logger.isInfoEnabled();
-            case WARNING:
-                return logger.isWarnEnabled();
-            case ERROR:
-                return logger.isErrorEnabled();
-            default:
-                return false;
-        }
+        return logger.isEnabled(logLevel);
     }
 
     /**
@@ -190,7 +171,7 @@ public class ClientLogger {
      * @return instance of {@link LoggingEventBuilder}  or no-op if error logging is disabled.
      */
     public LoggingEventBuilder atError() {
-        return LoggingEventBuilder.create(logger, LogLevel.ERROR, globalContextSerialized, canLogAtLevel(LogLevel.ERROR));
+        return LoggingEventBuilder.create(logger, LogLevel.ERROR, globalContext, canLogAtLevel(LogLevel.ERROR));
     }
 
     /**
@@ -212,7 +193,7 @@ public class ClientLogger {
      * @return instance of {@link LoggingEventBuilder} or no-op if warn logging is disabled.
      */
     public LoggingEventBuilder atWarning() {
-        return LoggingEventBuilder.create(logger, LogLevel.WARNING, globalContextSerialized,
+        return LoggingEventBuilder.create(logger, LogLevel.WARNING, globalContext,
             canLogAtLevel(LogLevel.WARNING));
     }
 
@@ -236,7 +217,7 @@ public class ClientLogger {
      * @return instance of {@link LoggingEventBuilder} or no-op if info logging is disabled.
      */
     public LoggingEventBuilder atInfo() {
-        return LoggingEventBuilder.create(logger, LogLevel.INFORMATIONAL, globalContextSerialized,
+        return LoggingEventBuilder.create(logger, LogLevel.INFORMATIONAL, globalContext,
             canLogAtLevel(LogLevel.INFORMATIONAL));
     }
 
@@ -258,7 +239,7 @@ public class ClientLogger {
      * @return instance of {@link LoggingEventBuilder} or no-op if verbose logging is disabled.
      */
     public LoggingEventBuilder atVerbose() {
-        return LoggingEventBuilder.create(logger, LogLevel.VERBOSE, globalContextSerialized,
+        return LoggingEventBuilder.create(logger, LogLevel.VERBOSE, globalContext,
             canLogAtLevel(LogLevel.VERBOSE));
     }
 
@@ -284,7 +265,7 @@ public class ClientLogger {
      * @return instance of {@link LoggingEventBuilder} or no-op if logging at provided level is disabled.
      */
     public LoggingEventBuilder atLevel(LogLevel level) {
-        return LoggingEventBuilder.create(logger, level, globalContextSerialized,
+        return LoggingEventBuilder.create(logger, level, globalContext,
             canLogAtLevel(level));
     }
 
@@ -308,15 +289,14 @@ public class ClientLogger {
      */
     @Metadata(conditions = FLUENT)
     public static final class LoggingEventBuilder {
-        private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
         private static final LoggingEventBuilder NOOP = new LoggingEventBuilder(null, null, null, false);
-        private static final String SDK_LOG_MESSAGE_KEY = "{\"message\":\"";
 
-        private final Logger logger;
+        private final DefaultLogger logger;
         private final LogLevel level;
-        private List<ContextKeyValuePair> context;
-        private final String globalContextCached;
-        private final boolean hasGlobalContext;
+        private List<LoggingAttribute> attributes;
+        private Context context;
+
+
         // Flag for no-op instance instead of inheritance
         private final boolean isEnabled;
 
@@ -324,21 +304,25 @@ public class ClientLogger {
          * Creates {@code LoggingEventBuilder} for provided level and  {@link ClientLogger}.
          * If level is disabled, returns no-op instance.
          */
-        static LoggingEventBuilder create(Logger logger, LogLevel level, String globalContextSerialized,
+        static LoggingEventBuilder create(DefaultLogger logger, LogLevel level, Map<String, Object> globalContext,
                                           boolean canLogAtLevel) {
             if (canLogAtLevel) {
-                return new LoggingEventBuilder(logger, level, globalContextSerialized, true);
+                return new LoggingEventBuilder(logger, level, globalContext, true);
             }
 
             return NOOP;
         }
 
-        private LoggingEventBuilder(Logger logger, LogLevel level, String globalContextSerialized, boolean isEnabled) {
+        private LoggingEventBuilder(DefaultLogger logger, LogLevel level, Map<String, Object> globalContext, boolean isEnabled) {
             this.logger = logger;
             this.level = level;
             this.isEnabled = isEnabled;
-            this.globalContextCached = globalContextSerialized == null ? "" : globalContextSerialized;
-            this.hasGlobalContext = !this.globalContextCached.isEmpty();
+            if (isEnabled && globalContext != null) {
+                attributes = new ArrayList<>(globalContext.size());
+                for (Map.Entry<String, Object> entry : globalContext.entrySet()) {
+                    attributes.add(LoggingAttribute.fromValue(entry.getKey(), entry.getValue()));
+                }
+            }
         }
 
         /**
@@ -366,6 +350,11 @@ public class ClientLogger {
                 addKeyValueInternal(key, value);
             }
 
+            return this;
+        }
+
+        public LoggingEventBuilder withContext(Context context) {
+            this.context = context;
             return this;
         }
 
@@ -448,13 +437,13 @@ public class ClientLogger {
          * @param valueSupplier String value supplier function.
          * @return The updated {@code LoggingEventBuilder} object.
          */
-        public LoggingEventBuilder addKeyValue(String key, Supplier<String> valueSupplier) {
+        public LoggingEventBuilder addKeyValue(String key, Supplier<Object> valueSupplier) {
             if (this.isEnabled) {
-                if (this.context == null) {
-                    this.context = new ArrayList<>();
+                if (this.attributes == null) {
+                    this.attributes = new ArrayList<>(1);
                 }
 
-                this.context.add(new ContextKeyValuePair(key, valueSupplier));
+                this.attributes.add(LoggingAttribute.fromSupplier(key, valueSupplier));
             }
             return this;
         }
@@ -467,11 +456,7 @@ public class ClientLogger {
         public void log(String message) {
             if (this.isEnabled) {
                 message = removeNewLinesFromLogMessage(message);
-                if (isEmptyMessage(message)) {
-                    return;
-                }
-
-                performLogging(level, getMessageWithContext(message), (Throwable) null);
+                logger.log(level, message, null, attributes, context);
             }
         }
 
@@ -489,12 +474,12 @@ public class ClientLogger {
                 message = removeNewLinesFromLogMessage(message);
                 if (throwable != null) {
                     addKeyValueInternal("exception.message", throwable.getMessage());
-                    if (logger instanceof DefaultLogger && logger.isDebugEnabled()) {
+                    if (logger.isEnabled(LogLevel.VERBOSE)) {
                         addKeyValue("exception.stacktrace", getStackTrace(throwable));
                     }
                 }
-                String messageWithContext = getMessageWithContext(message);
-                performLogging(level, messageWithContext, logger.isDebugEnabled() ? throwable : null);
+
+                logger.log(level, message, logger.isEnabled(LogLevel.VERBOSE) ? throwable : null, attributes, context);
             }
             return throwable;
         }
@@ -506,151 +491,11 @@ public class ClientLogger {
             return sw.toString().trim();
         }
 
-        private boolean isEmptyMessage(String message) {
-            return CoreUtils.isNullOrEmpty(message)
-                && CoreUtils.isNullOrEmpty(context)
-                && !hasGlobalContext;
-        }
-
-        private String getMessageWithContext(String message) {
-            if (message == null) {
-                message = "";
-            }
-
-            StringBuilder sb = new StringBuilder(20 + (context == null ? 0 : context.size()) * 20 + message.length()
-                + globalContextCached.length());
-            // message must be first for log parsing tooling to work, key also works as a
-            // marker for SDK logs so we'll write it even if there is no message
-            sb.append(SDK_LOG_MESSAGE_KEY);
-            JSON_STRING_ENCODER.quoteAsString(message, sb);
-            sb.append('"');
-
-            if (hasGlobalContext) {
-                sb.append(',').append(globalContextCached);
-            }
-
-            if (context != null) {
-                for (ContextKeyValuePair contextKeyValuePair : context) {
-                    contextKeyValuePair.write(sb.append(','));
-                }
-            }
-
-            sb.append('}');
-            return sb.toString();
-        }
-
         private void addKeyValueInternal(String key, Object value) {
-            if (this.context == null) {
-                this.context = new ArrayList<>();
+            if (this.attributes == null) {
+                this.attributes = new ArrayList<>(1);
             }
-
-            this.context.add(new ContextKeyValuePair(key, value));
-        }
-
-        private void performLogging(LogLevel logLevel, String message, Throwable throwable) {
-            switch (logLevel) {
-                case VERBOSE:
-                    logger.debug(message, throwable);
-                    break;
-                case INFORMATIONAL:
-                    logger.info(message, throwable);
-                    break;
-                case WARNING:
-                    logger.warn(message, throwable);
-                    break;
-                case ERROR:
-                    logger.error(message, throwable);
-                    break;
-                default:
-                    // Don't do anything, this state shouldn't be possible.
-                    break;
-            }
-        }
-
-        /**
-         * Serializes passed map to string containing valid JSON fragment:
-         * e.g. "k1":"v1","k2":"v2", properly escaped and without trailing comma.
-         * <p>
-         * For complex object serialization, it calls {@code toString()} guarded with null check.
-         *
-         * @param context to serialize.
-         *
-         * @return Serialized JSON fragment or an empty string.
-         */
-        static String writeJsonFragment(Map<String, Object> context) {
-            if (CoreUtils.isNullOrEmpty(context)) {
-                return "";
-            }
-
-            StringBuilder formatter = new StringBuilder(context.size() * 20);
-
-            // Keep track of whether we've written a value yet so we don't write a trailing comma.
-            // The previous implementation would delete the trailing comma, but internally this causes StringBuilder to
-            // copy the entirety of the string to a new buffer, which is very expensive.
-            boolean firstValueWritten = false;
-            for (Map.Entry<String, Object> pair : context.entrySet()) {
-                if (firstValueWritten) {
-                    formatter.append(',');
-                } else {
-                    firstValueWritten = true;
-                }
-
-                writeKeyAndValue(pair.getKey(), pair.getValue(), formatter);
-            }
-
-            return formatter.toString();
-        }
-
-        private static void writeKeyAndValue(String key, Object value, StringBuilder formatter) {
-            formatter.append('"');
-            JSON_STRING_ENCODER.quoteAsString(key, formatter);
-            formatter.append("\":");
-
-            if (value == null) {
-                formatter.append("null");
-            } else if (isUnquotedType(value)) {
-                JSON_STRING_ENCODER.quoteAsString(value.toString(), formatter);
-            } else {
-                formatter.append('"');
-                JSON_STRING_ENCODER.quoteAsString(value.toString(), formatter);
-                formatter.append('"');
-            }
-        }
-
-        /**
-         *  Returns true if the value is an unquoted JSON type (boolean, number, null).
-         */
-        private static boolean isUnquotedType(Object value) {
-            return value instanceof Boolean || value instanceof Number;
-        }
-
-        private static final class ContextKeyValuePair {
-            private final String key;
-            private final Object value;
-            private final Supplier<String> valueSupplier;
-
-            ContextKeyValuePair(String key, Object value) {
-                this.key = key;
-                this.value = value;
-                this.valueSupplier = null;
-            }
-
-            ContextKeyValuePair(String key, Supplier<String> valueSupplier) {
-                this.key = key;
-                this.value = null;
-                this.valueSupplier = valueSupplier;
-            }
-
-            /**
-             * Writes "key":"value" json string to provided StringBuilder.
-             */
-            public void write(StringBuilder formatter) {
-                if (valueSupplier == null) {
-                    writeKeyAndValue(key, value, formatter);
-                } else {
-                    writeKeyAndValue(key, valueSupplier.get(), formatter);
-                }
-            }
+            this.attributes.add(LoggingAttribute.fromValue(key, value));
         }
     }
 
@@ -699,25 +544,6 @@ public class ClientLogger {
             this.numericValue = numericValue;
             this.allowedLogLevelVariables = allowedLogLevelVariables;
             this.caseSensitive = allowedLogLevelVariables[0];
-        }
-
-        /**
-         * Converts the log level into a numeric representation used for comparisons.
-         *
-         * @return The numeric representation of the log level.
-         */
-        private int getLevelCode() {
-            return numericValue;
-        }
-
-        /**
-         * Compares the passed log level with the configured log level and returns true if the passed log level is greater
-         * @param level The log level to compare.
-         * @param configuredLevel The configured log level.
-         * @return True if the passed log level is greater or equal to the configured log level, false otherwise.
-         */
-        public static boolean isGreaterOrEqual(LogLevel level, LogLevel configuredLevel) {
-            return level.getLevelCode() >= configuredLevel.getLevelCode();
         }
 
         /**
@@ -789,5 +615,33 @@ public class ClientLogger {
         }
         sb.append(logMessage, prevStart, logMessage.length());
         return sb.toString();
+    }
+
+    public static class LoggingAttribute {
+        private final String key;
+        private final Object value;
+        private final Supplier<Object> valueSupplier;
+
+        private LoggingAttribute(String key, Object value, Supplier<Object> valueSupplier) {
+            this.key = key;
+            this.value = value;
+            this.valueSupplier = valueSupplier;
+        }
+
+        public static LoggingAttribute fromValue(String key, Object value) {
+            return new LoggingAttribute(key, value, null);
+        }
+
+        public static LoggingAttribute fromSupplier(String key, Supplier<Object> supplier) {
+            return new LoggingAttribute(key, null, supplier);
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public Object getValue() {
+            return valueSupplier != null ? valueSupplier.get() : value;
+        }
     }
 }
