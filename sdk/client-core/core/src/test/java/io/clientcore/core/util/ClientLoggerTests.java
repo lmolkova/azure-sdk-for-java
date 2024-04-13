@@ -5,6 +5,7 @@ package io.clientcore.core.util;
 
 import io.clientcore.core.implementation.AccessibleByteArrayOutputStream;
 import io.clientcore.core.implementation.util.DefaultLogger;
+import io.clientcore.core.implementation.util.DefaultLoggerOptions;
 import io.clientcore.core.json.implementation.jackson.core.io.JsonStringEncoder;
 import io.clientcore.core.util.ClientLogger.LogLevel;
 import org.junit.jupiter.api.Assertions;
@@ -871,10 +872,9 @@ public class ClientLoggerTests {
 
     private ClientLogger setupLogLevelAndGetLogger(LogLevel logLevelToSet, Level julLevelToSet, Map<String, Object> globalContext) {
         setupJulLevel(julLevelToSet);
-        DefaultLogger logger = new DefaultLogger(UUID.randomUUID().toString(), new PrintStream(logCaptureStream, true),
-            logLevelToSet);
+        DefaultLoggerOptions options = new DefaultLoggerOptions(logLevelToSet, new PrintStream(logCaptureStream, true));
 
-        return new ClientLogger(logger, globalContext);
+        return new ClientLogger(UUID.randomUUID().toString(), globalContext, options);
     }
 
     private void setupJulLevel(Level julLevelToSet) {

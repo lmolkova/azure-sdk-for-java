@@ -4,10 +4,9 @@
 package io.clientcore.core.implementation.util;
 
 import io.clientcore.core.json.implementation.jackson.core.io.JsonStringEncoder;
-import io.clientcore.core.util.ClientLogger;
 import io.clientcore.core.util.Context;
 import io.clientcore.core.util.LoggerSpi;
-import io.clientcore.core.util.configuration.Configuration;
+import io.clientcore.core.util.LoggingOptions;
 
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -31,30 +30,24 @@ public final class DefaultLogger implements LoggerSpi {
     private final String canonicalName;
     private final java.util.logging.Logger logger;
     private StreamHandler streamHandler = null;
-    public DefaultLogger(Class<?> clazz) {
-        this(clazz.getCanonicalName(), null, fromEnvironment());
-    }
 
-    public DefaultLogger(String className) {
-        this(className, null, fromEnvironment());
-    }
-
-    public DefaultLogger(String className, PrintStream logLocation, ClientLogger.LogLevel logLevel) {
+    public DefaultLogger(String className, LoggingOptions options) {
         Class<?> clazz = getClassPathFromClassName(className);
         canonicalName = clazz == null ? className : clazz.getCanonicalName();
         this.logger = java.util.logging.Logger.getLogger(canonicalName);
-        if (logLevel != LogLevel.NOTSET) {
-            Level level = toJulLevel(logLevel);
+        if (options.getLogLevel() != LogLevel.NOTSET) {
+            Level level = toJulLevel(options.getLogLevel());
             logger.setLevel(level);
         }
 
-        if (logLocation != null) {
+        if (options instanceof DefaultLoggerOptions)  {
+            PrintStream logLocation = ((DefaultLoggerOptions) options).getLogLocation();
             streamHandler = new StreamHandler(logLocation, new DefaultFormatter());
             // this allows handler to get all messages that are enabled on the logger.
             streamHandler.setLevel(Level.ALL);
             logger.addHandler(streamHandler);
         }
-     }
+    }
 
     private static Class<?> getClassPathFromClassName(String className) {
         try {
@@ -66,11 +59,6 @@ public final class DefaultLogger implements LoggerSpi {
         }
     }
 
-    private static LogLevel fromEnvironment() {
-        // LogLevel is so basic, we can't use configuration to read it (since Configuration needs to log too)
-        String level = EnvironmentConfiguration.getGlobalConfiguration().get(Configuration.PROPERTY_LOG_LEVEL);
-        return LogLevel.fromString(level);
-    }
 
     public String getName() {
         return canonicalName;
@@ -86,7 +74,7 @@ public final class DefaultLogger implements LoggerSpi {
     }
 
     @Override
-    public void log(LogLevel level, String body, Throwable throwable, List<ClientLogger.LoggingAttribute> attributes, Context context) {
+    public void log(LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context) {
         if (isEnabled(level)) {
             LogRecord record = new LogRecord(toJulLevel(level), getMessageWithContext(attributes, body));
             record.setThrown(logger.isLoggable(Level.FINE) ? throwable : null);
@@ -100,7 +88,7 @@ public final class DefaultLogger implements LoggerSpi {
         }
     }
 
-    private String getMessageWithContext(List<ClientLogger.LoggingAttribute> attributes, String message) {
+    private String getMessageWithContext(List<LoggingAttribute> attributes, String message) {
         if (message == null) {
             message = "";
         }
@@ -113,7 +101,7 @@ public final class DefaultLogger implements LoggerSpi {
         sb.append('"');
 
         if (attributes != null) {
-            for (ClientLogger.LoggingAttribute attribute : attributes) {
+            for (LoggingAttribute attribute : attributes) {
                 writeKeyAndValue(attribute.getKey(), attribute.getValue(), sb.append(','));
             }
         }
@@ -264,10 +252,5 @@ public final class DefaultLogger implements LoggerSpi {
                 bytes[index] = (byte) ('0' + (value - (10 * high)));
             }
         }
-    }
-
-    private static boolean isJulConfigured() {
-        return System.getProperty("java.util.logging.config.file") != null
-            || System.getProperty("java.util.logging.config.class") != null;
     }
 }

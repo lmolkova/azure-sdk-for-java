@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 

@@ -91,7 +91,7 @@ class JdkHttpClient implements HttpClient {
                 HttpResponse.BodyHandlers::ofInputStream, InputStreamTimeoutResponseSubscriber::new);
 
             java.net.http.HttpResponse<InputStream> jdKResponse = jdkHttpClient.send(jdkRequest, bodyHandler);
-            return toResponse(request, jdKResponse, request.getMetadata().getResponseBodyMode());
+            return toResponse(request, jdKResponse, request.getRequestOptions().getResponseBodyMode());
         } catch (IOException e) {
             throw LOGGER.logThrowableAsError(new UncheckedIOException(e));
         } catch (InterruptedException e) {
@@ -167,7 +167,7 @@ class JdkHttpClient implements HttpClient {
                 responseBodyMode = BUFFER;
             }
 
-            request.getMetadata().setResponseBodyMode(responseBodyMode);
+            request.getRequestOptions().setResponseBodyMode(responseBodyMode);
         }
 
         BinaryData body = null;

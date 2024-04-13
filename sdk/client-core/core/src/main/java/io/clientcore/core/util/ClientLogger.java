@@ -37,6 +37,7 @@ import static io.clientcore.core.annotation.TypeConditions.FLUENT;
  * @see Configuration
  */
 public class ClientLogger {
+    private static final LoggingOptions DEFAULT_OPTIONS = new LoggingOptions();
     private final LoggerSpi logger;
     private static final char CR = '\r';
     private static final char LF = '\n';
@@ -95,12 +96,22 @@ public class ClientLogger {
      * @throws RuntimeException when logging configuration is invalid.
      */
     public ClientLogger(String className, Map<String, Object> context) {
-        logger = LoggerProvider.getProvider().createLogger(className);
+        logger = LoggerProvider.getProvider().createLogger(className, DEFAULT_OPTIONS);
         globalContext = context;
     }
 
-    public ClientLogger(DefaultLogger logger, Map<String, Object> context) {
-        this.logger = logger;
+    /**
+     * Retrieves a logger for the passed class using the {@link java.util.logging.Logger#getLogger(String)} with
+     * context that will be populated on all log records produced with this logger.
+     *
+     * @param className Class name creating the logger.
+     * @param context Context to be populated on every log record written with this logger.
+     * @param options The logging options to use.
+     * Objects are serialized with {@code toString()} method.
+     * @throws RuntimeException when logging configuration is invalid.
+     */
+    ClientLogger(String className, Map<String, Object> context, LoggingOptions options) {
+        this.logger = LoggerProvider.getProvider().createLogger(className, options);
         this.globalContext = context;
     }
 
@@ -293,7 +304,7 @@ public class ClientLogger {
 
         private final LoggerSpi logger;
         private final LogLevel level;
-        private List<LoggingAttribute> attributes;
+        private List<LoggerSpi.LoggingAttribute> attributes;
         private Context context;
 
 
@@ -320,7 +331,7 @@ public class ClientLogger {
             if (isEnabled && globalContext != null) {
                 attributes = new ArrayList<>(globalContext.size());
                 for (Map.Entry<String, Object> entry : globalContext.entrySet()) {
-                    attributes.add(LoggingAttribute.fromValue(entry.getKey(), entry.getValue()));
+                    attributes.add(LoggerSpi.LoggingAttribute.fromValue(entry.getKey(), entry.getValue()));
                 }
             }
         }
@@ -353,6 +364,12 @@ public class ClientLogger {
             return this;
         }
 
+        /**
+         * Adds context to the log message.
+         *
+         * @param context The context to add to the log message.
+         * @return The updated {@link LoggingEventBuilder} object.
+         */
         public LoggingEventBuilder withContext(Context context) {
             this.context = context;
             return this;
@@ -443,7 +460,7 @@ public class ClientLogger {
                     this.attributes = new ArrayList<>(1);
                 }
 
-                this.attributes.add(LoggingAttribute.fromSupplier(key, valueSupplier));
+                this.attributes.add(LoggerSpi.LoggingAttribute.fromSupplier(key, valueSupplier));
             }
             return this;
         }
@@ -495,7 +512,7 @@ public class ClientLogger {
             if (this.attributes == null) {
                 this.attributes = new ArrayList<>(1);
             }
-            this.attributes.add(LoggingAttribute.fromValue(key, value));
+            this.attributes.add(LoggerSpi.LoggingAttribute.fromValue(key, value));
         }
     }
 
@@ -615,33 +632,5 @@ public class ClientLogger {
         }
         sb.append(logMessage, prevStart, logMessage.length());
         return sb.toString();
-    }
-
-    public static class LoggingAttribute {
-        private final String key;
-        private final Object value;
-        private final Supplier<Object> valueSupplier;
-
-        private LoggingAttribute(String key, Object value, Supplier<Object> valueSupplier) {
-            this.key = key;
-            this.value = value;
-            this.valueSupplier = valueSupplier;
-        }
-
-        public static LoggingAttribute fromValue(String key, Object value) {
-            return new LoggingAttribute(key, value, null);
-        }
-
-        public static LoggingAttribute fromSupplier(String key, Supplier<Object> supplier) {
-            return new LoggingAttribute(key, null, supplier);
-        }
-
-        public String getKey() {
-            return key;
-        }
-
-        public Object getValue() {
-            return valueSupplier != null ? valueSupplier.get() : value;
-        }
     }
 }

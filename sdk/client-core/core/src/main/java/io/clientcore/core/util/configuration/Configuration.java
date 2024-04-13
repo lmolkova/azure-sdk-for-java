@@ -52,6 +52,7 @@ public class Configuration {
      * Enables logging by setting a log level.
      */
     public static final String PROPERTY_LOG_LEVEL = "LOG_LEVEL";
+    public static final String PROPERTY_LOGGING_IMPLEMENTATION = "LOGGING_IMPLEMENTATION";
 
     /**
      * Enables HTTP request/response logging by setting an HTTP log detail level.
