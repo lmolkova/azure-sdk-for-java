@@ -37,7 +37,7 @@ import static io.clientcore.core.annotation.TypeConditions.FLUENT;
  * @see Configuration
  */
 public class ClientLogger {
-    private final DefaultLogger logger;
+    private final LoggerSpi logger;
     private static final char CR = '\r';
     private static final char LF = '\n';
 
@@ -95,7 +95,7 @@ public class ClientLogger {
      * @throws RuntimeException when logging configuration is invalid.
      */
     public ClientLogger(String className, Map<String, Object> context) {
-        logger = new DefaultLogger(className);
+        logger = LoggerProvider.getProvider().createLogger(className);
         globalContext = context;
     }
 
@@ -291,7 +291,7 @@ public class ClientLogger {
     public static final class LoggingEventBuilder {
         private static final LoggingEventBuilder NOOP = new LoggingEventBuilder(null, null, null, false);
 
-        private final DefaultLogger logger;
+        private final LoggerSpi logger;
         private final LogLevel level;
         private List<LoggingAttribute> attributes;
         private Context context;
@@ -304,7 +304,7 @@ public class ClientLogger {
          * Creates {@code LoggingEventBuilder} for provided level and  {@link ClientLogger}.
          * If level is disabled, returns no-op instance.
          */
-        static LoggingEventBuilder create(DefaultLogger logger, LogLevel level, Map<String, Object> globalContext,
+        static LoggingEventBuilder create(LoggerSpi logger, LogLevel level, Map<String, Object> globalContext,
                                           boolean canLogAtLevel) {
             if (canLogAtLevel) {
                 return new LoggingEventBuilder(logger, level, globalContext, true);
@@ -313,7 +313,7 @@ public class ClientLogger {
             return NOOP;
         }
 
-        private LoggingEventBuilder(DefaultLogger logger, LogLevel level, Map<String, Object> globalContext, boolean isEnabled) {
+        private LoggingEventBuilder(LoggerSpi logger, LogLevel level, Map<String, Object> globalContext, boolean isEnabled) {
             this.logger = logger;
             this.level = level;
             this.isEnabled = isEnabled;

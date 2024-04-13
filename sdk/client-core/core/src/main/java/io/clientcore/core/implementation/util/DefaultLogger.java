@@ -6,6 +6,7 @@ package io.clientcore.core.implementation.util;
 import io.clientcore.core.json.implementation.jackson.core.io.JsonStringEncoder;
 import io.clientcore.core.util.ClientLogger;
 import io.clientcore.core.util.Context;
+import io.clientcore.core.util.LoggerSpi;
 import io.clientcore.core.util.configuration.Configuration;
 
 import java.io.PrintStream;
@@ -24,7 +25,7 @@ import static io.clientcore.core.util.ClientLogger.LogLevel;
 /**
  * This class is an internal implementation of logger.
  */
-public final class DefaultLogger {
+public final class DefaultLogger implements LoggerSpi {
     private static final String SDK_LOG_MESSAGE_KEY = "{\"message\":\"";
     private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
     private final String canonicalName;
@@ -75,6 +76,7 @@ public final class DefaultLogger {
         return canonicalName;
     }
 
+    @Override
     public boolean isEnabled(LogLevel level) {
         if (level == LogLevel.NOTSET || level == null) {
             return false;
@@ -83,6 +85,7 @@ public final class DefaultLogger {
         return logger.isLoggable(toJulLevel(level));
     }
 
+    @Override
     public void log(LogLevel level, String body, Throwable throwable, List<ClientLogger.LoggingAttribute> attributes, Context context) {
         if (isEnabled(level)) {
             LogRecord record = new LogRecord(toJulLevel(level), getMessageWithContext(attributes, body));

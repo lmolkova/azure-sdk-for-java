@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import io.clientcore.core.http.client.HttpClientProvider;
+import io.clientcore.core.util.LoggerProvider;
 
 module io.clientcore.core {
     requires transitive io.clientcore.core.json;
@@ -25,4 +26,5 @@ module io.clientcore.core {
     exports io.clientcore.core.implementation.util to io.clientcore.http.jdk.httpclient, io.clientcore.http.okhttp3;
 
     uses HttpClientProvider;
+    uses LoggerProvider;
 }

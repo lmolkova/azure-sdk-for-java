@@ -1,14 +1,11 @@
 package io.clientcore.core.util;
 
-public class LoggerProvider {
-    Logger createLogger(String className);
+import io.clientcore.core.implementation.util.DefaultLoggerProvider;
 
-    /**
-     * Returns default implementation of {@code TracerProvider} that uses SPI to resolve tracing implementation.
-     * @return an instance of {@code TracerProvider}
-     */
+public interface LoggerProvider {
+    LoggerSpi createLogger(String className);
+
     static LoggerProvider getProvider() {
-        return DefaultTracerProvider.getInstance();
+        return DefaultLoggerProvider.getInstance();
     }
-
 }

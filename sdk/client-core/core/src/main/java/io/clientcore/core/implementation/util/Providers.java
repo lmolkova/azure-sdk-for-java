@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -18,7 +19,6 @@ import java.util.function.Supplier;
  * @param <TInstance> Service interface type.
  */
 public final class Providers<TProvider, TInstance> {
-    private static final ClientLogger LOGGER = new ClientLogger(Providers.class);
     private final TProvider defaultProvider;
     private final String defaultProviderName;
     private final Map<String, TProvider> availableProviders;
@@ -27,6 +27,7 @@ public final class Providers<TProvider, TInstance> {
     private final boolean noDefaultImplementation;
     private final String noProviderMessage;
     private final Class<TProvider> providerClass;
+    private final ClientLogger logger;
 
     /**
      * Resolves available providers.
@@ -35,7 +36,8 @@ public final class Providers<TProvider, TInstance> {
      * @param defaultImplementationName Explicit name of implementation provider class to use.
      * @param noProviderErrorMessage Error message to throw and log in case no providers are found.
      */
-    public Providers(Class<TProvider> providerClass, String defaultImplementationName, String noProviderErrorMessage) {
+    public Providers(Class<TProvider> providerClass, String defaultImplementationName, String noProviderErrorMessage, ClientLogger logger) {
+        this.logger = logger;
         this.providerClass = providerClass;
         // Use as classloader to load provider-configuration files and provider classes the classloader
         // that loaded this class. In most cases this will be the System classloader.
@@ -52,10 +54,12 @@ public final class Providers<TProvider, TInstance> {
             defaultProviderName = defaultProvider.getClass().getName();
             availableProviders.put(defaultProviderName, defaultProvider);
 
-            LOGGER.atVerbose()
-                .addKeyValue("providerName", defaultProviderName)
-                .addKeyValue("providerClass", providerClass.getName())
-                .log("Found provider.");
+            if (logger != null) {
+                logger.atVerbose()
+                        .addKeyValue("providerName", defaultProviderName)
+                        .addKeyValue("providerClass", providerClass.getName())
+                        .log("Found provider.");
+            }
         } else {
             defaultProvider = null;
             defaultProviderName = null;
@@ -66,9 +70,11 @@ public final class Providers<TProvider, TInstance> {
             String additionalProviderName = additionalProvider.getClass().getName();
 
             availableProviders.put(additionalProviderName, additionalProvider);
-            LOGGER.atVerbose()
-                .addKeyValue("providerName", additionalProviderName)
-                .log("Additional provider found on the classpath");
+            if (logger != null) {
+                logger.atVerbose()
+                        .addKeyValue("providerName", additionalProviderName)
+                        .log("Additional provider found on the classpath");
+            }
         }
 
         defaultImplementation = defaultImplementationName;
@@ -113,7 +119,7 @@ public final class Providers<TProvider, TInstance> {
                 TInstance instance = fallbackSupplier == null ? null : fallbackSupplier.get();
 
                 if (instance == null) {
-                    throw LOGGER.logThrowableAsError(new IllegalStateException(noProviderMessage));
+                    throw maybeLogException(new IllegalStateException(noProviderMessage));
                 }
 
                 return instance;
@@ -125,16 +131,22 @@ public final class Providers<TProvider, TInstance> {
 
             if (provider == null) {
                 // No fallback here - user requested specific implementation, and it was not found.
-                throw LOGGER.logThrowableAsError(
-                    new IllegalStateException(formatNoSpecificProviderErrorMessage(implementationName)));
+                throw maybeLogException(new IllegalStateException(formatNoSpecificProviderErrorMessage(implementationName)));
             }
         }
 
         try {
             return createInstance.apply(provider);
         } catch (ClassCastException ex) {
-            throw LOGGER.logThrowableAsError(
+            throw maybeLogException(
                 new IllegalStateException(formatNoSpecificProviderErrorMessage(implementationName), ex));
         }
+    }
+
+    private RuntimeException maybeLogException(RuntimeException ex) {
+        if (logger != null) {
+            return logger.logThrowableAsError(ex);
+        }
+        return ex;
     }
 }

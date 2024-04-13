@@ -4,6 +4,7 @@
 package io.clientcore.core.http.client;
 
 import io.clientcore.core.implementation.util.Providers;
+import io.clientcore.core.util.ClientLogger;
 import io.clientcore.core.util.configuration.Configuration;
 
 /**
@@ -11,6 +12,7 @@ import io.clientcore.core.util.configuration.Configuration;
  * implementation.
  */
 public abstract class HttpClientProvider {
+    public static final ClientLogger LOGGER = new ClientLogger(HttpClientProvider.class);
     static final String NO_DEFAULT_PROVIDER_MESSAGE = "A request was made to load the default HttpClient provider "
         + "but one could not be found on the classpath. If you are using a dependency manager, consider including "
         + "a dependency on io.clientcore:http-okhttp. Additionally, refer to "
@@ -44,7 +46,7 @@ public abstract class HttpClientProvider {
         if (providers == null) {
             providers = new Providers<>(HttpClientProvider.class,
                 Configuration.getGlobalConfiguration().get(Configuration.PROPERTY_HTTP_CLIENT_IMPLEMENTATION),
-                NO_DEFAULT_PROVIDER_MESSAGE);
+                NO_DEFAULT_PROVIDER_MESSAGE, LOGGER);
         }
 
         return providers;
