@@ -18,7 +18,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
-import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
 import io.opentelemetry.instrumentation.runtimemetrics.java8.Classes;
 import io.opentelemetry.instrumentation.runtimemetrics.java8.Cpu;
 import io.opentelemetry.instrumentation.runtimemetrics.java8.GarbageCollector;
@@ -112,7 +111,6 @@ public class TelemetryHelper {
         MemoryPools.registerObservers(otel);
         Threads.registerObservers(otel);
         GarbageCollector.registerObservers(otel);
-        OpenTelemetryAppender.install(otel);
     }
 
     /**

@@ -4,6 +4,8 @@
 package io.clientcore.core.http.pipeline;
 
 import io.clientcore.core.http.client.HttpClient;
+import io.clientcore.core.util.InstrumentationOptions;
+import io.clientcore.core.util.InstrumentationProvider;
 import io.clientcore.core.util.configuration.Configuration;
 
 import java.util.ArrayList;
@@ -43,6 +45,7 @@ import java.util.List;
 public class HttpPipelineBuilder {
     private HttpClient httpClient;
     private List<HttpPipelinePolicy> pipelinePolicies;
+    private InstrumentationOptions instrumentationOptions;
 
     /**
      * Creates a new instance of HttpPipelineBuilder that can configure options for the {@link HttpPipeline} before
@@ -62,6 +65,16 @@ public class HttpPipelineBuilder {
     public HttpPipeline build() {
         List<HttpPipelinePolicy> policies = (pipelinePolicies == null) ? new ArrayList<>() : pipelinePolicies;
         HttpClient client;
+
+        HttpPipelinePolicy physicalPolicy = InstrumentationProvider.getProvider().createPhysicalPolicy(instrumentationOptions);
+        if (physicalPolicy != null) {
+            policies.add(0, physicalPolicy);
+        }
+
+        HttpPipelinePolicy logicalPolicy = InstrumentationProvider.getProvider().createLogicalPolicy(instrumentationOptions);
+        if (logicalPolicy != null) {
+            policies.add(logicalPolicy);
+        }
 
         if (httpClient != null) {
             client = httpClient;
@@ -104,6 +117,11 @@ public class HttpPipelineBuilder {
 
         this.pipelinePolicies.addAll(Arrays.asList(policies));
 
+        return this;
+    }
+
+    public HttpPipelineBuilder instrumentationOptions(InstrumentationOptions options) {
+        this.instrumentationOptions = options;
         return this;
     }
 }

@@ -151,4 +151,12 @@ public final class Context {
 
         return key;
     }
+
+    public InstrumentationContext getInstrumentationContext() {
+        return internal.getInstrumentationContext();
+    }
+
+    public Context setInstrumentationContext(InstrumentationContext instrumentationContext) {
+        return new Context(internal.setInstrumentationContext(instrumentationContext));
+    }
 }

@@ -3,7 +3,7 @@
 
 package io.clientcore.core.util;
 
-import io.clientcore.core.implementation.util.DefaultLoggerProvider;
+import io.clientcore.core.implementation.util.LoggerProviderImpl;
 
 /**
  * The provider for the logger.
@@ -13,6 +13,7 @@ public interface LoggerProvider {
      * Create a logger for the specified class.
      *
      * @param className The name of the class.
+     * @param options The options for the logger.
      * @return The logger.
      */
     LoggerSpi createLogger(String className, LoggingOptions options);
@@ -23,6 +24,6 @@ public interface LoggerProvider {
      * @return The provider.
      */
     static LoggerProvider getProvider() {
-        return DefaultLoggerProvider.getInstance();
+        return LoggerProviderImpl.getInstance();
     }
 }

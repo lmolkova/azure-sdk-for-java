@@ -4,6 +4,7 @@ package io.clientcore.core.implementation.util;
 
 import io.clientcore.core.util.ClientLogger;
 import io.clientcore.core.util.Context;
+import io.clientcore.core.util.InstrumentationContext;
 
 import java.util.Map;
 import java.util.Objects;
@@ -12,6 +13,7 @@ import java.util.Objects;
  * Internal representation of {@link Context}.
  */
 public abstract class InternalContext {
+    private InstrumentationContext instrumentationContext;
     /**
      * Sentinel object representing that the context didn't find a value for the given key.
      */
@@ -166,6 +168,15 @@ public abstract class InternalContext {
         }
 
         return context;
+    }
+
+    public InstrumentationContext getInstrumentationContext() {
+        return instrumentationContext;
+    }
+
+    public InternalContext setInstrumentationContext(InstrumentationContext instrumentationContext) {
+        this.instrumentationContext = instrumentationContext;
+        return this;
     }
 
     private static Object validateKey(Object key, String keyName, ClientLogger logger) {

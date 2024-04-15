@@ -107,6 +107,10 @@ public class Configuration {
      */
     public static final String PROPERTY_HTTP_CLIENT_IMPLEMENTATION = "HTTP_CLIENT_IMPLEMENTATION";
 
+    public static final String PROPERTY_TRACING_DISABLED = "TRACING_DISABLED";
+    public static final String PROPERTY_METRICS_DISABLED = "METRICS_DISABLED";
+    public static final String PROPERTY_INSTRUMENTATION_IMPLEMENTATION = "INSTRUMENTATION_IMPLEMENTATION";
+
     /*
      * Gets the global configuration shared by all client libraries.
      */

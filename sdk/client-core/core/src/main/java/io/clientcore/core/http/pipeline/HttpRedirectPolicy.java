@@ -153,7 +153,7 @@ public final class HttpRedirectPolicy implements HttpPipelinePolicy {
                                                 Set<String> attemptedRedirectUrls) {
         if (attemptedRedirectUrls.contains(redirectUrl)) {
             LOGGER.atError()
-                .addKeyValue(LoggingKeys.REDIRECT_URL_KEY, redirectUrl)
+                .addKeyValue(LoggingKeys.URL_KEY, redirectUrl)
                 .log("Request was redirected more than once to the same URL.");
 
             return true;

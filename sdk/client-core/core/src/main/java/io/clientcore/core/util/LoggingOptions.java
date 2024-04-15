@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package io.clientcore.core.util;
 
 import io.clientcore.core.implementation.util.EnvironmentConfiguration;
@@ -5,8 +8,11 @@ import io.clientcore.core.util.configuration.Configuration;
 
 import java.util.Objects;
 
+/**
+ * The options for logging.
+ */
 public class LoggingOptions {
-    private ClientLogger.LogLevel level;
+    private final ClientLogger.LogLevel level;
     private final Class<? extends LoggerProvider> loggerProviderClass;
 
     private LoggingOptions(ClientLogger.LogLevel level, Class<? extends LoggerProvider> loggerProviderClass) {
@@ -14,14 +20,25 @@ public class LoggingOptions {
         this.level = level;
     }
 
+    /**
+     * Creates an instance of LoggingOptions.
+     */
     public LoggingOptions() {
         this(levelFromEnvironment(), providerFromEnvironment());
     }
 
+    /**
+     * Gets the log level.
+     * @return The log level.
+     */
     public ClientLogger.LogLevel getLogLevel() {
         return level;
     }
 
+    /**
+     * Gets the logger provider class.
+     * @return The logger provider class.
+     */
     public Class<? extends LoggerProvider> getLoggerProviderClass() {
         return loggerProviderClass;
     }
@@ -38,6 +55,7 @@ public class LoggingOptions {
         return className != null ? getClassByName(className) : null;
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> Class<? extends T> getClassByName(String className) {
         Objects.requireNonNull(className, "'className' cannot be null");
         try {

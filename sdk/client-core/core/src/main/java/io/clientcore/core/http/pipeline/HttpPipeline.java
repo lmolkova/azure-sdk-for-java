@@ -7,6 +7,8 @@ import io.clientcore.core.http.client.HttpClient;
 import io.clientcore.core.http.models.HttpRequest;
 import io.clientcore.core.http.models.Response;
 import io.clientcore.core.implementation.http.HttpPipelineCallState;
+import io.clientcore.core.util.Context;
+import io.clientcore.core.util.InstrumentationContext;
 
 import java.util.Collections;
 import java.util.List;
@@ -67,6 +69,13 @@ public final class HttpPipeline {
      * @return An {@link Response}.
      */
     public Response<?> send(HttpRequest request) {
+        Context context = request.getRequestOptions().getContext();
+        if (context == null || context == Context.EMPTY) {
+            context = Context.of("dummy", "dummy");
+            context.setInstrumentationContext(new InstrumentationContext().setOperationName(request.getHttpMethod().name()));
+            request.getRequestOptions().setContext(context);
+        }
+
         HttpPipelineNextPolicy next = new HttpPipelineNextPolicy(new HttpPipelineCallState(this, request));
 
         return next.process();

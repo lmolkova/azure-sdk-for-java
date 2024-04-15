@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package io.clientcore.core.opentelemetry.implementation;
 
 import io.clientcore.core.util.ClientLogger;
@@ -10,7 +13,10 @@ import io.opentelemetry.api.logs.LogRecordBuilder;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
 
+import java.time.Instant;
 import java.util.List;
+
+import static io.clientcore.core.opentelemetry.implementation.OTelUtils.toOtelContext;
 
 public class OpenTelemetryLogger implements LoggerSpi {
     private final Logger logger;
@@ -28,26 +34,21 @@ public class OpenTelemetryLogger implements LoggerSpi {
     }
 
     @Override
-    public void log(ClientLogger.LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context) {
+    public void log(Instant eventTime, ClientLogger.LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context) {
         LogRecordBuilder logRecord = logger.logRecordBuilder()
-                .setContext(toOtelContext(context))
                 .setBody(body)
+                .setTimestamp(eventTime)
                 .setSeverity(toOtelSeverity(level));
 
+        if (context != null && context.getInstrumentationContext() != null) {
+            logRecord.setContext(toOtelContext(context.getInstrumentationContext().getTraceContext()));
+        }
+
         for (LoggingAttribute attribute : attributes) {
-            setAttribute(logRecord, attribute.getKey(), attribute.getValue());
+            setAttribute(logRecord, "x." + attribute.getKey(), attribute.getValue());
         }
 
         logRecord.emit();
-    }
-
-    private static io.opentelemetry.context.Context toOtelContext(Context context) {
-        Object ctx = context.get("trace-context");
-        if (ctx instanceof io.opentelemetry.context.Context) {
-            return (io.opentelemetry.context.Context) ctx;
-        }
-
-        return null;
     }
 
     static Severity toOtelSeverity(ClientLogger.LogLevel level) {

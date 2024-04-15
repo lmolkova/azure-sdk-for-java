@@ -195,8 +195,6 @@ public class ExternalDependencyExposedCheck extends AbstractCheck {
         if ("com.".regionMatches(0, qualifiedName, 0, 4)) {
             if ("azure.".regionMatches(0, qualifiedName, 4, 6)) {
                 return true;
-            } else if ("io.clientcore".regionMatches(0, qualifiedName, 4, 8)) {
-                return true;
             } else {
                 return false;
             }
@@ -205,6 +203,8 @@ public class ExternalDependencyExposedCheck extends AbstractCheck {
         } else if ("reactor.".regionMatches(0, qualifiedName, 0, 8)) {
             return true;
         } else if ("org.reactivestreams.".regionMatches(0, qualifiedName, 0, 20)) {
+            return true;
+        } else if ("io.clientcore.".regionMatches(0, qualifiedName, 0, 14)) {
             return true;
         } else {
             return false;

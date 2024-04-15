@@ -79,6 +79,9 @@ public class HttpGet extends ScenarioBase<StressOptions> {
         HttpRequest request = new HttpRequest(HttpMethod.GET, url);
         request.getHeaders().set(HttpHeaderName.USER_AGENT, "azsdk-java-stress");
         request.getHeaders().set(HttpHeaderName.fromString("x-client-id"), String.valueOf(clientRequestId.incrementAndGet()));
+
+        request.getHeaders().set(HttpHeaderName.fromString("response-fail-probability"), "0.1");
+        request.getHeaders().set(HttpHeaderName.fromString("response-code"), "503");
         return request;
     }
 

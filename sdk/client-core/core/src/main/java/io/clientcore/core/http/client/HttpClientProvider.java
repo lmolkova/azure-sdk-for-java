@@ -19,7 +19,7 @@ public abstract class HttpClientProvider {
         + "https://aka.ms/azsdk/java/docs/custom-httpclient to learn about writing your own implementation.";
 
     static HttpClient sharedHttpClient;
-    private static Providers<HttpClientProvider, HttpClient> providers;
+    private static Providers<HttpClientProvider> providers;
 
     /**
      * Gets a new instance of the {@link HttpClient} that this {@link HttpClientProvider} is configured to create.
@@ -42,7 +42,7 @@ public abstract class HttpClientProvider {
         return sharedHttpClient;
     }
 
-    static Providers<HttpClientProvider, HttpClient> getProviders() {
+    static Providers<HttpClientProvider> getProviders() {
         if (providers == null) {
             providers = new Providers<>(HttpClientProvider.class,
                 Configuration.getGlobalConfiguration().get(Configuration.PROPERTY_HTTP_CLIENT_IMPLEMENTATION),

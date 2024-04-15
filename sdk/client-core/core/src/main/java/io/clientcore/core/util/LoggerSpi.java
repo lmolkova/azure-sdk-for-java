@@ -3,6 +3,7 @@
 
 package io.clientcore.core.util;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -28,12 +29,12 @@ public interface LoggerSpi {
      * @param attributes The attributes to log.
      * @param context The context to log.
      */
-    void log(ClientLogger.LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context);
+    void log(Instant eventTime, ClientLogger.LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context);
 
     /**
      * logging attribute
      */
-    public final class LoggingAttribute {
+    final class LoggingAttribute {
         private final String key;
         private final Object value;
         private final Supplier<Object> valueSupplier;

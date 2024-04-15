@@ -76,7 +76,7 @@
     <compiler.failondeprecatedstatus/>
 
     <javadoc.excludePackageNames>
-      io.clientcore.core.json,com.azure.json,com.azure.xml,com.azure.core*
+        io.clientcore.core.opentelemetry,com.azure.json,com.azure.xml,com.azure.core*
     </javadoc.excludePackageNames>
   </properties>
 

@@ -104,7 +104,8 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
     }
 
     private ClientLogger.LoggingEventBuilder createBasicLoggingContext(ClientLogger logger, ClientLogger.LogLevel level, HttpRequest request) {
-        ClientLogger.LoggingEventBuilder log = logger.atLevel(level);
+        ClientLogger.LoggingEventBuilder log = logger.atLevel(level)
+            .withContext(request.getRequestOptions().getContext());
         if (LOGGER.canLogAtLevel(level) && request != null) {
             if (allowedHeaderNames.contains(CLIENT_REQUEST_ID)) {
                 String clientRequestId = request.getHeaders().getValue(CLIENT_REQUEST_ID);
@@ -135,7 +136,8 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
         }
 
         private void log(ClientLogger.LogLevel logLevel, ClientLogger logger, HttpRequest request) {
-            ClientLogger.LoggingEventBuilder logBuilder = getLogBuilder(logLevel, logger);
+            ClientLogger.LoggingEventBuilder logBuilder = getLogBuilder(logLevel, logger)
+                .withContext(request.getRequestOptions().getContext());
 
             if (httpLogDetailLevel.shouldLogUrl()) {
                 logBuilder
@@ -150,7 +152,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
             }
 
             if (request.getBody() == null) {
-                logBuilder.addKeyValue(LoggingKeys.CONTENT_LENGTH_KEY, 0)
+                logBuilder.addKeyValue(LoggingKeys.REQUEST_CONTENT_LENGTH_KEY, 0)
                     .log(REQUEST_LOG_MESSAGE);
                 return;
             }
@@ -158,7 +160,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
             String contentType = request.getHeaders().getValue(HttpHeaderName.CONTENT_TYPE);
             long contentLength = getContentLength(logger, request.getHeaders());
 
-            logBuilder.addKeyValue(LoggingKeys.CONTENT_LENGTH_KEY, contentLength);
+            logBuilder.addKeyValue(LoggingKeys.REQUEST_CONTENT_LENGTH_KEY, contentLength);
 
             if (httpLogDetailLevel.shouldLogBody() && shouldBodyBeLogged(contentType, contentLength)) {
                 logBody(request, logBuilder);
@@ -197,7 +199,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
             String contentLengthString = response.getHeaders().getValue(HttpHeaderName.CONTENT_LENGTH);
 
             if (!CoreUtils.isNullOrEmpty(contentLengthString)) {
-                logBuilder.addKeyValue(LoggingKeys.CONTENT_LENGTH_KEY, contentLengthString);
+                logBuilder.addKeyValue(LoggingKeys.RESPONSE_CONTENT_LENGTH_KEY, contentLengthString);
             }
         }
 
@@ -209,7 +211,8 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
                 return response;
             }
 
-            ClientLogger.LoggingEventBuilder logBuilder = getLogBuilder(logLevel, logger);
+            ClientLogger.LoggingEventBuilder logBuilder = getLogBuilder(logLevel, logger)
+                .withContext(response.getRequest().getRequestOptions().getContext());
 
             logContentLength(response, logBuilder);
             logUrl(response, duration, logBuilder);

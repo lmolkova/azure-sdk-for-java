@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import io.clientcore.core.http.client.HttpClientProvider;
+import io.clientcore.core.util.InstrumentationProvider;
 import io.clientcore.core.util.LoggerProvider;
 
 module io.clientcore.core {
@@ -27,4 +28,5 @@ module io.clientcore.core {
 
     uses HttpClientProvider;
     uses LoggerProvider;
+    uses InstrumentationProvider;
 }

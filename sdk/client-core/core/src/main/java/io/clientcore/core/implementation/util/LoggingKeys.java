@@ -18,42 +18,38 @@ public final class LoggingKeys {
     /**
      * Key representing HTTP method.
      */
-    public static final String HTTP_METHOD_KEY = "method";
+    public static final String HTTP_METHOD_KEY = "http.request.method";
 
     /**
      * Key representing try count, the value starts with {@code 0} on the first try
      * and should be an {@code int} number.
      */
-    public static final String TRY_COUNT_KEY = "tryCount";
+    public static final String TRY_COUNT_KEY = "http.request.resend_count";
 
     /**
      * Key representing duration of call in milliseconds, the value should be a number.
      */
-    public static final String DURATION_MS_KEY = "durationMs";
+    public static final String DURATION_MS_KEY = "http.client.request.duration";
 
-    /**
-     * Key representing URL request was redirected to.
-     */
-    public static final String REDIRECT_URL_KEY = "redirectUrl";
 
     /**
      * Key representing request URL.
      */
-    public static final String URL_KEY = "url";
+    public static final String URL_KEY = "url.full";
 
     /**
      * Key representing request body content length.
      */
-    public static final String CONTENT_LENGTH_KEY = "contentLength";
-
+    public static final String REQUEST_CONTENT_LENGTH_KEY = "http.request.body.size";
+    public static final String RESPONSE_CONTENT_LENGTH_KEY = "http.response.body.size";
     /**
      * Key representing request body. The value should be populated conditionally
      * if populated at all.
      */
-    public static final String BODY_KEY = "body";
+    public static final String BODY_KEY = "http.request.body.content";
 
     /**
      * Key representing response status code. The value should be a number.
      */
-    public static final String STATUS_CODE_KEY = "statusCode";
+    public static final String STATUS_CODE_KEY = "http.response.status_code";
 }

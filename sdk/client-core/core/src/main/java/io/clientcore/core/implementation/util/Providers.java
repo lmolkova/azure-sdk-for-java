@@ -15,9 +15,8 @@ import java.util.function.Supplier;
  * Helper class that unifies SPI instances creation.
  *
  * @param <TProvider> Service Provider interface.
- * @param <TInstance> Service interface type.
  */
-public final class Providers<TProvider, TInstance> {
+public final class Providers<TProvider> {
     private final TProvider defaultProvider;
     private final String defaultProviderName;
     private final Map<String, TProvider> availableProviders;
@@ -105,7 +104,7 @@ public final class Providers<TProvider, TInstance> {
      * @throws IllegalStateException when the requested provider cannot be found and the fallback supplier or the value
      * it returns are {@code null}.
      */
-    public TInstance create(Function<TProvider, TInstance> createInstance, Supplier<TInstance> fallbackSupplier,
+    public <TInstance> TInstance create(Function<TProvider, TInstance> createInstance, Supplier<TInstance> fallbackSupplier,
                             Class<? extends TProvider> selectedImplementation) {
         TProvider provider;
         String implementationName;

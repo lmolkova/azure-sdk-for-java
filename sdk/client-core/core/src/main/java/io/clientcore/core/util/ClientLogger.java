@@ -4,12 +4,11 @@
 package io.clientcore.core.util;
 
 import io.clientcore.core.annotation.Metadata;
-import io.clientcore.core.implementation.util.CoreUtils;
-import io.clientcore.core.implementation.util.DefaultLogger;
 import io.clientcore.core.util.configuration.Configuration;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,10 +38,9 @@ import static io.clientcore.core.annotation.TypeConditions.FLUENT;
 public class ClientLogger {
     private static final LoggingOptions DEFAULT_OPTIONS = new LoggingOptions();
     private final LoggerSpi logger;
-    private static final char CR = '\r';
-    private static final char LF = '\n';
 
     private final Map<String, Object> globalContext;
+    private final String className;
     /**
      * Retrieves a logger for the passed class using the {@link java.util.logging.Logger#getLogger(String)}.
      *
@@ -96,6 +94,7 @@ public class ClientLogger {
      * @throws RuntimeException when logging configuration is invalid.
      */
     public ClientLogger(String className, Map<String, Object> context) {
+        this.className = className;
         logger = LoggerProvider.getProvider().createLogger(className, DEFAULT_OPTIONS);
         globalContext = context;
     }
@@ -111,8 +110,13 @@ public class ClientLogger {
      * @throws RuntimeException when logging configuration is invalid.
      */
     ClientLogger(String className, Map<String, Object> context, LoggingOptions options) {
+        this.className = className;
         this.logger = LoggerProvider.getProvider().createLogger(className, options);
         this.globalContext = context;
+    }
+
+    public String getClassName() {
+        return className;
     }
 
     /**
@@ -307,7 +311,6 @@ public class ClientLogger {
         private List<LoggerSpi.LoggingAttribute> attributes;
         private Context context;
 
-
         // Flag for no-op instance instead of inheritance
         private final boolean isEnabled;
 
@@ -472,8 +475,7 @@ public class ClientLogger {
          */
         public void log(String message) {
             if (this.isEnabled) {
-                message = removeNewLinesFromLogMessage(message);
-                logger.log(level, message, null, attributes, context);
+                logger.log(Instant.now(), level, message, null, attributes, context);
             }
         }
 
@@ -488,7 +490,6 @@ public class ClientLogger {
          */
         public <T extends Throwable> T log(String message, T throwable) {
             if (this.isEnabled) {
-                message = removeNewLinesFromLogMessage(message);
                 if (throwable != null) {
                     addKeyValueInternal("exception.message", throwable.getMessage());
                     if (logger.isEnabled(LogLevel.VERBOSE)) {
@@ -496,7 +497,7 @@ public class ClientLogger {
                     }
                 }
 
-                logger.log(level, message, logger.isEnabled(LogLevel.VERBOSE) ? throwable : null, attributes, context);
+                logger.log(Instant.now(), level, message, logger.isEnabled(LogLevel.VERBOSE) ? throwable : null, attributes, context);
             }
             return throwable;
         }
@@ -598,39 +599,5 @@ public class ClientLogger {
         public String toString() {
             return caseSensitive;
         }
-    }
-
-    /**
-     * Removes CR, LF or CRLF pattern in the {@code logMessage}.
-     *
-     * @param logMessage The log message to sanitize.
-     * @return The updated logMessage.
-     */
-    private static String removeNewLinesFromLogMessage(String logMessage) {
-        if (CoreUtils.isNullOrEmpty(logMessage)) {
-            return logMessage;
-        }
-
-        StringBuilder sb = null;
-        int prevStart = 0;
-
-        for (int i = 0; i < logMessage.length(); i++) {
-            if (logMessage.charAt(i) == CR || logMessage.charAt(i) == LF) {
-                if (sb == null) {
-                    sb = new StringBuilder(logMessage.length());
-                }
-
-                if (prevStart != i) {
-                    sb.append(logMessage, prevStart, i);
-                }
-                prevStart = i + 1;
-            }
-        }
-
-        if (sb == null) {
-            return logMessage;
-        }
-        sb.append(logMessage, prevStart, logMessage.length());
-        return sb.toString();
     }
 }

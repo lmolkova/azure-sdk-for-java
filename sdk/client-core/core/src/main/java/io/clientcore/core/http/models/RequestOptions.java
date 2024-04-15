@@ -116,7 +116,7 @@ public final class RequestOptions {
     private ClientLogger logger;
     private Consumer<HttpRequest> requestCallback = request -> {
     };
-    private Context context;
+    private Context context = Context.EMPTY;
     private ResponseBodyMode responseBodyMode;
 
     /**

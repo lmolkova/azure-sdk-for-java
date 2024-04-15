@@ -8,6 +8,7 @@ import io.clientcore.core.util.Context;
 import io.clientcore.core.util.LoggerSpi;
 import io.clientcore.core.util.LoggingOptions;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,6 +23,7 @@ import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import java.util.logging.StreamHandler;
 
 import static io.clientcore.core.util.ClientLogger.LogLevel;
@@ -29,31 +31,39 @@ import static io.clientcore.core.util.ClientLogger.LogLevel;
 /**
  * This class is an internal implementation of logger.
  */
-public final class DefaultLogger implements LoggerSpi {
+public final class JULLogger implements LoggerSpi {
     private static final char CR = '\r';
     private static final char LF = '\n';
     private static final String SDK_LOG_MESSAGE_KEY = "{\"message\":\"";
     private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
     private final String canonicalName;
-    private final LogLevel logLevel;
-    private final PrintStream logLocation;
+    private final Logger logger;
+    private final StreamHandler streamHandler;
 
-    public DefaultLogger(String className, LoggingOptions options) {
+    public JULLogger(String className, LoggingOptions options) {
         Class<?> clazz = getClassPathFromClassName(className);
         canonicalName = clazz == null ? className : clazz.getCanonicalName();
-        logLevel = options.getLogLevel();
-        logLocation = getPrintStream(options);
+        logger = Logger.getLogger(canonicalName);
+        streamHandler = configureCaptureStreamIfNeeded(logger, options);
     }
 
-    private static PrintStream getPrintStream(LoggingOptions options) {
+    private static StreamHandler configureCaptureStreamIfNeeded(Logger logger, LoggingOptions options) {
+        PrintStream logLocation = System.out;
         // this is effectively a test code - it allows to capture the logs into a stream
         // which is only possible via specific logging options
         if (options instanceof DefaultLogger.Options) {
             DefaultLogger.Options defaultOptions = (DefaultLogger.Options) options;
-            return defaultOptions.getLogLocation() == null ? System.out : defaultOptions.getLogLocation();
-        }
+            logLocation = defaultOptions.getLogLocation() == null ? System.out : defaultOptions.getLogLocation();
 
-        return System.out;
+
+            StreamHandler streamHandler = new StreamHandler(logLocation, new SimpleFormatter());
+            // this allows handler to get all messages that are enabled on the logger.
+            streamHandler.setLevel(Level.ALL);
+            logger.addHandler(streamHandler);
+
+            return streamHandler;
+        }
+        return null;
     }
 
     private static Class<?> getClassPathFromClassName(String className) {
@@ -66,54 +76,48 @@ public final class DefaultLogger implements LoggerSpi {
         }
     }
 
+
     public String getName() {
         return canonicalName;
     }
 
     @Override
     public boolean isEnabled(LogLevel level) {
-        if (level == null || level == LogLevel.NOTSET) {
+        if (level == null) {
             return false;
         }
-        return level.compareTo(logLevel) >= 0;
-    }
-
-    private static final String getLevelName(LogLevel level) {
         switch (level) {
-            case ERROR:
-                return "ERROR";
-            case WARNING:
-                return "WARNING";
-            case INFORMATIONAL:
-                return "INFO";
             case VERBOSE:
-                return "VERBOSE";
+                return logger.isLoggable(Level.FINE);
+            case INFORMATIONAL:
+                return logger.isLoggable(Level.INFO);
+            case WARNING:
+                return logger.isLoggable(Level.WARNING);
+            case ERROR:
+                return logger.isLoggable(Level.SEVERE);
             default:
-                return "NOTSET";
+                return false;
         }
     }
+
+    @SuppressWarnings("deprecation")
     @Override
     public void log(Instant eventTime, LogLevel level, String body, Throwable throwable, List<LoggingAttribute> attributes, Context context) {
-        if (isEnabled(level)) {
-            String dateTime = getFormattedDate();
-            String threadName = Thread.currentThread().getName();
-            // Use a larger initial buffer for the StringBuilder as it defaults to 16 and non-empty information is expected
-            // to be much larger than that. This will reduce the amount of resizing and copying needed to be done.
-            StringBuilder stringBuilder = new StringBuilder(256);
-            stringBuilder.append(dateTime)
-                .append(OPEN_BRACKET)
-                .append(threadName)
-                .append(CLOSE_BRACKET)
-                .append(OPEN_BRACKET)
-                .append(getLevelName(level))
-                .append(CLOSE_BRACKET)
-                .append(WHITESPACE)
-                .append(canonicalName)
-                .append(HYPHEN)
-                .append(getMessageWithContext(attributes, body))
-                .append(System.lineSeparator());
+        Level julLevel = toJulLevel(level);
+        if (logger.isLoggable(julLevel)) {
+            LogRecord record = new LogRecord(julLevel, getMessageWithContext(attributes, body));
+            record.setThrown(logger.isLoggable(Level.FINE) ? throwable : null);
+            record.setLoggerName(canonicalName);
+            record.setSourceClassName(canonicalName);
 
-            logLocation.print(stringBuilder);
+            // TODO:
+            record.setMillis(eventTime.toEpochMilli());
+            //record.setInstant(eventTime);
+
+            logger.log(record);
+            if (streamHandler != null) {
+                streamHandler.flush();
+            }
         }
     }
 
@@ -160,6 +164,25 @@ public final class DefaultLogger implements LoggerSpi {
         return value instanceof Boolean || value instanceof Number;
     }
 
+    private static Level toJulLevel(LogLevel level) {
+        if (level == null) {
+            return null;
+        }
+
+        switch (level) {
+            case VERBOSE:
+                return Level.FINE;
+            case INFORMATIONAL:
+                return Level.INFO;
+            case WARNING:
+                return Level.WARNING;
+            case ERROR:
+                return Level.SEVERE;
+            default:
+                return Level.OFF;
+        }
+    }
+
     /**
      * Removes CR, LF or CRLF pattern in the {@code logMessage}.
      *
@@ -192,100 +215,5 @@ public final class DefaultLogger implements LoggerSpi {
         }
         sb.append(logMessage, prevStart, logMessage.length());
         return sb.toString();
-    }
-
-    // The template for the log message:
-    // YYYY-MM-DD HH:MM:ss.SSS [thread] [level] classpath - message
-    // E.g: 2020-01-09 12:35:14.232 [main] [WARN] com.azure.core.DefaultLogger - This is my log message.
-    private static final String WHITESPACE = " ";
-    private static final String HYPHEN = " - ";
-    private static final String OPEN_BRACKET = " [";
-    private static final String CLOSE_BRACKET = "]";
-
-    /**
-     * Get the current time in Local time zone.
-     *
-     * @return The current time in {@code DATE_FORMAT}
-     */
-    private static String getFormattedDate() {
-        LocalDateTime now = LocalDateTime.now();
-
-        // yyyy-MM-dd HH:mm:ss.SSS
-        // 23 characters that will be ASCII
-        byte[] bytes = new byte[23];
-
-        // yyyy-
-        int year = now.getYear();
-        int round = year / 1000;
-        bytes[0] = (byte) ('0' + round);
-        year = year - (1000 * round);
-        round = year / 100;
-        bytes[1] = (byte) ('0' + round);
-        year = year - (100 * round);
-        round = year / 10;
-        bytes[2] = (byte) ('0' + round);
-        bytes[3] = (byte) ('0' + (year - (10 * round)));
-        bytes[4] = '-';
-
-        // MM-
-        zeroPad(now.getMonthValue(), bytes, 5);
-        bytes[7] = '-';
-
-        // dd
-        zeroPad(now.getDayOfMonth(), bytes, 8);
-        bytes[10] = ' ';
-
-        // HH:
-        zeroPad(now.getHour(), bytes, 11);
-        bytes[13] = ':';
-
-        // mm:
-        zeroPad(now.getMinute(), bytes, 14);
-        bytes[16] = ':';
-
-        // ss.
-        zeroPad(now.getSecond(), bytes, 17);
-        bytes[19] = '.';
-
-        // SSS
-        int millis = now.get(ChronoField.MILLI_OF_SECOND);
-        round = millis / 100;
-        bytes[20] = (byte) ('0' + round);
-        millis = millis - (100 * round);
-        round = millis / 10;
-        bytes[21] = (byte) ('0' + round);
-        bytes[22] = (byte) ('0' + (millis - (10 * round)));
-
-        // Use UTF-8 as it's more performant than ASCII in Java 8
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    private static void zeroPad(int value, byte[] bytes, int index) {
-        if (value < 10) {
-            bytes[index++] = '0';
-            bytes[index] = (byte) ('0' + value);
-        } else {
-            int high = value / 10;
-            bytes[index++] = (byte) ('0' + high);
-            bytes[index] = (byte) ('0' + (value - (10 * high)));
-        }
-    }
-
-    public static final class Options extends LoggingOptions {
-        private final PrintStream logLocation;
-        private final LogLevel logLevel;
-        public Options(LogLevel logLevel, PrintStream logLocation) {
-            this.logLocation = logLocation;
-            this.logLevel = logLevel;
-        }
-
-        public PrintStream getLogLocation() {
-            return logLocation;
-        }
-
-        @Override
-        public LogLevel getLogLevel() {
-            return logLevel;
-        }
     }
 }
