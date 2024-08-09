@@ -15,6 +15,8 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_CLIENT_ENCRYPTION_KEY_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_CLIENT_ENCRYPTION_KEY_OPERATION;
 
 /**
  * The type Cosmos async clientEncryptionKey. This contains methods to operate on a cosmos clientEncryptionKey asynchronously
@@ -57,7 +59,6 @@ public final class CosmosAsyncClientEncryptionKey {
     }
 
     private Mono<CosmosClientEncryptionKeyResponse> readInternal(Context context, RequestOptions requestOptions) {
-        String spanName = "readClientEncryptionKey." + getId();
         Mono<CosmosClientEncryptionKeyResponse> responseMono =
             this.database
                 .getDocClientWrapper()
@@ -73,7 +74,7 @@ public final class CosmosAsyncClientEncryptionKey {
             .traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_CLIENT_ENCRYPTION_KEY_OPERATION,
             database.getId(),
             null,
             client,
@@ -97,7 +98,6 @@ public final class CosmosAsyncClientEncryptionKey {
         CosmosClientEncryptionKeyProperties keyProperties,
         Context context) {
 
-        String spanName = "replaceClientEncryptionKey." + getId();
         Mono<CosmosClientEncryptionKeyResponse> responseMono =
             this.database
                 .getDocClientWrapper()
@@ -111,7 +111,7 @@ public final class CosmosAsyncClientEncryptionKey {
         return database.getClient().getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_CLIENT_ENCRYPTION_KEY_OPERATION,
             database.getId(),
             null,
             client,

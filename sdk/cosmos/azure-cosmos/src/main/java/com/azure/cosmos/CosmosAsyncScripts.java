@@ -26,6 +26,15 @@ import com.azure.cosmos.util.UtilBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_STORED_PROCEDURE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_TRIGGER_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_USER_DEFINED_FUNCTION_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_STORED_PROCEDURES_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_TRIGGERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_USER_DEFINED_FUNCTIONS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_STORED_PROCEDURES_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_TRIGGERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_USER_DEFINED_FUNCTIONS_OPERATION;
 
 /**
  * The type Cosmos async scripts. This contains async methods to operate on cosmos scripts like UDFs, StoredProcedures
@@ -118,18 +127,17 @@ public class CosmosAsyncScripts {
      */
     CosmosPagedFlux<CosmosStoredProcedureProperties> readAllStoredProcedures(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllStoredProcedures." + this.container.getId();
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                READ_ALL_STORED_PROCEDURES_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.StoredProcedure,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, READ_ALL_STORED_PROCEDURES_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -251,18 +259,17 @@ public class CosmosAsyncScripts {
      */
     CosmosPagedFlux<CosmosUserDefinedFunctionProperties> readAllUserDefinedFunctions(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllUserDefinedFunctions." + this.container.getId();
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                READ_ALL_USER_DEFINED_FUNCTIONS_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.UserDefinedFunction,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, READ_ALL_USER_DEFINED_FUNCTIONS_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -383,18 +390,17 @@ public class CosmosAsyncScripts {
      */
     CosmosPagedFlux<CosmosTriggerProperties> readAllTriggers(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllTriggers." + this.container.getId();
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                READ_ALL_TRIGGERS_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.Trigger,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, READ_ALL_TRIGGERS_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -466,18 +472,17 @@ public class CosmosAsyncScripts {
         SqlQuerySpec querySpec,
         CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryStoredProcedures." + this.container.getId();
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                QUERY_STORED_PROCEDURES_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.StoredProcedure,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, QUERY_STORED_PROCEDURES_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -497,18 +502,17 @@ public class CosmosAsyncScripts {
         SqlQuerySpec querySpec,
         CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryUserDefinedFunctions." + this.container.getId();
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                QUERY_USER_DEFINED_FUNCTIONS_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.UserDefinedFunction,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, QUERY_USER_DEFINED_FUNCTIONS_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -529,24 +533,17 @@ public class CosmosAsyncScripts {
         SqlQuerySpec querySpec,
         CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName;
-            if (isParameterised) {
-                spanName = "queryTriggers." + this.container.getId() + "." + querySpec.getQueryText();
-            } else {
-                spanName = "queryTriggers." + this.container.getId();
-            }
-
             CosmosAsyncClient client = this.container.getDatabase().getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                QUERY_TRIGGERS_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 ResourceType.Trigger,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, QUERY_TRIGGERS_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -565,7 +562,6 @@ public class CosmosAsyncScripts {
     private Mono<CosmosStoredProcedureResponse> createStoredProcedureInternal(StoredProcedure sProc,
                                                                            CosmosStoredProcedureRequestOptions options,
                                                                            Context context) {
-        String spanName = "createStoredProcedure." + container.getId();
         RequestOptions nonNullRequestOptions = options != null
             ? ModelBridgeInternal.toRequestOptions(options)
             : new RequestOptions();
@@ -575,7 +571,7 @@ public class CosmosAsyncScripts {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_STORED_PROCEDURE_OPERATION,
             database.getId(),
             this.container.getId(),
             client,
@@ -599,7 +595,6 @@ public class CosmosAsyncScripts {
     private Mono<CosmosUserDefinedFunctionResponse> createUserDefinedFunctionInternal(
         UserDefinedFunction udf,
         Context context) {
-        String spanName = "createUserDefinedFunction." + container.getId();
         Mono<CosmosUserDefinedFunctionResponse> responseMono = createUserDefinedFunctionInternal(udf);
 
         CosmosAsyncClient client = database.getClient();
@@ -607,7 +602,7 @@ public class CosmosAsyncScripts {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_USER_DEFINED_FUNCTION_OPERATION,
             database.getId(),
             this.container.getId(),
             client,
@@ -625,7 +620,6 @@ public class CosmosAsyncScripts {
     }
 
     private Mono<CosmosTriggerResponse> createTriggerInternal(CosmosTriggerProperties properties, Context context) {
-        String spanName = "createTrigger." + container.getId();
         Mono<CosmosTriggerResponse> responseMono = createTriggerInternal(properties);
 
         CosmosAsyncClient client = database.getClient();
@@ -633,7 +627,7 @@ public class CosmosAsyncScripts {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_TRIGGER_OPERATION,
             database.getId(),
             this.container.getId(),
             client,

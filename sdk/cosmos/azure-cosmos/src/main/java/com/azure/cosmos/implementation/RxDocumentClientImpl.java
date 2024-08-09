@@ -1128,14 +1128,14 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
                                     diagnosticsFactory, resourceLink, sqlQuery, state.getQueryOptions(), klass, resourceTypeEnum, queryClient, correlationActivityId, isQueryCancelledOnTimeout),
                                 invalidPartitionExceptionRetryPolicy
                             ).flatMap(result -> {
-                                diagnosticsFactory.merge(state.getDiagnosticsContextSnapshot());
+                                diagnosticsFactory.merge(state.getCtx());
                                 return Mono.just(result);
                             })
                             .onErrorMap(throwable -> {
-                                diagnosticsFactory.merge(state.getDiagnosticsContextSnapshot());
+                                diagnosticsFactory.merge(state.getCtx());
                                 return throwable;
                             })
-                            .doOnCancel(() -> diagnosticsFactory.merge(state.getDiagnosticsContextSnapshot()));
+                            .doOnCancel(() -> diagnosticsFactory.merge(state.getCtx()));
     }
 
     private <T> Flux<FeedResponse<T>> createQueryInternal(
@@ -3538,8 +3538,7 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
                                            diagnosticsAccessor.addClientSideDiagnosticsToFeed(
                                                aggregatedDiagnostics, aggregateRequestStatistics);
 
-                                           state.mergeDiagnosticsContext();
-                                           CosmosDiagnosticsContext ctx = state.getDiagnosticsContextSnapshot();
+                                           CosmosDiagnosticsContext ctx = state.getCtx();
                                            if (ctx != null) {
                                                ctxAccessor.recordOperation(
                                                    ctx,
@@ -3575,8 +3574,7 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
                                 CosmosException cosmosException = (CosmosException)throwable;
                                 CosmosDiagnostics diagnostics = cosmosException.getDiagnostics();
                                 if (diagnostics != null) {
-                                    state.mergeDiagnosticsContext();
-                                    CosmosDiagnosticsContext ctx = state.getDiagnosticsContextSnapshot();
+                                    CosmosDiagnosticsContext ctx = state.getCtx();
                                     if (ctx != null) {
                                         ctxAccessor.recordOperation(
                                             ctx,
@@ -3590,7 +3588,7 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
                                         diagnosticsAccessor
                                             .setDiagnosticsContext(
                                                 diagnostics,
-                                                state.getDiagnosticsContextSnapshot());
+                                                state.getCtx());
                                     }
                                 }
 
@@ -4050,7 +4048,7 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
 
         CosmosChangeFeedRequestOptionsImpl optionsImpl = changeFeedOptionsAccessor.getImpl(clonedOptions);
 
-        CosmosOperationDetails operationDetails = operationDetailsAccessor.create(optionsImpl, state.getDiagnosticsContextSnapshot());
+        CosmosOperationDetails operationDetails = operationDetailsAccessor.create(optionsImpl, state.getCtx());
         this.operationPolicies.forEach(policy -> {
             try {
                 policy.process(operationDetails);
@@ -4059,7 +4057,7 @@ public class RxDocumentClientImpl implements AsyncDocumentClient, IAuthorization
                 throw(exception);
             }
         });
-        ctxAccessor.setRequestOptions(state.getDiagnosticsContextSnapshot(), optionsImpl);
+        ctxAccessor.setRequestOptions(state.getCtx(), optionsImpl);
         return queryDocumentChangeFeed(collection, clonedOptions, classOfT);
     }
 

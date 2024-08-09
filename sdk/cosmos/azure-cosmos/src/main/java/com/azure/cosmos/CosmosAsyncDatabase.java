@@ -39,6 +39,21 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_CLIENT_ENCRYPTION_KEY_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_CONTAINER_IF_NOT_EXISTS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_CONTAINER_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_USER_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_DATABASE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_CLIENT_ENCRYPTION_KEYS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_CONTAINERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_USERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_CLIENT_ENCRYPTION_KEYS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_CONTAINERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_USERS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_DATABASE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_THROUGHPUT_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_THROUGHPUT_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.UPSERT_USER_OPERATION;
 
 /**
  * Perform read and delete databases, update database throughput, and perform operations on child resources
@@ -634,21 +649,17 @@ public class CosmosAsyncDatabase {
     public CosmosPagedFlux<CosmosContainerProperties> readAllContainers(CosmosQueryRequestOptions options) {
         CosmosQueryRequestOptions requestOptions = options == null ? new CosmosQueryRequestOptions() : options;
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllContainers." + this.getId();
+            String operationName = READ_ALL_CONTAINERS_OPERATION;
             CosmosAsyncClient client = this.getClient();
-            String operationId = ImplementationBridgeHelpers
-                .CosmosQueryRequestOptionsHelper
-                .getCosmosQueryRequestOptionsAccessor()
-                .getQueryNameOrDefault(requestOptions, spanName);
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.DocumentCollection,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(requestOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(requestOptions, operationName),
                 requestOptions,
                 pagedFluxOptions
             );
@@ -936,18 +947,18 @@ public class CosmosAsyncDatabase {
      */
     CosmosPagedFlux<CosmosUserProperties> readAllUsers(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllUsers." + this.getId();
+            String operationName = READ_ALL_USERS_OPERATION;
             CosmosAsyncClient client = this.getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.User,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, operationName),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -999,18 +1010,18 @@ public class CosmosAsyncDatabase {
      */
     public CosmosPagedFlux<CosmosClientEncryptionKeyProperties> readAllClientEncryptionKeys(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllClientEncryptionKeys." + this.getId();
+            String operationName = READ_ALL_CLIENT_ENCRYPTION_KEYS_OPERATION;
             CosmosAsyncClient client = this.getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.ClientEncryptionKey,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, operationName),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -1100,18 +1111,18 @@ public class CosmosAsyncDatabase {
         CosmosQueryRequestOptions options) {
 
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryClientEncryptionKeys." + this.getId();
+            String operationName = QUERY_CLIENT_ENCRYPTION_KEYS_OPERATION;
             CosmosAsyncClient client = this.getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.ClientEncryptionKey,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, operationName),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -1284,18 +1295,18 @@ public class CosmosAsyncDatabase {
     private CosmosPagedFlux<CosmosContainerProperties> queryContainersInternal(SqlQuerySpec querySpec
         , CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryContainers." + this.getId();
+            String operationName = QUERY_CONTAINERS_OPERATION;
             CosmosAsyncClient client = this.getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.DocumentCollection,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, operationName),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -1312,18 +1323,18 @@ public class CosmosAsyncDatabase {
 
     private CosmosPagedFlux<CosmosUserProperties> queryUsersInternal(SqlQuerySpec querySpec, CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryUsers." + this.getId();
+            String operationName = QUERY_USERS_OPERATION;
             CosmosAsyncClient client = this.getClient();
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 client,
-                spanName,
+                operationName,
                 getId(),
                 null,
                 ResourceType.User,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, operationName),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -1347,7 +1358,6 @@ public class CosmosAsyncDatabase {
         CosmosAsyncContainer container,
         CosmosContainerRequestOptions options,
         Context context) {
-        String spanName = "createContainerIfNotExists." + containerProperties.getId();
         Context nestedContext = context.addData(
             DiagnosticsProvider.COSMOS_CALL_DEPTH,
             DiagnosticsProvider.COSMOS_CALL_DEPTH_VAL);
@@ -1369,7 +1379,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_CONTAINER_IF_NOT_EXISTS_OPERATION,
             getId(),
             containerProperties.getId(),
             this.client,
@@ -1383,7 +1393,6 @@ public class CosmosAsyncDatabase {
         CosmosContainerProperties containerProperties,
         CosmosContainerRequestOptions options,
         Context context) {
-        String spanName = "createContainer." + containerProperties.getId();
         RequestOptions nonNullRequestOptions =
             options != null ? ModelBridgeInternal.toRequestOptions(options) : new RequestOptions();
         Mono<CosmosContainerResponse> responseMono = getDocClientWrapper()
@@ -1394,7 +1403,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_CONTAINER_OPERATION,
             getId(),
             containerProperties.getId(),
             this.client,
@@ -1405,7 +1414,6 @@ public class CosmosAsyncDatabase {
     }
 
     Mono<CosmosDatabaseResponse> readInternal(CosmosDatabaseRequestOptions options, Context context) {
-        String spanName = "readDatabase." + this.getId();
         RequestOptions nonNullRequestOptions =
             options != null ? ModelBridgeInternal.toRequestOptions(options) : new RequestOptions();
         Mono<CosmosDatabaseResponse> responseMono = getDocClientWrapper()
@@ -1415,7 +1423,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_DATABASE_OPERATION,
             getId(),
             null,
             this.client,
@@ -1426,7 +1434,6 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<CosmosDatabaseResponse> deleteInternal(CosmosDatabaseRequestOptions options, Context context) {
-        String spanName = "deleteDatabase." + this.getId();
         RequestOptions nonNullRequestOptions =
             options != null ? ModelBridgeInternal.toRequestOptions(options) : new RequestOptions();
         Mono<CosmosDatabaseResponse> responseMono = getDocClientWrapper()
@@ -1436,7 +1443,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            DELETE_DATABASE_OPERATION,
             getId(),
             null,
             this.client,
@@ -1447,7 +1454,6 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<CosmosUserResponse> createUserInternal(CosmosUserProperties userProperties, Context context) {
-        String spanName = "createUser." + this.getId();
         Mono<CosmosUserResponse> responseMono = getDocClientWrapper()
             .createUser(this.getLink(), ModelBridgeInternal.getV2User(userProperties), null)
             .map(ModelBridgeInternal::createCosmosUserResponse).single();
@@ -1455,7 +1461,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_USER_OPERATION,
             getId(),
             null,
             this.client,
@@ -1466,14 +1472,13 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<CosmosUserResponse> upsertUserInternal(CosmosUserProperties userProperties, Context context) {
-        String spanName = "upsertUser." + this.getId();
         Mono<CosmosUserResponse> responseMono = getDocClientWrapper()
             .upsertUser(this.getLink(), ModelBridgeInternal.getV2User(userProperties), null)
             .map(ModelBridgeInternal::createCosmosUserResponse).single();
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            UPSERT_USER_OPERATION,
             getId(),
             null,
             this.client,
@@ -1484,7 +1489,6 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<CosmosClientEncryptionKeyResponse> createClientEncryptionKeyInternal(CosmosClientEncryptionKeyProperties keyProperties, Context context) {
-        String spanName = "createClientEncryptionKey." + this.getId();
         Mono<CosmosClientEncryptionKeyResponse> responseMono =
             getDocClientWrapper()
                 .createClientEncryptionKey(
@@ -1495,7 +1499,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_CLIENT_ENCRYPTION_KEY_OPERATION,
             getId(),
             null,
             this.client,
@@ -1506,7 +1510,6 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<ThroughputResponse> replaceThroughputInternal(ThroughputProperties throughputProperties, Context context) {
-        String spanName = "replaceThroughput." + this.getId();
         Context nestedContext = context.addData(
             DiagnosticsProvider.COSMOS_CALL_DEPTH,
             DiagnosticsProvider.COSMOS_CALL_DEPTH_VAL);
@@ -1514,7 +1517,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_THROUGHPUT_OPERATION,
             getId(),
             null,
             this.client,
@@ -1528,7 +1531,7 @@ public class CosmosAsyncDatabase {
 
         QueryFeedOperationState state = new QueryFeedOperationState(
             this.getClient(),
-            "replaceThroughputInternal",
+            REPLACE_THROUGHPUT_OPERATION,
             this.getId(),
             null,
             ResourceType.Offer,
@@ -1565,7 +1568,6 @@ public class CosmosAsyncDatabase {
     }
 
     private Mono<ThroughputResponse> readThroughputInternal(Context context) {
-        String spanName = "readThroughput." + this.getId();
         Context nestedContext = context.addData(
             DiagnosticsProvider.COSMOS_CALL_DEPTH,
             DiagnosticsProvider.COSMOS_CALL_DEPTH_VAL);
@@ -1574,7 +1576,7 @@ public class CosmosAsyncDatabase {
         return this.client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_THROUGHPUT_OPERATION,
             getId(),
             null,
             this.client,
@@ -1591,7 +1593,7 @@ public class CosmosAsyncDatabase {
 
         QueryFeedOperationState state = new QueryFeedOperationState(
             this.getClient(),
-            "readThroughputInternal",
+            READ_THROUGHPUT_OPERATION,
             this.getId(),
             null,
             ResourceType.Offer,

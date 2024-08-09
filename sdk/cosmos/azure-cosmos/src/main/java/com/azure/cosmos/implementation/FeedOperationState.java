@@ -32,7 +32,6 @@ public abstract class FeedOperationState {
 
     private final CosmosAsyncClient cosmosAsyncClient;
     private final CosmosDiagnosticsThresholds thresholds;
-    private final AtomicReference<CosmosDiagnosticsContext> ctxHolder;
     private final AtomicReference<Runnable> diagnosticsFactoryResetCallback;
     private final AtomicReference<Consumer<CosmosDiagnosticsContext>> diagnosticsFactoryMergeCallback;
     private final AtomicReference<String> requestContinuation;
@@ -41,10 +40,11 @@ public abstract class FeedOperationState {
     private final AtomicReference<Double> samplingRate;
     private final AtomicBoolean isSampledOut;
     private final CosmosPagedFluxOptions fluxOptions;
+    private final CosmosDiagnosticsContext cosmosCtx;
 
     public FeedOperationState(
         CosmosAsyncClient cosmosAsyncClient,
-        String spanName,
+        String operationName,
         String dbName,
         String containerName,
         ResourceType resourceType,
@@ -76,8 +76,8 @@ public abstract class FeedOperationState {
         this.samplingRate = new AtomicReference<>(null);
         this.isSampledOut = new AtomicBoolean(false);
 
-        CosmosDiagnosticsContext cosmosCtx = ctxAccessor.create(
-            checkNotNull(spanName, "Argument 'spanName' must not be null." ),
+        this.cosmosCtx = ctxAccessor.create(
+            checkNotNull(operationName, "Argument 'operationName' must not be null." ),
             clientAccessor.getAccountTagValue(cosmosAsyncClient),
             BridgeInternal.getServiceEndpoint(this.cosmosAsyncClient),
             dbName,
@@ -92,9 +92,8 @@ public abstract class FeedOperationState {
             clientAccessor.getConnectionMode(cosmosAsyncClient),
             clientAccessor.getUserAgent(cosmosAsyncClient),
             this.sequenceNumberGenerator.incrementAndGet(),
-            fluxOptions != null ? fluxOptions.getQueryText(): null,
+            fluxOptions != null ? fluxOptions.getQuery(): null,
             requestOptions);
-        this.ctxHolder = new AtomicReference<>(cosmosCtx);
     }
 
     public void registerDiagnosticsFactory(Runnable resetCallback, Consumer<CosmosDiagnosticsContext> mergeCallback) {
@@ -109,8 +108,6 @@ public abstract class FeedOperationState {
     public void setSamplingRateSnapshot(double samplingRateSnapshot, boolean isSampledOut) {
         this.samplingRate.set(samplingRateSnapshot);
         this.isSampledOut.set(isSampledOut);
-        CosmosDiagnosticsContext ctxSnapshot = this.ctxHolder.get();
-        ctxAccessor.setSamplingRateSnapshot(ctxSnapshot, samplingRateSnapshot, isSampledOut);
     }
 
     // Can return null
@@ -141,62 +138,11 @@ public abstract class FeedOperationState {
         return clientAccessor.getDiagnosticsProvider(this.cosmosAsyncClient);
     }
 
-    public String getSpanName() {
-        return ctxAccessor.getSpanName(this.ctxHolder.get());
+    public String getOperationName() {
+        return ctxAccessor.getOperationName(cosmosCtx);
     }
 
-    public CosmosDiagnosticsContext getDiagnosticsContextSnapshot() {
-        return this.ctxHolder.get();
-    }
-
-    public void resetDiagnosticsContext() {
-        CosmosDiagnosticsContext snapshot = this.ctxHolder.get();
-        if (snapshot == null) {
-            throw new IllegalStateException("CosmosDiagnosticsContext must never be null");
-        }
-
-        final CosmosDiagnosticsContext cosmosCtx = ctxAccessor.create(
-            ctxAccessor.getSpanName(snapshot),
-            ctxAccessor.getEndpoint(snapshot),
-            BridgeInternal.getServiceEndpoint(this.cosmosAsyncClient),
-            snapshot.getDatabaseName(),
-            snapshot.getContainerName(),
-            ctxAccessor.getResourceType(snapshot),
-            ctxAccessor.getOperationType(snapshot),
-            snapshot.getOperationId(),
-            snapshot.getEffectiveConsistencyLevel(),
-            this.maxItemCount.get(),
-            this.thresholds,
-            snapshot.getTrackingId(),
-            snapshot.getConnectionMode(),
-            snapshot.getUserAgent(),
-            this.sequenceNumberGenerator.incrementAndGet(),
-            fluxOptions.getQueryText(),
-            ctxAccessor.getRequestOptions(snapshot)
-    );
-        Double samplingRateSnapshot = this.samplingRate.get();
-        if (samplingRateSnapshot != null) {
-            ctxAccessor.setSamplingRateSnapshot(cosmosCtx, samplingRateSnapshot, this.isSampledOut.get());
-        }
-
-        this.ctxHolder.set(cosmosCtx);
-
-        if (this.diagnosticsFactoryResetCallback != null) {
-            Runnable resetCallbackSnapshot = this.diagnosticsFactoryResetCallback.get();
-            if (resetCallbackSnapshot != null) {
-                resetCallbackSnapshot.run();
-            }
-        }
-    }
-
-    public void mergeDiagnosticsContext() {
-        final CosmosDiagnosticsContext cosmosCtx = this.ctxHolder.get();
-
-        if (this.diagnosticsFactoryMergeCallback != null) {
-            Consumer<CosmosDiagnosticsContext> mergeCallbackSnapshot = this.diagnosticsFactoryMergeCallback.get();
-            if (mergeCallbackSnapshot != null) {
-                mergeCallbackSnapshot.accept(cosmosCtx);
-            }
-        }
+    public CosmosDiagnosticsContext getCtx() {
+        return this.cosmosCtx;
     }
 }

@@ -63,6 +63,10 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_DATABASE_IF_NOT_EXISTS_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.CREATE_DATABASE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.QUERY_DATABASES_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_ALL_DATABASES_OPERATION;
 import static com.azure.cosmos.implementation.guava25.base.Preconditions.checkNotNull;
 
 /**
@@ -465,17 +469,16 @@ public final class CosmosAsyncClient implements Closeable {
      */
     CosmosPagedFlux<CosmosDatabaseProperties> readAllDatabases(CosmosQueryRequestOptions options) {
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "readAllDatabases";
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 this,
-                spanName,
+                READ_ALL_DATABASES_OPERATION,
                 null,
                 null,
                 ResourceType.Database,
                 OperationType.ReadFeed,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, READ_ALL_DATABASES_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -642,17 +645,16 @@ public final class CosmosAsyncClient implements Closeable {
         CosmosQueryRequestOptions options){
 
         return UtilBridgeInternal.createCosmosPagedFlux(pagedFluxOptions -> {
-            String spanName = "queryDatabases";
             CosmosQueryRequestOptions nonNullOptions = options != null ? options : new CosmosQueryRequestOptions();
 
             QueryFeedOperationState state = new QueryFeedOperationState(
                 this,
-                spanName,
+                QUERY_DATABASES_OPERATION,
                 null,
                 null,
                 ResourceType.Database,
                 OperationType.Query,
-                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, spanName),
+                queryOptionsAccessor.getQueryNameOrDefault(nonNullOptions, QUERY_DATABASES_OPERATION),
                 nonNullOptions,
                 pagedFluxOptions
             );
@@ -670,7 +672,6 @@ public final class CosmosAsyncClient implements Closeable {
 
     private Mono<CosmosDatabaseResponse> createDatabaseIfNotExistsInternal(CosmosAsyncDatabase database,
                                                                            ThroughputProperties throughputProperties, Context context) {
-        String spanName = "createDatabaseIfNotExists." + database.getId();
         Context nestedContext = context.addData(
             DiagnosticsProvider.COSMOS_CALL_DEPTH,
             DiagnosticsProvider.COSMOS_CALL_DEPTH_VAL);
@@ -700,7 +701,7 @@ public final class CosmosAsyncClient implements Closeable {
         return this.diagnosticsProvider.traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            CREATE_DATABASE_IF_NOT_EXISTS_OPERATION,
             database.getId(),
             null,
             this,
@@ -712,7 +713,6 @@ public final class CosmosAsyncClient implements Closeable {
 
     private Mono<CosmosDatabaseResponse> createDatabaseInternal(Database database, CosmosDatabaseRequestOptions options,
                                                              Context context) {
-        String spanName = "createDatabase." + database.getId();
         RequestOptions requestOptions = ModelBridgeInternal.toRequestOptions(options);
         Mono<CosmosDatabaseResponse> responseMono = asyncDocumentClient.createDatabase(database, requestOptions)
             .map(ModelBridgeInternal::createCosmosDatabaseResponse)
@@ -721,7 +721,7 @@ public final class CosmosAsyncClient implements Closeable {
             .traceEnabledCosmosResponsePublisher(
                 responseMono,
                 context,
-                spanName,
+                CREATE_DATABASE_OPERATION,
                 database.getId(),
                 null,
                 this,

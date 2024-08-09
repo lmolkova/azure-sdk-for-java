@@ -13,6 +13,9 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_TRIGGER_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_TRIGGER_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_TRIGGER_OPERATION;
 
 /**
  * The type Cosmos async trigger. This contains methods to operate on a cosmos trigger asynchronously
@@ -106,7 +109,6 @@ public class CosmosAsyncTrigger {
     }
 
     private Mono<CosmosTriggerResponse> readInternal(Context context) {
-        String spanName = "readTrigger." + container.getId();
         Mono<CosmosTriggerResponse> responseMono = container.getDatabase()
             .getDocClientWrapper()
             .readTrigger(getLink(), null)
@@ -116,7 +118,7 @@ public class CosmosAsyncTrigger {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_TRIGGER_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,
@@ -127,7 +129,6 @@ public class CosmosAsyncTrigger {
     }
 
     private Mono<CosmosTriggerResponse> replaceInternal(CosmosTriggerProperties triggerSettings, Context context) {
-        String spanName = "replaceTrigger." + container.getId();
         Mono<CosmosTriggerResponse> responseMono = container.getDatabase()
             .getDocClientWrapper()
             .replaceTrigger(new Trigger(ModelBridgeInternal.getResource(triggerSettings).getPropertyBag()), null)
@@ -138,7 +139,7 @@ public class CosmosAsyncTrigger {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_TRIGGER_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,
@@ -149,7 +150,6 @@ public class CosmosAsyncTrigger {
     }
 
     private Mono<CosmosTriggerResponse> deleteInternal(Context context) {
-        String spanName = "deleteTrigger." + container.getId();
         Mono<CosmosTriggerResponse> responseMono = container.getDatabase()
             .getDocClientWrapper()
             .deleteTrigger(getLink(), null)
@@ -159,7 +159,7 @@ public class CosmosAsyncTrigger {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            DELETE_TRIGGER_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,

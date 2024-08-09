@@ -13,6 +13,8 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_CONFLICT_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_CONFLICT_OPERATION;
 
 /**
  * Read and delete conflicts
@@ -109,7 +111,6 @@ public final class CosmosAsyncConflict {
     }
 
     private Mono<CosmosConflictResponse> readInternal(RequestOptions options, Context context) {
-        String spanName = "readConflict." + getId();
         Mono<CosmosConflictResponse> responseMono =
             this.container.getDatabase().getDocClientWrapper().readConflict(getLink(), options)
                           .map(ModelBridgeInternal::createCosmosConflictResponse).single();
@@ -121,7 +122,7 @@ public final class CosmosAsyncConflict {
             .traceEnabledCosmosResponsePublisher(
                 responseMono,
                 context,
-                spanName,
+                READ_CONFLICT_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 client,
@@ -133,7 +134,6 @@ public final class CosmosAsyncConflict {
     }
 
     private Mono<CosmosConflictResponse> deleteInternal(RequestOptions options, Context context) {
-        String spanName = "deleteConflict." + getId();
         Mono<CosmosConflictResponse> responseMono =
             this.container.getDatabase().getDocClientWrapper().deleteConflict(getLink(), options)
                           .map(ModelBridgeInternal::createCosmosConflictResponse).single();
@@ -145,7 +145,7 @@ public final class CosmosAsyncConflict {
             .traceEnabledCosmosResponsePublisher(
                 responseMono,
                 context,
-                spanName,
+                DELETE_CONFLICT_OPERATION,
                 this.container.getDatabase().getId(),
                 this.container.getId(),
                 client,

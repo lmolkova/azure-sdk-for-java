@@ -14,6 +14,11 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_STORED_PROCEDURE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.EXECUTE_STORED_PROCEDURE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_STORED_PROCEDURE_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_STORED_PROCEDURE_OPERATION;
+
 import java.util.List;
 
 /**
@@ -180,7 +185,6 @@ public class CosmosAsyncStoredProcedure {
             options = new CosmosStoredProcedureRequestOptions();
         }
 
-        String spanName = "readStoredProcedure." + cosmosContainer.getId();
         Mono<CosmosStoredProcedureResponse> responseMono = cosmosContainer
             .getDatabase()
             .getDocClientWrapper()
@@ -193,7 +197,7 @@ public class CosmosAsyncStoredProcedure {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_STORED_PROCEDURE_OPERATION,
             cosmosContainer.getDatabase().getId(),
             cosmosContainer.getId(),
             client,
@@ -209,7 +213,6 @@ public class CosmosAsyncStoredProcedure {
             options = new CosmosStoredProcedureRequestOptions();
         }
 
-        String spanName = "deleteStoredProcedure." + cosmosContainer.getId();
         Mono<CosmosStoredProcedureResponse> responseMono = cosmosContainer.getDatabase()
             .getDocClientWrapper()
             .deleteStoredProcedure(getLink(), ModelBridgeInternal.toRequestOptions(options))
@@ -219,7 +222,7 @@ public class CosmosAsyncStoredProcedure {
 
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(responseMono,
             context,
-            spanName,
+            DELETE_STORED_PROCEDURE_OPERATION,
             cosmosContainer.getDatabase().getId(),
             cosmosContainer.getId(),
             client,
@@ -236,7 +239,6 @@ public class CosmosAsyncStoredProcedure {
             options = new CosmosStoredProcedureRequestOptions();
         }
 
-        String spanName = "executeStoredProcedure." + cosmosContainer.getId();
         Mono<CosmosStoredProcedureResponse> responseMono = cosmosContainer.getDatabase()
             .getDocClientWrapper()
             .executeStoredProcedure(getLink(), ModelBridgeInternal.toRequestOptions(options), procedureParams)
@@ -247,7 +249,7 @@ public class CosmosAsyncStoredProcedure {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            EXECUTE_STORED_PROCEDURE_OPERATION,
             cosmosContainer.getDatabase().getId(),
             cosmosContainer.getId(),
             client,
@@ -264,7 +266,6 @@ public class CosmosAsyncStoredProcedure {
             options = new CosmosStoredProcedureRequestOptions();
         }
 
-        String spanName = "replaceStoredProcedure." + cosmosContainer.getId();
         Mono<CosmosStoredProcedureResponse> responseMono = cosmosContainer.getDatabase()
             .getDocClientWrapper()
             .replaceStoredProcedure(new StoredProcedure(
@@ -277,7 +278,7 @@ public class CosmosAsyncStoredProcedure {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_STORED_PROCEDURE_OPERATION,
             cosmosContainer.getDatabase().getId(),
             cosmosContainer.getId(),
             client,

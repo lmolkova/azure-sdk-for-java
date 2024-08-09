@@ -3,6 +3,7 @@
 
 package com.azure.cosmos;
 
+import com.azure.core.util.CoreUtils;
 import com.azure.cosmos.implementation.ClientSideRequestStatistics;
 import com.azure.cosmos.implementation.CosmosDiagnosticsSystemUsageSnapshot;
 import com.azure.cosmos.implementation.DistinctClientSideRequestStatisticsCollection;
@@ -15,6 +16,7 @@ import com.azure.cosmos.implementation.ResourceType;
 import com.azure.cosmos.implementation.Utils;
 import com.azure.cosmos.implementation.directconnectivity.StoreResponseDiagnostics;
 import com.azure.cosmos.implementation.directconnectivity.StoreResultDiagnostics;
+import com.azure.cosmos.models.SqlQuerySpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,6 +34,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.azure.core.util.CoreUtils.isNullOrEmpty;
 import static com.azure.cosmos.implementation.guava25.base.Preconditions.checkNotNull;
 import static com.azure.cosmos.implementation.guava25.base.Preconditions.checkState;
 
@@ -45,7 +48,7 @@ public final class CosmosDiagnosticsContext {
 
     private final static ObjectMapper mapper = Utils.getSimpleObjectMapper();
 
-    private final String spanName;
+    private final String operationName;
     private final String accountName;
     private final String endpoint;
     private final String databaseName;
@@ -86,11 +89,11 @@ public final class CosmosDiagnosticsContext {
 
     private final Integer sequenceNumber;
 
-    private String queryStatement;
+    private SqlQuerySpec querySpec;
     private OverridableRequestOptions requestOptions;
 
     CosmosDiagnosticsContext(
-        String spanName,
+        String operationName,
         String accountName,
         String endpoint,
         String databaseName,
@@ -105,10 +108,10 @@ public final class CosmosDiagnosticsContext {
         String connectionMode,
         String userAgent,
         Integer sequenceNumber,
-        String queryStatement,
+        SqlQuerySpec querySpec,
         OverridableRequestOptions requestOptions) {
 
-        checkNotNull(spanName, "Argument 'spanName' must not be null.");
+        checkNotNull(operationName, "Argument 'operationName' must not be null.");
         checkNotNull(accountName, "Argument 'accountName' must not be null.");
         checkNotNull(endpoint, "Argument 'endpoint' must not be null.");
         checkNotNull(resourceType, "Argument 'resourceType' must not be null.");
@@ -118,7 +121,7 @@ public final class CosmosDiagnosticsContext {
         checkNotNull(connectionMode, "Argument 'connectionMode' must not be null.");
         checkNotNull(userAgent, "Argument 'userAgent' must not be null.");
 
-        this.spanName = spanName;
+        this.operationName = operationName;
         this.accountName = accountName;
         this.endpoint = endpoint;
         this.databaseName = databaseName != null ? databaseName : "";
@@ -126,7 +129,7 @@ public final class CosmosDiagnosticsContext {
         this.resourceType = resourceType;
         this.resourceTypeString = resourceType.toString();
         this.operationType = operationType;
-        this.operationTypeString = operationType.toString();
+        this.operationTypeString = operationTypeToString(operationType);
         this.operationId = operationId != null ? operationId : "";
         this.diagnostics = new ConcurrentLinkedDeque<>();
         this.consistencyLevel = consistencyLevel;
@@ -137,7 +140,7 @@ public final class CosmosDiagnosticsContext {
         this.connectionMode = connectionMode;
         this.sequenceNumber = sequenceNumber;
         this.isSampledOut = false;
-        this.queryStatement = queryStatement;
+        this.querySpec = querySpec;
         this.requestOptions = requestOptions;
     }
 
@@ -260,16 +263,16 @@ public final class CosmosDiagnosticsContext {
      * The span name as a logical identifier for an operation
      * @return the span name as a logical identifier for an operation
      */
-    String getSpanName() {
-        return this.spanName;
+    String getOperationName() {
+        return this.operationName;
     }
 
     /**
      * The query statement send by client
      * @return the query statement
      */
-    public String getQueryStatement() {
-        return this.queryStatement;
+    public SqlQuerySpec getQuery() {
+        return this.querySpec;
     }
 
     /**
@@ -317,7 +320,7 @@ public final class CosmosDiagnosticsContext {
             return;
         }
 
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             if (this.samplingRateSnapshot != null) {
                 diagAccessor.setSamplingRateSnapshot(cosmosDiagnostics, this.samplingRateSnapshot);
             }
@@ -422,7 +425,7 @@ public final class CosmosDiagnosticsContext {
      * @return the system usage
      */
     public Map<String, Object> getSystemUsage() {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             Map<String, Object> snapshot = this.systemUsage;
             if (snapshot != null) {
                 return snapshot;
@@ -458,19 +461,19 @@ public final class CosmosDiagnosticsContext {
     }
 
     void addRequestCharge(float requestCharge) {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             this.totalRequestCharge += requestCharge;
         }
     }
 
     void addRequestSize(int bytes) {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             this.maxRequestSize = Math.max(this.maxRequestSize, bytes);
         }
     }
 
     void addResponseSize(int bytes) {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             this.maxResponseSize = Math.max(this.maxResponseSize, bytes);
         }
     }
@@ -513,7 +516,7 @@ public final class CosmosDiagnosticsContext {
     }
 
     void startOperation() {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             checkState(
                 this.startTime == null,
                 "Method 'startOperation' must not be called multiple times.");
@@ -529,15 +532,13 @@ public final class CosmosDiagnosticsContext {
                                       Double requestCharge,
                                       CosmosDiagnostics diagnostics,
                                       Throwable finalError) {
-        synchronized (this.spanName) {
-            boolean hasCompletedOperation = this.isCompleted.compareAndSet(false, true);
-            if (hasCompletedOperation) {
-                this.recordOperation(
-                    statusCode, subStatusCode, actualItemCount, requestCharge, diagnostics, finalError);
-            }
-
-            return hasCompletedOperation;
+        boolean hasCompletedOperation = this.isCompleted.compareAndSet(false, true);
+        if (hasCompletedOperation) {
+            this.recordOperation(
+                statusCode, subStatusCode, actualItemCount, requestCharge, diagnostics, finalError);
         }
+
+        return hasCompletedOperation;
     }
 
     void recordOperation(int statusCode,
@@ -547,7 +548,7 @@ public final class CosmosDiagnosticsContext {
                                       CosmosDiagnostics diagnostics,
                                       Throwable finalError) {
 
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             this.statusCode = statusCode;
             this.subStatusCode = subStatusCode;
             this.finalError = finalError;
@@ -576,7 +577,7 @@ public final class CosmosDiagnosticsContext {
     }
 
     void setSamplingRateSnapshot(double samplingRate, boolean isSampledOut) {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             this.samplingRateSnapshot = samplingRate;
             this.isSampledOut = isSampledOut;
             for (CosmosDiagnostics d : this.diagnostics) {
@@ -592,7 +593,7 @@ public final class CosmosDiagnosticsContext {
     String getRequestDiagnostics() {
         ObjectNode ctxNode = mapper.createObjectNode();
 
-        ctxNode.put("spanName", this.spanName);
+        ctxNode.put("operationName", this.operationName);
         ctxNode.put("account", this.accountName);
         ctxNode.put("db", this.databaseName);
         if (!this.collectionName.isEmpty()) {
@@ -630,8 +631,8 @@ public final class CosmosDiagnosticsContext {
             ctxNode.put("actualItems", this.actualItemCount.get());
         }
 
-        if (this.queryStatement != null && queryStatement.length() > 0) {
-            ctxNode.put("queryStatement", this.queryStatement);
+        if (this.querySpec != null && isNullOrEmpty(querySpec.getQueryText())) {
+            ctxNode.put("queryStatement", this.querySpec.getQueryText());
         }
 
         if (this.finalError != null) {
@@ -682,7 +683,7 @@ public final class CosmosDiagnosticsContext {
             return snapshot;
         }
 
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             snapshot = this.cachedRequestDiagnostics;
             if (snapshot != null) {
                 return snapshot;
@@ -887,7 +888,7 @@ public final class CosmosDiagnosticsContext {
      * individual requests issued in the transport layer to process this operation.
      */
     public Collection<CosmosDiagnosticsRequestInfo> getRequestInfo() {
-        synchronized (this.spanName) {
+        synchronized (this.operationName) {
             ArrayList<CosmosDiagnosticsRequestInfo> snapshot = this.requestInfo;
             if (snapshot != null) {
                 return snapshot;
@@ -948,7 +949,7 @@ public final class CosmosDiagnosticsContext {
                     .CosmosDiagnosticsContextAccessor() {
 
                     @Override
-                    public CosmosDiagnosticsContext create(String spanName, String account, String endpoint,
+                    public CosmosDiagnosticsContext create(String operationName, String account, String endpoint,
                                                            String databaseId,String containerId,
                                                            ResourceType resourceType, OperationType operationType,
                                                            String operationId,
@@ -956,11 +957,11 @@ public final class CosmosDiagnosticsContext {
                                                            CosmosDiagnosticsThresholds thresholds, String trackingId,
                                                            String connectionMode, String userAgent,
                                                            Integer sequenceNumber,
-                                                           String queryStatement,
+                                                           SqlQuerySpec querySpec,
                                                            OverridableRequestOptions requestOptions) {
 
                         return new CosmosDiagnosticsContext(
-                            spanName,
+                            operationName,
                             account,
                             endpoint,
                             databaseId,
@@ -975,7 +976,7 @@ public final class CosmosDiagnosticsContext {
                             connectionMode,
                             userAgent,
                             sequenceNumber,
-                            queryStatement,
+                            querySpec,
                             requestOptions
                             );
                     }
@@ -1074,9 +1075,9 @@ public final class CosmosDiagnosticsContext {
                     }
 
                     @Override
-                    public String getSpanName(CosmosDiagnosticsContext ctx) {
+                    public String getOperationName(CosmosDiagnosticsContext ctx) {
                         checkNotNull(ctx, "Argument 'ctx' must not be null.");
-                        return ctx.getSpanName();
+                        return ctx.getOperationName();
                     }
 
                     @Override
@@ -1103,10 +1104,47 @@ public final class CosmosDiagnosticsContext {
                     }
 
                     @Override
-                    public String getQueryStatement(CosmosDiagnosticsContext ctx) {
+                    public SqlQuerySpec getQuery(CosmosDiagnosticsContext ctx) {
                         checkNotNull(ctx, "Argument 'ctx' must not be null.");
-                        return ctx.getQueryStatement();
+                        return ctx.getQuery();
                     }
                 });
+    }
+
+    private static String operationTypeToString(OperationType operationType) {
+        if (operationType == null) {
+            return null;
+        }
+
+        switch (operationType) {
+            case Batch:
+                return "batch";
+            case Create:
+                return "create";
+            case Delete:
+                return "delete";
+            case ExecuteJavaScript:
+                return "execute_javascript";
+            case Head:
+                return "head";
+            case HeadFeed:
+                return "head_feed";
+            case Patch:
+                return "patch";
+            case Query:
+                return "query";
+            case QueryPlan:
+                return "query_plan";
+            case Read:
+                return "read";
+            case ReadFeed:
+                return "read_feed";
+            case Replace:
+                return "replace";
+            case Upsert:
+                return "upsert";
+        }
+
+        return "invalid";
     }
 }

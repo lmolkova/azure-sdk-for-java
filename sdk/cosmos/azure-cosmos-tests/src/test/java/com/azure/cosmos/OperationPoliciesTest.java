@@ -175,7 +175,7 @@ public class OperationPoliciesTest extends TestSuiteBase {
             // Figure out Operation
             CosmosDiagnosticsContext cosmosDiagnosticsContext = cosmosOperationDetails.getDiagnosticsContext();
             String operationType = cosmosDiagnosticsContext.getOperationType();
-            String spanName = cosmosDiagnosticsContext.getSpanName();
+            String spanName = cosmosDiagnosticsContext.getOperationName();
             CosmosRequestOptions cosmosRequestOptions = new CosmosRequestOptions();
             createReadDeleteBatchEtcOptions(operationType, spanName, cosmosRequestOptions);
             createQueryReadAllItemsOptions(operationType, spanName, cosmosRequestOptions);
@@ -198,7 +198,7 @@ public class OperationPoliciesTest extends TestSuiteBase {
             .addOperationPolicy((cosmosOperationDetails) -> {
                 CosmosDiagnosticsContext cosmosDiagnosticsContext = cosmosOperationDetails.getDiagnosticsContext();
                 String operationType = cosmosDiagnosticsContext.getOperationType();
-                String spanName = cosmosDiagnosticsContext.getSpanName();
+                String spanName = cosmosDiagnosticsContext.getOperationName();
                 CosmosRequestOptions cosmosRequestOptions = new CosmosRequestOptions();
                 createReadDeleteBatchEtcOptions(operationType, spanName, cosmosRequestOptions);
                 createQueryReadAllItemsOptions(operationType, spanName, cosmosRequestOptions);
@@ -207,7 +207,7 @@ public class OperationPoliciesTest extends TestSuiteBase {
             }).addOperationPolicy((cosmosOperationDetails) -> {
                 CosmosDiagnosticsContext cosmosDiagnosticsContext = cosmosOperationDetails.getDiagnosticsContext();
                 String operationType = cosmosDiagnosticsContext.getOperationType();
-                String spanName = cosmosDiagnosticsContext.getSpanName();
+                String spanName = cosmosDiagnosticsContext.getOperationName();
                 CosmosRequestOptions cosmosRequestOptions = new CosmosRequestOptions();
                 createBulkOptions(operationType, spanName, cosmosRequestOptions);
                 createChangeFeedOptions(spanName, cosmosRequestOptions);

@@ -924,7 +924,7 @@ public class ImplementationBridgeHelpers {
 
         public interface CosmosDiagnosticsContextAccessor {
             CosmosDiagnosticsContext create(
-                String spanName,
+                String operationName,
                 String account,
                 String endpoint,
                 String databaseId,
@@ -939,7 +939,7 @@ public class ImplementationBridgeHelpers {
                 String connectionMode,
                 String userAgent,
                 Integer sequenceNumber,
-                String queryStatement,
+                SqlQuerySpec querySpec,
                 OverridableRequestOptions requestOptions);
 
             OverridableRequestOptions getRequestOptions(CosmosDiagnosticsContext ctx);
@@ -990,7 +990,7 @@ public class ImplementationBridgeHelpers {
 
             Collection<ClientSideRequestStatistics> getDistinctCombinedClientSideRequestStatistics(CosmosDiagnosticsContext ctx);
 
-            String getSpanName(CosmosDiagnosticsContext ctx);
+            String getOperationName(CosmosDiagnosticsContext ctx);
 
             void setSamplingRateSnapshot(CosmosDiagnosticsContext ctx, double samplingRate, boolean isSampledOut);
 
@@ -998,7 +998,7 @@ public class ImplementationBridgeHelpers {
 
             boolean isEmptyCompletion(CosmosDiagnosticsContext ctx);
 
-            String getQueryStatement(CosmosDiagnosticsContext ctx);
+            SqlQuerySpec getQuery(CosmosDiagnosticsContext ctx);
 
         }
     }

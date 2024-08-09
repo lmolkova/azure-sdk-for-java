@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.EXECUTE_BULK_OPERATION;
 import static com.azure.cosmos.implementation.guava25.base.Preconditions.checkNotNull;
 
 /**
@@ -111,7 +112,6 @@ public final class BulkExecutor<TContext> implements Disposable {
     private final Sinks.Many<CosmosItemOperation> mainSink;
     private final List<FluxSink<CosmosItemOperation>> groupSinks;
     private final CosmosAsyncClient cosmosClient;
-    private final String bulkSpanName;
     private final AtomicReference<Disposable> scheduledFutureForFlush;
     private final String identifier = "BulkExecutor-" + instanceCount.incrementAndGet();
     private final BulkExecutorDiagnosticsTracker diagnosticsTracker;
@@ -130,7 +130,6 @@ public final class BulkExecutor<TContext> implements Disposable {
         this.maxMicroBatchPayloadSizeInBytes = cosmosBulkOptions.getMaxMicroBatchPayloadSizeInBytes();
         this.cosmosBulkExecutionOptions = cosmosBulkOptions;
         this.container = container;
-        this.bulkSpanName = "nonTransactionalBatch." + this.container.getId();
         this.inputOperations = inputOperations;
         this.docClientWrapper = CosmosBridgeInternal.getAsyncDocumentClient(container.getDatabase());
         this.cosmosClient = ImplementationBridgeHelpers
@@ -863,7 +862,7 @@ public final class BulkExecutor<TContext> implements Disposable {
                 .traceEnabledBatchResponsePublisher(
                     responseMono,
                     context,
-                    this.bulkSpanName,
+                    EXECUTE_BULK_OPERATION,
                     this.container.getDatabase().getId(),
                     this.container.getId(),
                     this.cosmosClient,

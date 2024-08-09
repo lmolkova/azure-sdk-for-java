@@ -14,6 +14,9 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_PERMISSION_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_PERMISSION_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_PERMISSION_OPERATION;
 
 /**
  *  Has methods to operate on a per-User Permission to access a specific resource
@@ -127,7 +130,6 @@ public class CosmosAsyncPermission {
 
     private Mono<CosmosPermissionResponse> readInternal(CosmosPermissionRequestOptions options, Context context) {
 
-        String spanName = "readPermission." + cosmosUser.getId();
         RequestOptions nonNullRequestOptions = options != null
             ? ModelBridgeInternal.toRequestOptions(options)
             : new RequestOptions();
@@ -141,7 +143,7 @@ public class CosmosAsyncPermission {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_PERMISSION_OPERATION,
             cosmosUser.getDatabase().getId(),
             null,
             client,
@@ -155,7 +157,6 @@ public class CosmosAsyncPermission {
                                                                 CosmosPermissionRequestOptions options,
                                                                 Context context) {
 
-        String spanName = "replacePermission." + cosmosUser.getId();
         RequestOptions nonNullRequestOptions = ensureAndConvertRequestOptions(options);
         CosmosAsyncDatabase databaseContext = cosmosUser.getDatabase();
         Mono<CosmosPermissionResponse> responseMono = cosmosUser.getDatabase()
@@ -169,7 +170,7 @@ public class CosmosAsyncPermission {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_PERMISSION_OPERATION,
             cosmosUser.getDatabase().getId(),
             null,
             client,
@@ -182,7 +183,6 @@ public class CosmosAsyncPermission {
     private Mono<CosmosPermissionResponse> deleteInternal(CosmosPermissionRequestOptions options,
                                                                Context context) {
 
-        String spanName = "deletePermission." + cosmosUser.getId();
         RequestOptions nonNullRequestOptions = ensureAndConvertRequestOptions(options);
 
         Mono<CosmosPermissionResponse> responseMono = cosmosUser.getDatabase()
@@ -195,7 +195,7 @@ public class CosmosAsyncPermission {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            DELETE_PERMISSION_OPERATION,
             cosmosUser.getDatabase().getId(),
             null,
             client,

@@ -13,6 +13,9 @@ import com.azure.cosmos.models.ModelBridgeInternal;
 import reactor.core.publisher.Mono;
 
 import static com.azure.core.util.FluxUtil.withContext;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.DELETE_USER_DEFINED_FUNCTION_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.READ_USER_DEFINED_FUNCTION_OPERATION;
+import static com.azure.cosmos.implementation.DiagnosticsConstants.REPLACE_USER_DEFINED_FUNCTION_OPERATION;
 
 /**
  * The type Cosmos async user defined function.
@@ -111,7 +114,6 @@ public class CosmosAsyncUserDefinedFunction {
     }
 
     private Mono<CosmosUserDefinedFunctionResponse> readInternal(Context context) {
-        String spanName = "readUserDefinedFunction." + container.getId();
         Mono<CosmosUserDefinedFunctionResponse> responseMono = container
             .getDatabase()
             .getDocClientWrapper()
@@ -121,7 +123,7 @@ public class CosmosAsyncUserDefinedFunction {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            READ_USER_DEFINED_FUNCTION_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,
@@ -133,7 +135,6 @@ public class CosmosAsyncUserDefinedFunction {
 
     private Mono<CosmosUserDefinedFunctionResponse> replaceInternal(CosmosUserDefinedFunctionProperties udfSettings,
                                                                  Context context) {
-        String spanName = "replaceUserDefinedFunction." + container.getId();
         Mono<CosmosUserDefinedFunctionResponse> responseMono = container.getDatabase()
             .getDocClientWrapper()
             .replaceUserDefinedFunction(new UserDefinedFunction(
@@ -144,7 +145,7 @@ public class CosmosAsyncUserDefinedFunction {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            REPLACE_USER_DEFINED_FUNCTION_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,
@@ -155,7 +156,6 @@ public class CosmosAsyncUserDefinedFunction {
     }
 
     private Mono<CosmosUserDefinedFunctionResponse> deleteInternal(Context context) {
-        String spanName = "deleteUserDefinedFunction." + container.getId();
         Mono<CosmosUserDefinedFunctionResponse> responseMono = container.getDatabase()
             .getDocClientWrapper()
             .deleteUserDefinedFunction(this.getLink(), null)
@@ -165,7 +165,7 @@ public class CosmosAsyncUserDefinedFunction {
         return client.getDiagnosticsProvider().traceEnabledCosmosResponsePublisher(
             responseMono,
             context,
-            spanName,
+            DELETE_USER_DEFINED_FUNCTION_OPERATION,
             container.getDatabase().getId(),
             container.getId(),
             client,

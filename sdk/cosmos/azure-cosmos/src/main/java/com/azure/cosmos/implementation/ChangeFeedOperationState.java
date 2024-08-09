@@ -20,7 +20,7 @@ public class ChangeFeedOperationState extends FeedOperationState {
 
     public ChangeFeedOperationState(
         CosmosAsyncClient cosmosAsyncClient,
-        String spanName,
+        String operationName,
         String dbName,
         String containerName,
         ResourceType resourceType,
@@ -31,7 +31,7 @@ public class ChangeFeedOperationState extends FeedOperationState {
     ) {
         super(
             cosmosAsyncClient,
-            spanName,
+            operationName,
             dbName,
             containerName,
             resourceType,

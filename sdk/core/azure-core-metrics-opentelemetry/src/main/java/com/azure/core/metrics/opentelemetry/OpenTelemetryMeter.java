@@ -18,6 +18,8 @@ import io.opentelemetry.api.metrics.LongGaugeBuilder;
 import io.opentelemetry.api.metrics.LongUpDownCounterBuilder;
 import io.opentelemetry.api.metrics.MeterProvider;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -57,7 +59,20 @@ class OpenTelemetryMeter implements Meter {
             otelMetricBuilder.setUnit(unit);
         }
 
-        return new OpenTelemetryDoubleHistogram(otelMetricBuilder.build());
+        List<Double> boundaries = new ArrayList<>();
+        boundaries.add(0.001);
+        boundaries.add(0.005);
+        boundaries.add(0.01);
+        boundaries.add(0.05);
+        boundaries.add(0.1);
+        boundaries.add(0.5);
+        boundaries.add(1.0);
+        boundaries.add(5.0);
+        boundaries.add(10.0);
+
+        return new OpenTelemetryDoubleHistogram(
+            otelMetricBuilder
+                .setExplicitBucketBoundariesAdvice(boundaries).build());
     }
 
     /**

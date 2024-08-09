@@ -1,0 +1,78 @@
+package com.azure.cosmos.implementation;
+
+public final class DiagnosticsConstants {
+    public static final String EXECUTE_BATCH_OPERATION = "execute_batch";
+    public static final String EXECUTE_BULK_OPERATION = "execute_bulk";
+    public static final String EXECUTE_STORED_PROCEDURE_OPERATION = "execute_stored_procedure";
+    public static final String READ_ALL_CONTAINERS_OPERATION = "read_all_containers";
+    public static final String READ_ALL_DATABASES_OPERATION = "read_all_databases";
+    public static final String READ_ALL_USERS_OPERATION = "read_all_users";
+    public static final String READ_ALL_PERMISSIONS_OPERATION = "read_all_permissions";
+    public static final String READ_ALL_USER_DEFINED_FUNCTIONS_OPERATION = "read_all_user_defined_functions";
+    public static final String READ_ALL_TRIGGERS_OPERATION = "read_all_triggers";
+    public static final String READ_ALL_STORED_PROCEDURES_OPERATION = "read_all_stored_procedures";
+    public static final String READ_ALL_CONFLICTS_OPERATION = "read_all_conflicts";
+    public static final String READ_ALL_ITEMS_OPERATION = "read_all_items";
+    public static final String READ_ALL_CLIENT_ENCRYPTION_KEYS_OPERATION = "read_all_client_encryption_keys";
+    public static final String READ_ALL_ITEMS_OF_LOGICAL_PARTITION_OPERATION = "read_all_items_of_logical_partition";
+    public static final String READ_MANY_ITEMS_OPERATION = "read_many_items";
+    public static final String QUERY_CLIENT_ENCRYPTION_KEYS_OPERATION = "query_client_encryption_keys";
+    public static final String QUERY_CONTAINERS_OPERATION = "query_containers";
+    public static final String QUERY_USERS_OPERATION = "query_users";
+    public static final String QUERY_PERMISSIONS_OPERATION = "query_permissions";
+    public static final String QUERY_USER_DEFINED_FUNCTIONS_OPERATION = "query_user_defined_functions";
+    public static final String QUERY_TRIGGERS_OPERATION = "query_triggers";
+    public static final String QUERY_STORED_PROCEDURES_OPERATION = "query_stored_procedures";
+    public static final String QUERY_CONFLICTS_OPERATION = "query_conflicts";
+    public static final String CREATE_USER_OPERATION = "create_user";
+    public static final String CREATE_DATABASE_OPERATION = "create_database";
+    public static final String CREATE_DATABASE_IF_NOT_EXISTS_OPERATION = "create_database_if_not_exists";
+    public static final String CREATE_PERMISSION_OPERATION = "create_permission";
+    public static final String CREATE_USER_DEFINED_FUNCTION_OPERATION = "create_user_defined_function";
+    public static final String CREATE_TRIGGER_OPERATION = "create_trigger";
+    public static final String CREATE_ITEM_OPERATION = "create_item";
+    public static final String CREATE_CLIENT_ENCRYPTION_KEY_OPERATION = "create_client_encryption_key";
+    public static final String CREATE_CONTAINER_OPERATION = "create_container";
+    public static final String CREATE_STORED_PROCEDURE_OPERATION = "create_stored_procedure";
+    public static final String CREATE_CONTAINER_IF_NOT_EXISTS_OPERATION = "create_container_if_not_exists";
+    public static final String DELETE_USER_OPERATION = "delete_user";
+    public static final String DELETE_DATABASE_OPERATION = "delete_database";
+    public static final String DELETE_PERMISSION_OPERATION = "delete_permission";
+    public static final String DELETE_USER_DEFINED_FUNCTION_OPERATION = "delete_user_defined_function";
+    public static final String DELETE_TRIGGER_OPERATION = "delete_trigger";
+    public static final String DELETE_STORED_PROCEDURE_OPERATION = "delete_stored_procedure";
+    public static final String DELETE_CONFLICT_OPERATION = "delete_conflict";
+    public static final String DELETE_ALL_ITEMS_BY_PARTITION_KEY_OPERATION = "delete_all_items_by_partition_key";
+    public static final String DELETE_CONTAINER_OPERATION = "delete_container";
+    public static final String DELETE_ITEM_OPERATION = "delete_item";
+    public static final String QUERY_CHANGE_FEED_OPERATION = "query_change_feed";
+    public static final String QUERY_ITEMS_OPERATION = "query_items";
+    public static final String QUERY_DATABASES_OPERATION = "query_databases";
+    public static final String PATCH_ITEM_OPERATION = "patch_item";
+    public static final String REPLACE_USER_OPERATION = "replace_user";
+    public static final String REPLACE_PERMISSION_OPERATION = "replace_permission";
+    public static final String REPLACE_USER_DEFINED_FUNCTION_OPERATION = "replace_user_defined_function";
+    public static final String REPLACE_TRIGGER_OPERATION = "replace_trigger";
+    public static final String REPLACE_STORED_PROCEDURE_OPERATION = "replace_stored_procedure";
+    public static final String REPLACE_CONTAINER_OPERATION = "replace_container";
+    public static final String REPLACE_CLIENT_ENCRYPTION_KEY_OPERATION = "replace_client_encryption_key";
+    public static final String REPLACE_ITEM_OPERATION = "replace_item";
+    public static final String REPLACE_THROUGHPUT_OPERATION = "replace_throughput";
+    public static final String READ_USER_OPERATION = "read_user";
+    public static final String READ_DATABASE_OPERATION = "read_database";
+    public static final String READ_PERMISSION_OPERATION = "read_permission";
+    public static final String READ_USER_DEFINED_FUNCTION_OPERATION = "read_user_defined_function";
+    public static final String READ_TRIGGER_OPERATION = "read_trigger";
+    public static final String READ_STORED_PROCEDURE_OPERATION = "read_stored_procedure";
+    public static final String READ_CONFLICT_OPERATION = "read_conflict";
+    public static final String READ_CLIENT_ENCRYPTION_KEY_OPERATION = "read_client_encryption_key";
+    public static final String READ_CONTAINER_OPERATION = "read_container";
+    public static final String READ_THROUGHPUT_OPERATION = "read_throughput";
+    public static final String READ_ITEM_OPERATION = "read_item";
+    public static final String UPSERT_USER_OPERATION = "upsert_user";
+    public static final String UPSERT_PERMISSION_OPERATION = "upsert_permission";
+    public static final String UPSERT_ITEM_OPERATION = "upsert_item";
+
+    public DiagnosticsConstants() {
+    }
+}

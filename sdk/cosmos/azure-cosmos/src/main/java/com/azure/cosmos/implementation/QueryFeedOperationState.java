@@ -22,7 +22,7 @@ public final class QueryFeedOperationState extends FeedOperationState {
 
     public QueryFeedOperationState(
         CosmosAsyncClient cosmosAsyncClient,
-        String spanName,
+        String operationName,
         String dbName,
         String containerName,
         ResourceType resourceType,
@@ -33,7 +33,7 @@ public final class QueryFeedOperationState extends FeedOperationState {
     ) {
         super(
             cosmosAsyncClient,
-            spanName,
+            operationName,
             dbName,
             containerName,
             resourceType,

@@ -3,6 +3,7 @@
 
 package com.azure.cosmos.implementation;
 
+import com.azure.cosmos.models.SqlQuerySpec;
 import com.azure.cosmos.util.CosmosPagedFlux;
 
 import static com.azure.cosmos.implementation.guava25.base.Preconditions.checkNotNull;
@@ -17,6 +18,7 @@ public class CosmosPagedFluxOptions {
     private String requestContinuation;
     private Integer maxItemCount;
     private String queryText;
+    private SqlQuerySpec querySpec;
 
     public CosmosPagedFluxOptions() {}
 
@@ -109,12 +111,12 @@ public class CosmosPagedFluxOptions {
         }
     }
 
-    public String getQueryText() {
-        return queryText;
+    public SqlQuerySpec getQuery() {
+        return querySpec;
     }
 
-    public void setQueryText(String queryText) {
-        this.queryText = queryText;
+    public void setQuery(SqlQuerySpec querySpec) {
+        this.querySpec = querySpec;
     }
 
 }
