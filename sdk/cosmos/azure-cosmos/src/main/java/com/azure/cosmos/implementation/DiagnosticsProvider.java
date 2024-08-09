@@ -1107,7 +1107,7 @@ public final class DiagnosticsProvider {
             }
 
             if (cosmosCtx != null) {
-                tracer.end(cosmosCtx.getStatusCode(), cosmosCtx.getFinalError(), context);
+                tracer.end(String.valueOf(cosmosCtx.getStatusCode()), cosmosCtx.getFinalError(), context);
             }
         }
 
@@ -1472,7 +1472,6 @@ public final class DiagnosticsProvider {
                 tracer.setAttribute("db.response.items.count", cosmosCtx.getActualItemCount(), context);
             }
 
-            tracer.setAttribute("db.cosmos.ctx.hash.count", cosmosCtx.hashCode(), context);
             tracer.end(errorType, finalError, context);
         }
 

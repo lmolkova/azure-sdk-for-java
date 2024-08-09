@@ -110,6 +110,11 @@ public class TracerUnderTest implements Tracer {
 
         this.currentSpan.setError(error);
         this.currentSpan.setStatusMessage(statusMessage);
+        if (statusMessage != null) {
+            this.currentSpan.attributes.put("error.type", statusMessage);
+        } else if (error != null) {
+            this.currentSpan.attributes.put("error.type", error.getClass().getName());
+        }
 
         String spanName = this.currentSpan.name;
         String currentSpanHash = this.currentSpan.toString();

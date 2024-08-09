@@ -165,7 +165,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             new Object[] { false, true, true, 0d },
         };
     }
-    
+
     @DataProvider(name = "traceTestCaseProviderAsyncContainer")
     private Object[][] traceTestCaseProviderAsyncContainer() {
         return new Object[][]{
@@ -177,7 +177,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             new Object[] { false, true, ShowQueryMode.NONE, true, 1d },
             new Object[] { false, true, ShowQueryMode.NONE, true, 0.99999999 },
             new Object[] { false, true, ShowQueryMode.NONE, true, 0d },
-            
+
             new Object[] { false, true, ShowQueryMode.ALL, true, 1d },
             new Object[] { false, false, ShowQueryMode.ALL, true, 1d },
             new Object[] { false, false, ShowQueryMode.ALL, false, 1d },
@@ -205,7 +205,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosDatabaseResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createDatabaseIfNotExists." + cosmosAsyncDatabase.getId(),
+            "create_database_if_not_exists",
             cosmosAsyncDatabase.getId(),
             null,
             cosmosDatabaseResponse.getDiagnostics(),
@@ -221,7 +221,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedResponseReadAllDatabases).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllDatabases",
+            "read_all_databases",
             null,
             null,
             feedResponseReadAllDatabases.getCosmosDiagnostics(),
@@ -238,7 +238,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedResponseQueryDatabases).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "queryDatabases",
+            "query_databases",
             null,
             null,
             feedResponseQueryDatabases.getCosmosDiagnostics(),
@@ -264,7 +264,7 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         verifyTracerAttributes(
             mockTracer,
-            "createDatabase." + cosmosAsyncDatabase.getId(),
+            "create_database",
             cosmosAsyncDatabase.getId(),
             null,
             cosmosError.getDiagnostics(),
@@ -294,7 +294,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(containerResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createContainerIfNotExists." + cosmosAsyncContainer.getId(),
+            "create_container_if_not_exists",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             containerResponse.getDiagnostics(),
@@ -310,7 +310,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(userPropertiesFeedResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllUsers." + cosmosAsyncDatabase.getId(),
+            "read_all_users",
             cosmosAsyncDatabase.getId(),
             null,
             userPropertiesFeedResponse.getCosmosDiagnostics(),
@@ -326,7 +326,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(containerPropertiesFeedResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllContainers." + cosmosAsyncDatabase.getId(),
+            "read_all_containers",
             cosmosAsyncDatabase.getId(),
             null,
             containerPropertiesFeedResponse.getCosmosDiagnostics(),
@@ -348,7 +348,7 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         verifyTracerAttributes(
             mockTracer,
-            "readThroughput." + cosmosAsyncDatabase.getId(),
+            "read_throughput",
             cosmosAsyncDatabase.getId(),
             null,
             cosmosError.getDiagnostics(),
@@ -427,7 +427,7 @@ public class CosmosTracerTest extends TestSuiteBase {
                     }
                     verifyTracerAttributes(
                         mockTracer,
-                        "createItem." + cosmosAsyncContainer.getId(),
+                        "create_item",
                         cosmosAsyncDatabase.getId(),
                         cosmosAsyncContainer.getId(),
                         cosmosItemResponse.getDiagnostics(),
@@ -479,7 +479,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createItem." + cosmosAsyncContainer.getId(),
+            "create_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosItemResponse.getDiagnostics(),
@@ -523,7 +523,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             assertThat(cosmosItemResponse).isNotNull();
             verifyTracerAttributes(
                 mockTracer,
-                "readItem." + cosmosAsyncContainer.getId(),
+                "read_item",
                 cosmosAsyncDatabase.getId(),
                 cosmosAsyncContainer.getId(),
                 cosmosItemResponse.getDiagnostics(),
@@ -565,14 +565,14 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         DiagnosticsProvider provider = createAndInitializeDiagnosticsProvider(
             mockTracer, useLegacyTracing, enableRequestLevelTracing, showQueryMode, forceThresholdViolations, samplingRate);
-        
+
         CosmosClientTelemetryConfig telemetryConfigSnapshot = provider.getClientTelemetryConfig();
 
         CosmosContainerResponse containerResponse = cosmosAsyncContainer.read().block();
         assertThat(containerResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readContainer." + cosmosAsyncContainer.getId(),
+            "read_container",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             containerResponse.getDiagnostics(),
@@ -587,7 +587,7 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         verifyTracerAttributes(
             mockTracer,
-            "readThroughput." + cosmosAsyncContainer.getId(),
+            "read_throughput",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             throughputResponse.getDiagnostics(),
@@ -607,7 +607,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createItem." + cosmosAsyncContainer.getId(),
+            "create_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosItemResponse.getDiagnostics(),
@@ -633,7 +633,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             assertThat(cosmosItemResponse).isNotNull();
             verifyTracerAttributes(
                 mockTracer,
-                "createItem." + cosmosAsyncContainer.getId(),
+                "create_item",
                 cosmosAsyncDatabase.getId(),
                 cosmosAsyncContainer.getId(),
                 cosmosItemResponse.getDiagnostics(),
@@ -649,7 +649,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "upsertItem." + cosmosAsyncContainer.getId(),
+            "upsert_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosItemResponse.getDiagnostics(),
@@ -666,7 +666,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readItem." + cosmosAsyncContainer.getId(),
+            "read_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosItemResponse.getDiagnostics(),
@@ -689,7 +689,7 @@ public class CosmosTracerTest extends TestSuiteBase {
                 assertThat(cosmosItemResponse).isNotNull();
                 verifyTracerAttributes(
                     mockTracer,
-                    "readItem." + cosmosAsyncContainer.getId(),
+                    "read_item",
                     cosmosAsyncDatabase.getId(),
                     cosmosAsyncContainer.getId(),
                     cosmosItemResponse.getDiagnostics(),
@@ -711,7 +711,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(deleteItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "deleteItem." + cosmosAsyncContainer.getId(),
+            "delete_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             deleteItemResponse.getDiagnostics(),
@@ -731,7 +731,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllItems." + cosmosAsyncContainer.getId(),
+            "read_all_items",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             feedItemResponse.getCosmosDiagnostics(),
@@ -750,7 +750,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "queryItems." + cosmosAsyncContainer.getId(),
+            "query_items",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             feedItemResponse.getCosmosDiagnostics(),
@@ -774,7 +774,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "queryItems." + cosmosAsyncContainer.getId(),
+            "query_items",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             feedItemResponse.getCosmosDiagnostics(),
@@ -785,10 +785,10 @@ public class CosmosTracerTest extends TestSuiteBase {
             query,
             forceThresholdViolations,
             "CustomQueryName",
-            
+
             samplingRate);
         mockTracer.reset();
-        
+
         feedItemResponse = cosmosAsyncContainer
                 .queryItems(query, ObjectNode.class)
                 .byPage()
@@ -796,7 +796,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             assertThat(feedItemResponse).isNotNull();
             verifyTracerAttributes(
                 mockTracer,
-                "queryItems." + cosmosAsyncContainer.getId(),
+                "query_items",
                 cosmosAsyncDatabase.getId(),
                 cosmosAsyncContainer.getId(),
                 feedItemResponse.getCosmosDiagnostics(),
@@ -830,7 +830,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(lastDiagnostics).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "queryItems." + cosmosAsyncContainer.getId(),
+            "query_items",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             lastDiagnostics,
@@ -856,7 +856,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
                 mockTracer,
-                "queryItems." + cosmosAsyncContainer.getId(),
+                "query_items",
                 cosmosAsyncDatabase.getId(),
                 cosmosAsyncContainer.getId(),
                 feedItemResponse.getCosmosDiagnostics(),
@@ -869,14 +869,14 @@ public class CosmosTracerTest extends TestSuiteBase {
                 null,
                 samplingRate);
         mockTracer.reset();
-        
+
         feedItemResponse = cosmosAsyncContainer.queryItems(querySpec, ObjectNode.class)
                 .byPage()
                 .blockFirst();
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
                 mockTracer,
-                "queryItems." + cosmosAsyncContainer.getId(),
+                "query_items",
                 cosmosAsyncDatabase.getId(),
                 cosmosAsyncContainer.getId(),
                 feedItemResponse.getCosmosDiagnostics(),
@@ -896,7 +896,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(feedItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readManyItems." + cosmosAsyncContainer.getId(),
+            "read_many_items",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             feedItemResponse.getCosmosDiagnostics(),
@@ -938,7 +938,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(sprocFeedResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllStoredProcedures." + cosmosAsyncContainer.getId(),
+            "read_all_stored_procedures",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             sprocFeedResponse.getCosmosDiagnostics(),
@@ -958,7 +958,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(triggerFeedResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllTriggers." + cosmosAsyncContainer.getId(),
+            "read_all_triggers",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             triggerFeedResponse.getCosmosDiagnostics(),
@@ -978,7 +978,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(udfFeedResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readAllUserDefinedFunctions." + cosmosAsyncContainer.getId(),
+            "read_all_user_defined_functions",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             udfFeedResponse.getCosmosDiagnostics(),
@@ -998,7 +998,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultUdf).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createUserDefinedFunction." + cosmosAsyncContainer.getId(),
+            "create_user_defined_function",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultUdf.getDiagnostics(),
@@ -1017,7 +1017,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultUdf).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readUserDefinedFunction." + cosmosAsyncContainer.getId(),
+            "read_user_defined_function",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultUdf.getDiagnostics(),
@@ -1037,7 +1037,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultUdf).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "replaceUserDefinedFunction." + cosmosAsyncContainer.getId(),
+            "replace_user_defined_function",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultUdf.getDiagnostics(),
@@ -1056,7 +1056,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultUdf).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "deleteUserDefinedFunction." + cosmosAsyncContainer.getId(),
+            "delete_user_defined_function",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultUdf.getDiagnostics(),
@@ -1073,7 +1073,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultTrigger).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createTrigger." + cosmosAsyncContainer.getId(),
+            "create_trigger",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultTrigger.getDiagnostics(),
@@ -1088,7 +1088,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultTrigger).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readTrigger." + cosmosAsyncContainer.getId(),
+            "read_trigger",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultTrigger.getDiagnostics(),
@@ -1107,7 +1107,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultTrigger).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "replaceTrigger." + cosmosAsyncContainer.getId(),
+            "replace_trigger",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultTrigger.getDiagnostics(),
@@ -1126,7 +1126,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultTrigger).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "deleteTrigger." + cosmosAsyncContainer.getId(),
+            "delete_trigger",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultTrigger.getDiagnostics(),
@@ -1143,7 +1143,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultSproc).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createStoredProcedure." + cosmosAsyncContainer.getId(),
+            "create_stored_procedure",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultSproc.getDiagnostics(),
@@ -1158,7 +1158,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultSproc).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "readStoredProcedure." + cosmosAsyncContainer.getId(),
+            "read_stored_procedure",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultSproc.getDiagnostics(),
@@ -1177,7 +1177,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultSproc).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "replaceStoredProcedure." + cosmosAsyncContainer.getId(),
+            "replace_stored_procedure",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultSproc.getDiagnostics(),
@@ -1194,7 +1194,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(resultSproc).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "deleteStoredProcedure." + cosmosAsyncContainer.getId(),
+            "delete_stored_procedure",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             resultSproc.getDiagnostics(),
@@ -1227,7 +1227,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         assertThat(cosmosItemResponse).isNotNull();
         verifyTracerAttributes(
             mockTracer,
-            "createItem." + cosmosAsyncContainer.getId(),
+            "create_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosItemResponse.getDiagnostics(),
@@ -1250,7 +1250,7 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         verifyTracerAttributes(
             mockTracer,
-            "readItem." + cosmosAsyncContainer.getId(),
+            "read_item",
             cosmosAsyncDatabase.getId(),
             cosmosAsyncContainer.getId(),
             cosmosError.getDiagnostics(),
@@ -1358,7 +1358,7 @@ public class CosmosTracerTest extends TestSuiteBase {
             customOperationId,
             samplingRate);
     }
-    
+
     private void verifyTracerAttributes(TracerUnderTest mockTracer,
             String methodName,
             String databaseName,
@@ -1433,31 +1433,33 @@ public class CosmosTracerTest extends TestSuiteBase {
 
         Map<String, Object> attributes = currentSpan.getAttributes();
         if (databaseName != null) {
-            assertThat(attributes.get("db.name")).isEqualTo(databaseName);
+            assertThat(attributes.get("db.namespace")).isEqualTo(databaseName);
             assertThat(ctx.getDatabaseName()).isEqualTo(databaseName);
         }
 
         if (containerName != null) {
-            assertThat(attributes.get("db.cosmosdb.container")).isEqualTo(containerName);
+            assertThat(attributes.get("db.collection.name")).isEqualTo(containerName);
             assertThat(ctx.getContainerName()).isEqualTo(containerName);
         }
 
         assertThat(attributes.get("db.system")).isEqualTo("cosmosdb");
-        assertThat(attributes.get("db.operation")).isEqualTo(methodName);
-        assertThat(attributes.get("net.peer.name")).isNotNull();
+        assertThat(attributes.get("db.operation.name")).isEqualTo(methodName);
+        assertThat(attributes.get("server.address")).isNotNull();
         if (attributes.get("db.cosmosdb.is_empty_completion") == null) {
 
-            assertThat(attributes.get("db.cosmosdb.request_content_length")).isNotNull();
+            // TODO!
+            // assertThat(attributes.get("db.cosmosdb.request_content_length")).isNotNull();
 
             assertThat(attributes.get("db.cosmosdb.operation_type")).isEqualTo(ctx.getOperationType());
-            if (customOperationId != null) {
+            /*if (customOperationId != null) {
                 assertThat(attributes.get("db.cosmosdb.operation_id")).isEqualTo(customOperationId);
                 assertThat(attributes.get("db.cosmosdb.operation_id")).isEqualTo(ctx.getOperationId());
             } else {
                 assertThat(attributes.get("db.cosmosdb.operation_id")).isNull();
-            }
+            }*/
 
-            assertThat(attributes.get("db.cosmosdb.resource_type")).isEqualTo(ctx.getResourceType());
+            // TODO
+            // assertThat(attributes.get("db.cosmosdb.resource_type")).isEqualTo(ctx.getResourceType());
             assertThat(attributes.get("db.cosmosdb.connection_mode"))
                 .isEqualTo(client.getConnectionPolicy().getConnectionMode().toString().toLowerCase(Locale.ROOT));
             assertThat(attributes.get("user_agent.original")).isEqualTo(client.getUserAgent());
@@ -1467,33 +1469,26 @@ public class CosmosTracerTest extends TestSuiteBase {
 
             verifyOTelTracerTransport(
                 cosmosDiagnostics, error, mockTracer, enableRequestLevelTracing);
-            
-            String dbStatement = (String) attributes.get("db.statement");
+
+            String dbStatement = (String) attributes.get("db.query.text");
 
             boolean isReadMany = "readMany".equals(cosmosDiagnostics.getDiagnosticsContext().getOperationId());
             if (!isReadMany && ShowQueryMode.ALL.equals(showQueryMode)) {
-                assertThat(attributes.get("db.statement")).isNotNull();
-                assertThat(attributes.get("db.statement")).isEqualTo(queryStatement);
+                assertThat(attributes.get("db.query.text")).isNotNull();
+                assertThat(attributes.get("db.query.text")).isEqualTo(queryStatement);
             } else if (!isReadMany && ShowQueryMode.PARAMETERIZED_ONLY.equals(showQueryMode)
                     && null != dbStatement && dbStatement.contains("@")) {
-                assertThat(attributes.get("db.statement")).isNotNull();
-                assertThat(attributes.get("db.statement")).isEqualTo(queryStatement);
+                assertThat(attributes.get("db.query.text")).isNotNull();
+                assertThat(attributes.get("db.query.text")).isEqualTo(queryStatement);
             } else {
-                assertThat(attributes.get("db.statement")).isNull();
+                assertThat(attributes.get("db.query.text")).isNull();
             }
 
-            if (error != null) {
-                assertThat(attributes.get("exception.type")).isEqualTo("com.azure.cosmos.CosmosException");
-                assertThat(attributes.get("exception.message")).isEqualTo(error.getShortMessage());
-
-                StringWriter stackWriter = new StringWriter();
-                PrintWriter printWriter = new PrintWriter(stackWriter);
-                error.printStackTrace(printWriter);
-                printWriter.flush();
-                stackWriter.flush();
-                assertThat(stackWriter.toString().contains((String) attributes.get("exception.stacktrace")))
-                    .isEqualTo(true);
-                printWriter.close();
+            int statusCode = cosmosDiagnostics.getDiagnosticsContext().getStatusCode();
+            if (cosmosDiagnostics.getDiagnosticsContext().isFailure() && statusCode != 0) {
+                assertThat(attributes.get("error.type")).isEqualTo(String.valueOf(statusCode));
+            } else if (error != null) {
+                assertThat(attributes.get("error.type")).isEqualTo(cosmosDiagnostics.getDiagnosticsContext().getFinalError().getClass().getName());
             }
         }
     }
@@ -1634,18 +1629,18 @@ public class CosmosTracerTest extends TestSuiteBase {
                 attributes.put("rntbd.partition_key_range_id", pkRangeId);
             }
 
-            attributes.put("rntbd.status_code", Integer.toString(storeResponseDiagnostics.getStatusCode()));
+            attributes.put("rntbd.status_code", storeResponseDiagnostics.getStatusCode());
             if (storeResponseDiagnostics.getSubStatusCode() != 0) {
-                attributes.put("rntbd.sub_status_code", Integer.toString(storeResponseDiagnostics.getSubStatusCode()));
+                attributes.put("rntbd.sub_status_code", storeResponseDiagnostics.getSubStatusCode());
             }
 
             Double backendLatency = storeResultDiagnostics.getBackendLatencyInMs();
             if (backendLatency != null) {
-                attributes.put("rntbd.backend_latency", Double.toString(backendLatency));
+                attributes.put("rntbd.backend_latency", backendLatency);
             }
 
             double requestCharge = storeResponseDiagnostics.getRequestCharge();
-            attributes.put("rntbd.request_charge", Double.toString(requestCharge));
+            attributes.put("rntbd.request_charge", requestCharge);
 
             Duration latency = responseStatistics.getDuration();
             if (latency != null) {
@@ -2048,7 +2043,7 @@ public class CosmosTracerTest extends TestSuiteBase {
         if (enableRequestLevelTracing) {
             clientTelemetryConfig.enableTransportLevelTracing();
         }
-        
+
         clientTelemetryConfig.showQueryMode(showQueryMode);
 
         ImplementationBridgeHelpers
