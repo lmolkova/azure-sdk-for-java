@@ -115,9 +115,10 @@ public class Span {
         }
 
         try {
-            SET_ATTRIBUTE_INVOKER.invokeWithArguments(otelSpan, key, value);
+            SET_ATTRIBUTE_INVOKER.invokeWithArguments(otelSpan, key.otelKey(), value);
         } catch (Throwable e) {
             // TODO log
+            System.out.println(e);
         }
 
         return this;

@@ -5,6 +5,7 @@ import io.clientcore.core.http.client.HttpClientProvider;
 
 module io.clientcore.core {
     requires transitive io.clientcore.core.json;
+    requires static io.opentelemetry.api;
 
     // public API surface area
     exports io.clientcore.core.annotation;

@@ -6,8 +6,12 @@ import io.clientcore.core.http.models.HttpMethod;
 import io.clientcore.core.http.models.HttpRequest;
 import io.clientcore.core.http.models.Response;
 import io.clientcore.core.observability.Tracer;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import org.junit.jupiter.api.Test;
 
@@ -33,10 +37,16 @@ public class InstrumentationPolicyTests {
                 }
             }).build();
 
-            Response<?> r = pipeline.send(new HttpRequest(HttpMethod.GET, "http://localhost/"));
+            Response<?> r = pipeline.send(new HttpRequest(HttpMethod.GET, "http://localhost:42"));
             r.close();
             assertNotNull(exporter.getFinishedSpanItems());
             assertEquals(1, exporter.getFinishedSpanItems().size());
+
+            SpanData span = exporter.getFinishedSpanItems().getFirst();
+            //assertEquals("GET", span.getName());
+            assertEquals(SpanKind.CLIENT, span.getKind());
+            assertEquals(200, span.getAttributes().get(AttributeKey.longKey("http.response.status_code")));
+            //assertEquals("http://localhost:42", span.getAttributes().get(AttributeKey.stringKey("url.full")));
         }
     }
 }

@@ -10,6 +10,7 @@ import io.clientcore.core.observability.Tracer;
 
 public class InstrumentationPolicy implements HttpPipelinePolicy {
     private final Tracer tracer;
+    private io.opentelemetry.api.trace.Tracer otelTracer;
 
     private static final AttributeKey<String> HTTP_REQUEST_METHOD = AttributeKey.stringKey("http.request.method");
     private static final AttributeKey<String> ERROR_TYPE = AttributeKey.stringKey("error.type");

@@ -280,6 +280,8 @@ public class OpenTelemetryHttpPolicyTests {
         // Start user parent span and populate context.
         Span parentSpan = tracer.spanBuilder("test").startSpan();
 
+        parentSpan.setAttribute(AttributeKey.stringArrayKey("finish_reasons"), Arrays.asList( "stop", "length" ));
+
         Context tracingContext
             = new Context(PARENT_TRACE_CONTEXT_KEY, io.opentelemetry.context.Context.root().with(parentSpan))
                 .addData("az.namespace", "foo");

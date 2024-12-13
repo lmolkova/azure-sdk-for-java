@@ -80,7 +80,7 @@ public abstract class RestProxyBase {
         this.serializer = serializer;
         this.interfaceParser = interfaceParser;
         this.decoder = new HttpResponseDecoder(this.serializer);
-        this.tracer = httpPipeline.getTracer();
+        this.tracer = httpPipeline.getInstrumentation().getTracer();
     }
 
     /**

@@ -6,6 +6,7 @@ package com.azure.core.http;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.implementation.http.HttpPipelineCallState;
 import com.azure.core.util.Context;
+import com.azure.core.util.tracing.Instrumentation;
 import com.azure.core.util.tracing.Tracer;
 import reactor.core.publisher.Mono;
 
@@ -31,7 +32,7 @@ public final class HttpPipeline {
     private final HttpClient httpClient;
     private final HttpPipelinePolicy[] pipelinePolicies;
 
-    private final Tracer tracer;
+    private final Instrumentation instrumentation;
 
     /**
      * Creates a HttpPipeline holding array of policies that gets applied to all request initiated through {@link
@@ -46,7 +47,7 @@ public final class HttpPipeline {
         Objects.requireNonNull(pipelinePolicies, "'pipelinePolicies' cannot be null.");
         this.httpClient = httpClient;
         this.pipelinePolicies = pipelinePolicies.toArray(new HttpPipelinePolicy[0]);
-        this.tracer = tracer;
+        this.instrumentation = new Instrumentation(tracer, null);
     }
 
     /**
@@ -82,8 +83,8 @@ public final class HttpPipeline {
      *
      * @return the {@link Tracer} associated with the pipeline
      */
-    public Tracer getTracer() {
-        return tracer;
+    public Instrumentation getInstrumentation() {
+        return instrumentation;
     }
 
     /**

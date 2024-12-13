@@ -14,6 +14,7 @@ module com.azure.core {
     requires transitive com.fasterxml.jackson.databind;
 
     requires transitive com.fasterxml.jackson.datatype.jsr310;
+    requires java.instrument;
 
     // public API surface area
     exports com.azure.core.annotation;
