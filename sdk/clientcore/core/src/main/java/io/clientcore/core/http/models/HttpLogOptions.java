@@ -4,6 +4,8 @@
 package io.clientcore.core.http.models;
 
 import io.clientcore.core.util.configuration.Configuration;
+import io.clientcore.core.util.configuration.ConfigurationProperty;
+import io.clientcore.core.util.configuration.ConfigurationPropertyBuilder;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -12,13 +14,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static io.clientcore.core.util.configuration.Configuration.getGlobalConfiguration;
-
 /**
  * The log configurations for HTTP messages.
  */
 public final class HttpLogOptions {
-    private HttpLogDetailLevel logLevel;
+    private boolean isLoggingEnabled;
+    private boolean isContentLoggingEnabled;
+    private boolean isRedactedHeaderNamesLoggingEnabled;
     private Set<HttpHeaderName> allowedHeaderNames;
     private Set<String> allowedQueryParamNames;
     private static final List<HttpHeaderName> DEFAULT_HEADERS_ALLOWLIST
@@ -31,36 +33,112 @@ public final class HttpLogOptions {
 
     private static final List<String> DEFAULT_QUERY_PARAMS_ALLOWLIST = Collections.singletonList("api-version");
 
+    private static final ConfigurationProperty<Boolean> HTTP_LOGGING_ENABLED
+        = ConfigurationPropertyBuilder.ofBoolean("http.logging.enabled")
+            .shared(true)
+            .environmentVariableName(Configuration.PROPERTY_HTTP_LOGGING_ENABLED)
+            .defaultValue(false)
+            .build();
+
+    private static final boolean DEFAULT_LOGGING_ENABLED
+        = Configuration.getGlobalConfiguration().get(HTTP_LOGGING_ENABLED);
+
     /**
      * Creates a new instance that does not log any information about HTTP requests or responses.
      */
     public HttpLogOptions() {
-        logLevel = HttpLogDetailLevel.ENVIRONMENT_HTTP_LOG_DETAIL_LEVEL;
+        isLoggingEnabled = DEFAULT_LOGGING_ENABLED;
+        isContentLoggingEnabled = false;
+        isRedactedHeaderNamesLoggingEnabled = true;
         allowedHeaderNames = new HashSet<>(DEFAULT_HEADERS_ALLOWLIST);
         allowedQueryParamNames = new HashSet<>(DEFAULT_QUERY_PARAMS_ALLOWLIST);
     }
 
     /**
-     * Gets the level of detail to log on HTTP messages.
+     * Flag indicating whether HTTP request and response logging is enabled.
+     * False by default.
+     * <p>
+     * When HTTP logging is disabled, basic information about the request and response is still recorded
+     * via distributed tracing.
      *
-     * @return The {@link HttpLogDetailLevel}.
+     * @return True if logging is enabled, false otherwise.
      */
-    public HttpLogDetailLevel getLogLevel() {
-        return logLevel;
+    public boolean isLoggingEnabled() {
+        return isLoggingEnabled;
     }
 
     /**
-     * Sets the level of detail to log on Http messages.
+     * Flag indicating whether HTTP request and response header values are added to the logs
+     * when their name is not explicitly allowed via {@link HttpLogOptions#setAllowedHeaderNames(Set)} or
+     * {@link HttpLogOptions#addAllowedHeaderName(HttpHeaderName)}.
+     * True by default.
      *
-     * <p>If logLevel is not provided, default value of {@link HttpLogDetailLevel#NONE} is set.</p>
-     *
-     * @param logLevel The {@link HttpLogDetailLevel}.
-     *
-     * @return The updated HttpLogOptions object.
+     * @return True if redacted header names logging is enabled, false otherwise.
      */
-    public HttpLogOptions setLogLevel(final HttpLogDetailLevel logLevel) {
-        this.logLevel = logLevel == null ? HttpLogDetailLevel.NONE : logLevel;
+    public boolean isRedactedHeaderNamesLoggingEnabled() {
+        return isRedactedHeaderNamesLoggingEnabled;
+    }
 
+    /**
+     * Enables or disables logging of redacted header names.
+     * @param redactedHeaderNamesLoggingEnabled True to enable logging of redacted header names, false otherwise.
+     *                                          Default is true.
+     * @return The updated {@link HttpLogOptions} object.
+     */
+    public HttpLogOptions setRedactedHeaderNamesLoggingEnabled(boolean redactedHeaderNamesLoggingEnabled) {
+        isRedactedHeaderNamesLoggingEnabled = redactedHeaderNamesLoggingEnabled;
+        return this;
+    }
+
+    /**
+     * Flag indicating whether HTTP request and response body is logged.
+     * False by default.
+     * <p>
+     * Note: even when content logging is explicitly enabled, it's not logged in the
+     * following cases:
+     * <ul>
+     *     <li>When the content length is not known.</li>
+     *     <li>When the content length is greater than 16KB.</li>
+     * </ul>
+     *
+     * @return True if content logging is enabled, false otherwise.
+     */
+    public boolean isContentLoggingEnabled() {
+        return isContentLoggingEnabled;
+    }
+
+    /**
+     * Enables or disables logging of HTTP request and response.
+     * False by default.
+     *
+     * When HTTP logging is disabled, basic information about the request and response is still recorded
+     * via distributed tracing.
+     *
+     * @param isLoggingEnabled True to enable logging, false otherwise.
+     * @return The updated {@link HttpLogOptions} object.
+     */
+    public HttpLogOptions setLoggingEnabled(boolean isLoggingEnabled) {
+        this.isLoggingEnabled = isLoggingEnabled;
+        return this;
+    }
+
+    /**
+     * Enables or disables logging of HTTP request and response body.
+     * False by default.
+     * <p>
+     * Note: even when content logging is explicitly enabled, it's not logged in the
+     * following cases:
+     * <ul>
+     *     <li>When the content length is not known.</li>
+     *     <li>When the content length is greater than 16KB.</li>
+     * </ul>
+     *
+     * @param isContentLoggingEnabled True to enable content logging, false otherwise.
+     * @return The updated {@link HttpLogOptions} object.
+     */
+    public HttpLogOptions setContentLoggingEnabled(boolean isContentLoggingEnabled) {
+        this.isLoggingEnabled |= isContentLoggingEnabled;
+        this.isContentLoggingEnabled = isContentLoggingEnabled;
         return this;
     }
 
@@ -143,92 +221,5 @@ public final class HttpLogOptions {
     public HttpLogOptions addAllowedQueryParamName(final String allowedQueryParamName) {
         this.allowedQueryParamNames.add(allowedQueryParamName);
         return this;
-    }
-
-    /**
-     * The level of detail to log on HTTP messages.
-     */
-    public enum HttpLogDetailLevel {
-        /**
-         * Logging is turned off.
-         */
-        NONE,
-
-        /**
-         * Logs only URIs, HTTP methods, and time to finish the request.
-         */
-        BASIC,
-
-        /**
-         * Logs everything in BASIC, plus all allowed request and response headers.
-         */
-        HEADERS,
-
-        /**
-         * Logs everything in BASIC, plus all the request and response body. Note that only payloads in plain text or
-         * plain text encoded in GZIP will be logged.
-         */
-        BODY,
-
-        /**
-         * Logs everything in HEADERS and BODY.
-         */
-        BODY_AND_HEADERS;
-
-        static final String BASIC_VALUE = "basic";
-        static final String HEADERS_VALUE = "headers";
-        static final String BODY_VALUE = "body";
-        static final String BODY_AND_HEADERS_VALUE = "body_and_headers";
-        static final String BODYANDHEADERS_VALUE = "bodyandheaders";
-        static final HttpLogDetailLevel ENVIRONMENT_HTTP_LOG_DETAIL_LEVEL = fromConfiguration(getGlobalConfiguration());
-
-        static HttpLogDetailLevel fromConfiguration(Configuration configuration) {
-            String detailLevel = configuration.get(Configuration.PROPERTY_HTTP_LOG_DETAIL_LEVEL, "none");
-
-            HttpLogDetailLevel logDetailLevel;
-
-            if (BASIC_VALUE.equalsIgnoreCase(detailLevel)) {
-                logDetailLevel = BASIC;
-            } else if (HEADERS_VALUE.equalsIgnoreCase(detailLevel)) {
-                logDetailLevel = HEADERS;
-            } else if (BODY_VALUE.equalsIgnoreCase(detailLevel)) {
-                logDetailLevel = BODY;
-            } else if (BODY_AND_HEADERS_VALUE.equalsIgnoreCase(detailLevel)
-                || BODYANDHEADERS_VALUE.equalsIgnoreCase(detailLevel)) {
-
-                logDetailLevel = BODY_AND_HEADERS;
-            } else {
-                logDetailLevel = NONE;
-            }
-
-            return logDetailLevel;
-        }
-
-        /**
-         * Whether a URI should be logged.
-         *
-         * @return Whether a URI should be logged.
-         */
-        public boolean shouldLogUri() {
-            return this != NONE;
-        }
-
-        /**
-         * Whether headers should be logged.
-         *
-         * @return Whether headers should be logged.
-         */
-        public boolean shouldLogHeaders() {
-            return this == HEADERS || this == BODY_AND_HEADERS;
-        }
-
-        /**
-         * Whether a body should be logged.
-         *
-         * @return Whether a body should be logged.
-         */
-        public boolean shouldLogBody() {
-            return this == BODY || this == BODY_AND_HEADERS;
-        }
     }
 }

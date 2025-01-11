@@ -107,8 +107,8 @@ public interface HttpTrait<T extends HttpTrait<T>> {
 
     /**
      * Sets the {@link HttpLogOptions logging configuration} to use when sending and receiving requests to and from the
-     * service. If a {@code logLevel} is not provided, default value of {@link HttpLogOptions.HttpLogDetailLevel#NONE}
-     * is set.
+     * service. If not provided, HTTP logging is disabled by default. Basic HTTP request/response information may be available
+     * through distributed tracing.
      *
      * <p><strong>Note:</strong> It is important to understand the precedence order of the {@link HttpTrait} APIs. In
      * particular, if a {@link HttpPipeline} is specified, this takes precedence over all other APIs in the trait, and

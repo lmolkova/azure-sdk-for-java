@@ -356,7 +356,7 @@ public class HttpInstrumentationPolicyTests {
 
     @Test
     public void enrichSpans() throws IOException {
-        HttpLogOptions logOptions = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.HEADERS);
+        HttpLogOptions logOptions = new HttpLogOptions().setLoggingEnabled(true);
 
         HttpInstrumentationPolicy httpInstrumentationPolicy = new HttpInstrumentationPolicy(otelOptions, logOptions);
 

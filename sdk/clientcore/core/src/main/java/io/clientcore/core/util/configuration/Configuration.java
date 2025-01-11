@@ -51,14 +51,15 @@ public class Configuration {
     public static final String PROPERTY_NO_PROXY = "NO_PROXY";
 
     /**
-     * Enables logging by setting a log level.
+     * Configured log level for default logger that's used when SLF4J appender is not configured.
+     * The setting is ignored if SLF4J appender is configured.
      */
     public static final String PROPERTY_LOG_LEVEL = "LOG_LEVEL";
 
     /**
-     * Enables HTTP request/response logging by setting an HTTP log detail level.
+     * Enables HTTP request/response logging.
      */
-    public static final String PROPERTY_HTTP_LOG_DETAIL_LEVEL = "HTTP_LOG_DETAIL_LEVEL";
+    public static final String PROPERTY_HTTP_LOGGING_ENABLED = "HTTP_LOGGING_ENABLED";
 
     /**
      * Sets the default number of times a request will be retried, if it passes the conditions for retrying, before it

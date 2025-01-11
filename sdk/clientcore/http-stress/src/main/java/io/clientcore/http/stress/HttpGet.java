@@ -149,7 +149,7 @@ public class HttpGet extends ScenarioBase<StressOptions> {
     }
 
     private HttpPipelineBuilder getPipelineBuilder() {
-        HttpLogOptions logOptions = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.HEADERS);
+        HttpLogOptions logOptions = new HttpLogOptions().setLoggingEnabled(true);
 
         HttpPipelineBuilder builder
             = new HttpPipelineBuilder().policies(new HttpRetryPolicy(), new HttpLoggingPolicy(logOptions));

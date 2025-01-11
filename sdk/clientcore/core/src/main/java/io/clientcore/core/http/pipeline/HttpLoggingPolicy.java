@@ -16,14 +16,11 @@ import io.clientcore.core.util.ClientLogger;
 import io.clientcore.core.util.binarydata.BinaryData;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static io.clientcore.core.http.models.HttpHeaderName.TRACEPARENT;
 import static io.clientcore.core.implementation.UrlRedactionUtil.getRedactedUri;
 import static io.clientcore.core.implementation.util.ImplUtils.isNullOrEmpty;
 
@@ -32,11 +29,13 @@ import static io.clientcore.core.implementation.util.ImplUtils.isNullOrEmpty;
  */
 public class HttpLoggingPolicy implements HttpPipelinePolicy {
     private static final HttpLogOptions DEFAULT_HTTP_LOG_OPTIONS = new HttpLogOptions();
-    private static final List<HttpHeaderName> ALWAYS_ALLOWED_HEADERS = Collections.singletonList(TRACEPARENT);
     private static final int MAX_BODY_LOG_SIZE = 1024 * 16;
     private static final String REDACTED_PLACEHOLDER = "REDACTED";
     private static final ClientLogger LOGGER = new ClientLogger(HttpLoggingPolicy.class);
-    private final HttpLogOptions.HttpLogDetailLevel httpLogDetailLevel;
+    private final boolean isLoggingEnabled;
+    private final boolean isContentLoggingEnabled;
+    private final boolean isRedactedHeadersLoggingEnabled;
+
     private final Set<HttpHeaderName> allowedHeaderNames;
 
     private final Set<String> allowedQueryParameterNames;
@@ -56,7 +55,9 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
      */
     public HttpLoggingPolicy(HttpLogOptions httpLogOptions) {
         HttpLogOptions logOptionsToUse = httpLogOptions == null ? DEFAULT_HTTP_LOG_OPTIONS : httpLogOptions;
-        this.httpLogDetailLevel = logOptionsToUse.getLogLevel();
+        this.isLoggingEnabled = logOptionsToUse.isLoggingEnabled();
+        this.isContentLoggingEnabled = logOptionsToUse.isContentLoggingEnabled();
+        this.isRedactedHeadersLoggingEnabled = logOptionsToUse.isRedactedHeaderNamesLoggingEnabled();
         this.allowedHeaderNames = logOptionsToUse.getAllowedHeaderNames();
         this.allowedQueryParameterNames = logOptionsToUse.getAllowedQueryParamNames()
             .stream()
@@ -67,7 +68,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
     @Override
     public Response<?> process(HttpRequest httpRequest, HttpPipelineNextPolicy next) {
         // No logging will be performed, trigger a no-op.
-        if (httpLogDetailLevel == HttpLogOptions.HttpLogDetailLevel.NONE) {
+        if (!isLoggingEnabled) {
             return next.process();
         }
 
@@ -113,7 +114,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
     private void logRequest(ClientLogger logger, HttpRequest request, long startNanoTime, long requestContentLength,
         String redactedUrl, int tryCount) {
         ClientLogger.LoggingEvent logBuilder = logger.atLevel(HTTP_REQUEST_LOG_LEVEL);
-        if (!logBuilder.isEnabled() || httpLogDetailLevel == HttpLogOptions.HttpLogDetailLevel.NONE) {
+        if (!logBuilder.isEnabled()) {
             return;
         }
 
@@ -125,7 +126,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
 
         addHeadersToLogMessage(request.getHeaders(), logBuilder);
 
-        if (httpLogDetailLevel.shouldLogBody() && canLogBody(request.getBody())) {
+        if (isContentLoggingEnabled && canLogBody(request.getBody())) {
             try {
                 BinaryData bufferedBody = request.getBody().toReplayableBinaryData();
                 request.setBody(bufferedBody);
@@ -143,9 +144,6 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
     private Response<?> logResponse(ClientLogger logger, Response<?> response, long startNanoTime,
         long requestContentLength, String redactedUrl, int tryCount) {
         ClientLogger.LoggingEvent logBuilder = logger.atLevel(HTTP_RESPONSE_LOG_LEVEL);
-        if (httpLogDetailLevel == HttpLogOptions.HttpLogDetailLevel.NONE) {
-            return response;
-        }
 
         long responseStartNanoTime = System.nanoTime();
 
@@ -164,7 +162,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
             addHeadersToLogMessage(response.getHeaders(), logBuilder);
         }
 
-        if (httpLogDetailLevel.shouldLogBody() && canLogBody(response.getBody())) {
+        if (isContentLoggingEnabled && canLogBody(response.getBody())) {
             return new LoggingHttpResponse<>(response, content -> {
                 if (logBuilder.isEnabled()) {
                     logBuilder.addKeyValue(LoggingKeys.BODY_KEY, content.toString())
@@ -186,7 +184,7 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
         T throwable, long startNanoTime, Long responseStartNanoTime, long requestContentLength, String redactedUrl,
         int tryCount) {
         ClientLogger.LoggingEvent logBuilder = logger.atLevel(ClientLogger.LogLevel.WARNING);
-        if (!logBuilder.isEnabled() || httpLogDetailLevel == HttpLogOptions.HttpLogDetailLevel.NONE) {
+        if (!logBuilder.isEnabled()) {
             return throwable;
         }
 
@@ -239,18 +237,12 @@ public class HttpLoggingPolicy implements HttpPipelinePolicy {
      * @param logBuilder Log message builder.
      */
     private void addHeadersToLogMessage(HttpHeaders headers, ClientLogger.LoggingEvent logBuilder) {
-        if (httpLogDetailLevel.shouldLogHeaders()) {
-            for (HttpHeader header : headers) {
-                HttpHeaderName headerName = header.getName();
-                String headerValue = allowedHeaderNames.contains(headerName) ? header.getValue() : REDACTED_PLACEHOLDER;
-                logBuilder.addKeyValue(headerName.toString(), headerValue);
-            }
-        } else {
-            for (HttpHeaderName headerName : ALWAYS_ALLOWED_HEADERS) {
-                String headerValue = headers.getValue(headerName);
-                if (headerValue != null) {
-                    logBuilder.addKeyValue(headerName.toString(), headerValue);
-                }
+        for (HttpHeader header : headers) {
+            HttpHeaderName headerName = header.getName();
+            if (allowedHeaderNames.contains(headerName)) {
+                logBuilder.addKeyValue(headerName.toString(), header.getValue());
+            } else if (isRedactedHeadersLoggingEnabled) {
+                logBuilder.addKeyValue(headerName.toString(), REDACTED_PLACEHOLDER);
             }
         }
     }

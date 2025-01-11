@@ -66,11 +66,13 @@ public class HttpLoggingPolicyTests {
 
     @ParameterizedTest
     @MethodSource("disabledHttpLoggingSource")
-    public void testDisabledHttpLogging(ClientLogger.LogLevel logLevel, HttpLogOptions.HttpLogDetailLevel httpLogLevel)
-        throws IOException {
+    public void testDisabledHttpLogging(ClientLogger.LogLevel logLevel, boolean enableLogging,
+        boolean enableContentLogging) throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(logLevel);
 
-        HttpPipeline pipeline = createPipeline(new HttpLogOptions().setLogLevel(httpLogLevel));
+        HttpPipeline pipeline = createPipeline(
+            new HttpLogOptions().setLoggingEnabled(enableLogging).setContentLoggingEnabled(enableContentLogging));
+
         HttpRequest request = new HttpRequest(HttpMethod.GET, URI);
         request.setRequestOptions(new RequestOptions().setLogger(logger));
 
@@ -80,19 +82,16 @@ public class HttpLoggingPolicyTests {
     }
 
     public static Stream<Arguments> disabledHttpLoggingSource() {
-        return Stream.of(Arguments.of(ClientLogger.LogLevel.VERBOSE, HttpLogOptions.HttpLogDetailLevel.NONE),
-            Arguments.of(ClientLogger.LogLevel.WARNING, HttpLogOptions.HttpLogDetailLevel.BASIC),
-            Arguments.of(ClientLogger.LogLevel.WARNING, HttpLogOptions.HttpLogDetailLevel.HEADERS),
-            Arguments.of(ClientLogger.LogLevel.WARNING, HttpLogOptions.HttpLogDetailLevel.BODY),
-            Arguments.of(ClientLogger.LogLevel.WARNING, HttpLogOptions.HttpLogDetailLevel.BODY_AND_HEADERS));
+        return Stream.of(Arguments.of(ClientLogger.LogLevel.VERBOSE, false, false),
+            Arguments.of(ClientLogger.LogLevel.WARNING, true, false),
+            Arguments.of(ClientLogger.LogLevel.WARNING, true, true));
     }
 
     @ParameterizedTest
     @MethodSource("allowQueryParamSource")
     public void testBasicHttpLogging(Set<String> allowedParams, String expectedUri) throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BASIC)
-            .setAllowedQueryParamNames(allowedParams);
+        HttpLogOptions options = new HttpLogOptions().setLoggingEnabled(true).setAllowedQueryParamNames(allowedParams);
 
         HttpPipeline pipeline = createPipeline(options);
 
@@ -104,16 +103,46 @@ public class HttpLoggingPolicyTests {
         assertEquals(2, logMessages.size());
 
         assertRequestLog(logMessages.get(0), expectedUri, request);
-        assertEquals(6, logMessages.get(0).size());
+        assertEquals(8, logMessages.get(0).size());
+        assertEquals("REDACTED", logMessages.get(0).get("Authorization"));
+        assertEquals("application/json", logMessages.get(0).get("Content-Type"));
 
         assertResponseLog(logMessages.get(1), expectedUri, response);
-        assertEquals(10, logMessages.get(1).size());
+        assertEquals(13, logMessages.get(1).size());
+        assertEquals("13", logMessages.get(1).get("Content-Length"));
+        assertEquals("application/text", logMessages.get(1).get("Content-Type"));
+        assertEquals("REDACTED", logMessages.get(1).get("not-safe-to-log"));
+    }
+
+    @Test
+    public void testBasicHttpLoggingNoRedactedHeaders() throws IOException {
+        ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
+        HttpLogOptions options
+            = new HttpLogOptions().setLoggingEnabled(true).setRedactedHeaderNamesLoggingEnabled(false);
+
+        HttpPipeline pipeline = createPipeline(options);
+
+        HttpRequest request = createRequest(HttpMethod.GET, URI, logger);
+        Response<?> response = pipeline.send(request);
+        response.close();
+
+        List<Map<String, Object>> logMessages = parseLogMessages();
+        assertEquals(2, logMessages.size());
+
+        assertRequestLog(logMessages.get(0), REDACTED_URI, request);
+        assertEquals(7, logMessages.get(0).size());
+        assertEquals("application/json", logMessages.get(0).get("Content-Type"));
+
+        assertResponseLog(logMessages.get(1), REDACTED_URI, response);
+        assertEquals(12, logMessages.get(1).size());
+        assertEquals("13", logMessages.get(1).get("Content-Length"));
+        assertEquals("application/text", logMessages.get(1).get("Content-Type"));
     }
 
     @Test
     public void testTryCount() throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BASIC);
+        HttpLogOptions options = new HttpLogOptions().setLoggingEnabled(true);
 
         HttpPipeline pipeline = createPipeline(options);
 
@@ -133,7 +162,7 @@ public class HttpLoggingPolicyTests {
     @MethodSource("testExceptionSeverity")
     public void testConnectionException(ClientLogger.LogLevel level, boolean expectExceptionLog) {
         ClientLogger logger = setupLogLevelAndGetLogger(level);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.HEADERS);
+        HttpLogOptions options = new HttpLogOptions().setLoggingEnabled(true);
 
         RuntimeException expectedException = new RuntimeException("socket error");
         HttpPipeline pipeline = createPipeline(options, request -> {
@@ -156,7 +185,7 @@ public class HttpLoggingPolicyTests {
     @MethodSource("testExceptionSeverity")
     public void testRequestBodyException(ClientLogger.LogLevel level, boolean expectExceptionLog) {
         ClientLogger logger = setupLogLevelAndGetLogger(level);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         TestStream requestStream = new TestStream(1024, new IOException("socket error"));
         BinaryData requestBody = BinaryData.fromStream(requestStream, 1024L);
@@ -179,7 +208,7 @@ public class HttpLoggingPolicyTests {
     @MethodSource("testExceptionSeverity")
     public void testResponseBodyException(ClientLogger.LogLevel level, boolean expectExceptionLog) {
         ClientLogger logger = setupLogLevelAndGetLogger(level);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         TestStream responseStream = new TestStream(1024, new IOException("socket error"));
         HttpPipeline pipeline = createPipeline(options,
@@ -201,7 +230,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testResponseBodyLoggingOnClose() throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.INFORMATIONAL);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         HttpPipeline pipeline = createPipeline(options,
             request -> new MockHttpResponse(request, 200, BinaryData.fromString("Response body")));
@@ -220,7 +249,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testResponseBodyRequestedMultipleTimes() {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.INFORMATIONAL);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         HttpPipeline pipeline = createPipeline(options,
             request -> new MockHttpResponse(request, 200, BinaryData.fromString("Response body")));
@@ -240,8 +269,7 @@ public class HttpLoggingPolicyTests {
     @MethodSource("allowQueryParamSource")
     public void testBasicHttpLoggingRequestOff(Set<String> allowedParams, String expectedUri) throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.INFORMATIONAL);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BASIC)
-            .setAllowedQueryParamNames(allowedParams);
+        HttpLogOptions options = new HttpLogOptions().setLoggingEnabled(true).setAllowedQueryParamNames(allowedParams);
 
         HttpPipeline pipeline = createPipeline(options);
 
@@ -253,15 +281,14 @@ public class HttpLoggingPolicyTests {
         assertEquals(1, logMessages.size());
 
         assertResponseLog(logMessages.get(0), expectedUri, response);
-        assertEquals(10, logMessages.get(0).size());
+        assertEquals(13, logMessages.get(0).size());
     }
 
     @ParameterizedTest
     @MethodSource("allowedHeaders")
     public void testHeadersHttpLogging(Set<HttpHeaderName> allowedHeaders) throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.HEADERS)
-            .setAllowedHeaderNames(allowedHeaders);
+        HttpLogOptions options = new HttpLogOptions().setLoggingEnabled(true).setAllowedHeaderNames(allowedHeaders);
 
         HttpPipeline pipeline = createPipeline(options);
 
@@ -297,7 +324,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testStringBodyLogging() throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         HttpPipeline pipeline = createPipeline(options,
             request -> new MockHttpResponse(request, 200, BinaryData.fromString("Response body")));
@@ -325,7 +352,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testStreamBodyLogging() {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         BinaryData responseBody = BinaryData.fromString("Response body");
         TestStream responseStream = new TestStream(responseBody);
@@ -363,7 +390,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testHugeBodyNotLogged() throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         TestStream requestStream = new TestStream(1024 * 1024);
         TestStream responseStream = new TestStream(1024 * 1024);
@@ -394,7 +421,7 @@ public class HttpLoggingPolicyTests {
     @Test
     public void testBodyWithUnknownLengthNotLogged() throws IOException {
         ClientLogger logger = setupLogLevelAndGetLogger(ClientLogger.LogLevel.VERBOSE);
-        HttpLogOptions options = new HttpLogOptions().setLogLevel(HttpLogOptions.HttpLogDetailLevel.BODY);
+        HttpLogOptions options = new HttpLogOptions().setContentLoggingEnabled(true);
 
         TestStream requestStream = new TestStream(1024);
         TestStream responseStream = new TestStream(1024);
@@ -584,7 +611,13 @@ public class HttpLoggingPolicyTests {
             if (request.getBody() != null) {
                 request.getBody().toString();
             }
-            return new MockHttpResponse(request, 200, BinaryData.fromString("Hello, world!"));
+            BinaryData responseBody = BinaryData.fromString("Hello, world!");
+            MockHttpResponse response = new MockHttpResponse(request, 200, responseBody);
+            response.getHeaders()
+                .set(HttpHeaderName.CONTENT_TYPE, "application/text")
+                .set(HttpHeaderName.CONTENT_LENGTH, responseBody.getLength().toString())
+                .set(HttpHeaderName.fromString("not-safe-to-log"), "12345");
+            return response;
         });
     }
 
