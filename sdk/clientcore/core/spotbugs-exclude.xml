@@ -12,42 +12,6 @@
   </Match>
   <Match>
     <Bug pattern="BC_UNCONFIRMED_CAST_OF_RETURN_VALUE" />
-    <Or>
-      <Class name="io.clientcore.core.credentials.NamedKeyCredential" />
-      <Class name="io.clientcore.core.credentials.oauth.OAuthTokenRequestContext" />
-      <Class name="io.clientcore.core.http.models.HttpRange" />
-      <Class name="io.clientcore.core.http.models.HttpRequest" />
-      <Class name="io.clientcore.core.http.pipeline.HttpPipelineBuilder" />
-      <Class name="io.clientcore.core.http.pipeline.HttpRetryPolicy" />
-      <Class name="io.clientcore.core.http.pipeline.OAuthBearerTokenAuthenticationPolicy" />
-      <Class name="io.clientcore.core.implementation.GenericParameterizedType" />
-      <Class name="io.clientcore.core.implementation.ReflectionUtilsMethodHandle" />
-      <Class name="io.clientcore.core.implementation.http.HttpPipelineCallState" />
-      <Class name="io.clientcore.core.implementation.utils.AuthenticateChallengeParser" />
-      <Class name="io.clientcore.core.implementation.utils.InternalContext" />
-      <Class name="io.clientcore.core.implementation.utils.PercentEscaper" />
-      <Class name="io.clientcore.core.implementation.utils.Providers" />
-      <Class name="io.clientcore.core.implementation.utils.SliceInputStream" />
-      <Class name="io.clientcore.core.implementation.utils.StreamUtil" />
-      <Class name="io.clientcore.core.models.CloudEvent" />
-      <Class name="io.clientcore.core.models.binarydata.BinaryData" />
-      <Class name="io.clientcore.core.models.binarydata.FileBinaryData" />
-      <Class name="io.clientcore.core.models.binarydata.InputStreamBinaryData" />
-      <Class name="io.clientcore.core.models.binarydata.ListByteBufferBinaryData" />
-      <Class name="io.clientcore.core.models.geo.GeoArray" />
-      <Class name="io.clientcore.core.models.geo.GeoBoundingBox" />
-      <Class name="io.clientcore.core.models.geo.GeoLinearRing" />
-      <Class name="io.clientcore.core.models.geo.GeoPosition" />
-      <Class name="io.clientcore.core.serialization.json.JsonSerializer" />
-      <Class name="io.clientcore.core.serialization.xml.XmlReader" />
-      <Class name="io.clientcore.core.serialization.xml.XmlSerializer" />
-      <Class name="io.clientcore.core.shared.HttpClientTests" />
-      <Class name="io.clientcore.core.utils.AuthenticateChallenge" />
-      <Class name="io.clientcore.core.utils.CoreUtils" />
-      <Class name="io.clientcore.core.utils.DateTimeRfc1123" />
-      <Class name="io.clientcore.core.utils.SharedExecutorService" />
-      <Class name="io.clientcore.core.utils.Union" />
-    </Or>
   </Match>
   <Match>
     <Bug pattern="CNT_ROUGH_CONSTANT_VALUE" />
