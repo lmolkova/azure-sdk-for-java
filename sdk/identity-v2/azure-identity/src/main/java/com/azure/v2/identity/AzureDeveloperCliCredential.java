@@ -7,11 +7,15 @@ import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import com.azure.v2.identity.implementation.client.DevToolsClient;
 import com.azure.v2.identity.implementation.models.DevToolsClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+import io.clientcore.core.instrumentation.logging.ExceptionLoggingEvent;
+import io.clientcore.core.models.CoreException;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>Azure Developer CLI is a command-line interface tool that allows developers to create, manage, and deploy
@@ -70,14 +74,14 @@ public class AzureDeveloperCliCredential implements TokenCredential {
     public AccessToken getToken(TokenRequestContext request) {
         try {
             AccessToken accessToken = devToolslClient.authenticateWithAzureDeveloperCli(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return accessToken;
-        } catch (Exception ex) {
-            LoggingUtil.logTokenError(LOGGER, request, ex);
-            if (devToolslClient.getClientOptions().isChained()) {
-                throw LOGGER.logThrowableAsError(new CredentialUnavailableException(ex.getMessage(), ex));
-            }
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(ex.getMessage(), ex));
+        } catch (RuntimeException ex) {
+            ExceptionLoggingEvent<CoreException> errorLog
+                = LOGGER.throwableAtError(devToolslClient.getClientOptions().isChained()
+                    ? CredentialUnavailableException::new
+                    : CredentialAuthenticationException::new);
+            throw logTokenError(errorLog, request, ex);
         }
     }
 }

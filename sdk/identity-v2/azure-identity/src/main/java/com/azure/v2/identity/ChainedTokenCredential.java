@@ -9,7 +9,6 @@ import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
-import io.clientcore.core.instrumentation.logging.LogLevel;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,8 +47,8 @@ import java.util.stream.Collectors;
  */
 public class ChainedTokenCredential implements TokenCredential {
     private static final ClientLogger LOGGER = new ClientLogger(ChainedTokenCredential.class);
+    private static final String CREDENTIAL_TYPE_KEY = "credentialType";
     private final List<TokenCredential> credentials;
-    private final String unavailableError = this.getClass().getSimpleName() + " authentication failed. ---> ";
     private final AtomicReference<TokenCredential> selectedCredential;
     private boolean useCachedWorkingCredential = false;
 
@@ -69,24 +68,27 @@ public class ChainedTokenCredential implements TokenCredential {
         if (selectedCredential.get() != null && useCachedWorkingCredential) {
             try {
                 AccessToken accessToken = selectedCredential.get().getToken(request);
-                logTokenMessage("Azure Identity => Returning token from cached credential {}",
-                    selectedCredential.get());
+                LOGGER.atInfo()
+                    .addKeyValue(CREDENTIAL_TYPE_KEY, () -> selectedCredential.get().getClass().getCanonicalName())
+                    .log("Azure Identity => Returning token from cached credential");
                 return accessToken;
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 handleException(e, selectedCredential.get(), exceptions,
-                    "Azure Identity => Cached credential {} is unavailable.", selectedCredential.get());
+                    "Azure Identity => Cached credential is unavailable.", selectedCredential.get());
             }
         } else {
             for (TokenCredential credential : credentials) {
                 try {
                     AccessToken accessToken = credential.getToken(request);
-                    logTokenMessage("Azure Identity => Attempted credential {} returns a token", credential);
+                    LOGGER.atInfo()
+                        .addKeyValue(CREDENTIAL_TYPE_KEY, credential.getClass().getCanonicalName())
+                        .log("Azure Identity => Credential returns a token");
                     selectedCredential.set(credential);
                     return accessToken;
 
-                } catch (Exception e) {
-                    handleException(e, credential, exceptions,
-                        "Azure Identity => Attempted credential {} is unavailable.", credential);
+                } catch (RuntimeException e) {
+                    handleException(e, credential, exceptions, "Azure Identity => Attempted credential is unavailable.",
+                        credential);
                 }
             }
         }
@@ -103,27 +105,18 @@ public class ChainedTokenCredential implements TokenCredential {
         throw LOGGER.logThrowableAsError(last);
     }
 
-    private void logTokenMessage(String format, TokenCredential selectedCredential) {
-        LOGGER.atLevel(LogLevel.INFORMATIONAL)
-            .log(String.format(format, selectedCredential.getClass().getSimpleName()));
-    }
-
-    private String getCredUnavailableMessage(TokenCredential p, Exception t) {
-        return unavailableError + p.getClass().getSimpleName() + " authentication failed. Error Details: "
-            + t.getMessage();
-    }
-
-    private void handleException(Exception e, TokenCredential selectedCredential,
+    private void handleException(RuntimeException e, TokenCredential selectedCredential,
         List<CredentialUnavailableException> exceptions, String logMessage, TokenCredential selectedCredential1) {
         if (e.getClass() != CredentialUnavailableException.class) {
-            throw LOGGER.logThrowableAsError(
-                new CredentialAuthenticationException(getCredUnavailableMessage(selectedCredential, e), e));
-        } else {
-            if (e instanceof CredentialUnavailableException) {
-                exceptions.add((CredentialUnavailableException) e);
-            }
+            throw LOGGER.throwableAtError(CredentialAuthenticationException::new)
+                .addKeyValue(CREDENTIAL_TYPE_KEY, selectedCredential.getClass().getCanonicalName())
+                .log("Authentication failed.", e);
         }
-        logTokenMessage(logMessage, selectedCredential1);
+
+        exceptions.add((CredentialUnavailableException) e);
+        LOGGER.atInfo()
+            .addKeyValue(CREDENTIAL_TYPE_KEY, selectedCredential1.getClass().getCanonicalName())
+            .log(logMessage);
     }
 
     WorkloadIdentityCredential getWorkloadIdentityCredentialIfPresent() {

@@ -7,11 +7,13 @@ import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import com.azure.v2.identity.implementation.client.DevToolsClient;
 import com.azure.v2.identity.implementation.models.DevToolsClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>The Azure CLI is a command-line tool that allows users to manage Azure resources from their local machine or
@@ -67,14 +69,12 @@ public class AzureCliCredential implements TokenCredential {
     public AccessToken getToken(TokenRequestContext request) {
         try {
             AccessToken accessToken = devToolslClient.authenticateWithAzureCli(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return accessToken;
-        } catch (Exception ex) {
-            LoggingUtil.logTokenError(LOGGER, request, ex);
-            if (devToolslClient.getClientOptions().isChained()) {
-                throw LOGGER.logThrowableAsError(new CredentialUnavailableException(ex.getMessage(), ex));
-            }
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(ex.getMessage(), ex));
+        } catch (RuntimeException ex) {
+            throw logTokenError(LOGGER.throwableAtError(devToolslClient.getClientOptions().isChained()
+                ? CredentialUnavailableException::new
+                : CredentialAuthenticationException::new), request, ex);
         }
     }
 }

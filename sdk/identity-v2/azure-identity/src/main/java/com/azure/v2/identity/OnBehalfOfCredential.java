@@ -6,11 +6,13 @@ package com.azure.v2.identity;
 import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.implementation.client.ConfidentialClient;
 import com.azure.v2.identity.implementation.models.ConfidentialClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>On Behalf of authentication in Azure is a way for a user or application to authenticate to a service or resource
@@ -61,20 +63,18 @@ public class OnBehalfOfCredential implements TokenCredential {
         try {
             AccessToken token = confidentialClient.authenticate(request);
             if (token != null) {
-                LoggingUtil.logTokenSuccess(LOGGER, request);
+                logTokenSuccess(LOGGER, request);
                 return token;
             }
-        } catch (Exception e) {
+        } catch (RuntimeException ignored) {
         }
 
         try {
             AccessToken token = confidentialClient.authenticateWithOBO(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return token;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(e.getMessage(), e));
+        } catch (RuntimeException e) {
+            throw logTokenError(LOGGER.throwableAtError(CredentialAuthenticationException::new), request, e);
         }
     }
-
 }

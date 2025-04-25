@@ -9,13 +9,17 @@ import com.azure.v2.identity.implementation.client.PublicClient;
 import com.azure.v2.identity.implementation.models.MsalToken;
 import com.azure.v2.identity.implementation.models.PublicClientOptions;
 import com.azure.v2.identity.implementation.util.IdentityConstants;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+import io.clientcore.core.instrumentation.logging.ExceptionLoggingEvent;
+import io.clientcore.core.models.CoreException;
 
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>
@@ -87,20 +91,20 @@ public class AzureToolkitCredential implements TokenCredential {
             if (cachedToken.get() != null) {
                 return publicClient.authenticateWithPublicClientCache(request, cachedToken.get().getAccount());
             }
-        } catch (Exception ex) {
+        } catch (RuntimeException ignored) {
         }
 
         try {
             MsalToken msalToken = publicClient.authenticateWithAzureToolkit(request);
             cachedToken.set(msalToken);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return msalToken;
-        } catch (Exception ex) {
-            LoggingUtil.logTokenError(LOGGER, request, ex);
-            if (publicClient.getClientOptions().isChained()) {
-                throw LOGGER.logThrowableAsError(new CredentialUnavailableException(ex.getMessage(), ex));
-            }
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(ex.getMessage(), ex));
+        } catch (RuntimeException ex) {
+            ExceptionLoggingEvent<CoreException> errorLog
+                = LOGGER.throwableAtError(publicClient.getClientOptions().isChained()
+                    ? CredentialUnavailableException::new
+                    : CredentialAuthenticationException::new);
+            throw logTokenError(errorLog, request, ex);
         }
     }
 }

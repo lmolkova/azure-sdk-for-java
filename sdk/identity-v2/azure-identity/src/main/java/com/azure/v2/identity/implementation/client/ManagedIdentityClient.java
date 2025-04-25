@@ -57,7 +57,7 @@ public class ManagedIdentityClient extends ClientBase {
             = com.microsoft.aad.msal4j.ManagedIdentityParameters.builder(resource);
         try {
             return new MsalToken(managedIdentityApplication.acquireTokenForManagedIdentity(builder.build()).get());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw LOGGER.logThrowableAsError(
                 new CredentialAuthenticationException("Managed Identity authentication is not available.", e));
         }

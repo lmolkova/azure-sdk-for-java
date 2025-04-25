@@ -6,13 +6,15 @@ package com.azure.v2.identity;
 import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.implementation.client.ConfidentialClient;
 import com.azure.v2.identity.implementation.models.ConfidentialClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
 
 import java.util.Objects;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>The ClientSecretCredential acquires a token via service principal authentication. It is a type of authentication
@@ -78,19 +80,18 @@ public class ClientSecretCredential implements TokenCredential {
         try {
             AccessToken token = confidentialClient.authenticateWithCache(request);
             if (token != null) {
-                LoggingUtil.logTokenSuccess(LOGGER, request);
+                logTokenSuccess(LOGGER, request);
                 return token;
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
         }
 
         try {
             AccessToken token = confidentialClient.authenticate(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return token;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(e.getMessage(), e));
+        } catch (Throwable e) {
+            throw logTokenError(LOGGER.throwableAtError(CredentialAuthenticationException::new), request, e);
         }
     }
 }

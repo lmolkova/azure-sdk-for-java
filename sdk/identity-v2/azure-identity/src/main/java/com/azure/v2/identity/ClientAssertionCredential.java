@@ -5,11 +5,12 @@ package com.azure.v2.identity;
 
 import com.azure.v2.identity.implementation.client.ConfidentialClient;
 import com.azure.v2.identity.implementation.models.ConfidentialClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>The ClientAssertionCredential acquires a token via client assertion and service principal authentication.
@@ -69,7 +70,7 @@ public class ClientAssertionCredential implements TokenCredential {
         try {
             AccessToken token = confidentialClient.authenticateWithCache(request);
             if (token != null) {
-                LoggingUtil.logTokenSuccess(LOGGER, request);
+                logTokenSuccess(LOGGER, request);
                 return token;
             }
         } catch (Exception ignored) {
@@ -77,12 +78,10 @@ public class ClientAssertionCredential implements TokenCredential {
 
         try {
             AccessToken token = confidentialClient.authenticate(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return token;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            // wrap the exception in a RuntimeException to avoid checked exception problems.
-            throw LOGGER.logThrowableAsError(new RuntimeException(e));
+        } catch (RuntimeException e) {
+            throw LOGGER.logThrowableAsError(e);
         }
     }
 }

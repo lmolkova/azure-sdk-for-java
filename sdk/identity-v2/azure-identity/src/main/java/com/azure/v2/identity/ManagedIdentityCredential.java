@@ -7,7 +7,6 @@ import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import com.azure.v2.identity.implementation.client.ManagedIdentityClient;
 import com.azure.v2.identity.implementation.models.ManagedIdentityClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import com.microsoft.aad.msal4j.ManagedIdentityApplication;
@@ -15,6 +14,8 @@ import com.microsoft.aad.msal4j.ManagedIdentitySourceType;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
 import io.clientcore.core.utils.CoreUtils;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p><a href="https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/">Azure
@@ -97,7 +98,7 @@ public final class ManagedIdentityCredential implements TokenCredential {
             ManagedIdentitySourceType managedIdentitySourceType = ManagedIdentityApplication.getManagedIdentitySource();
             if (ManagedIdentitySourceType.CLOUD_SHELL.equals(managedIdentitySourceType)
                 || ManagedIdentitySourceType.AZURE_ARC.equals(managedIdentitySourceType)) {
-                LoggingUtil.logCredentialUnavailableException(LOGGER,
+                LOGGER.logThrowableAsError(
                     new CredentialUnavailableException("ManagedIdentityCredential authentication unavailable. "
                         + "User-assigned managed identity is not supported in " + managedIdentitySourceType
                         + ". To use system-assigned managed identity, remove the configured client ID on "
@@ -107,17 +108,15 @@ public final class ManagedIdentityCredential implements TokenCredential {
 
         try {
             AccessToken token = managedIdentityClient.authenticate(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return token;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            if (clientOptions.isChained()) {
-                throw LOGGER.logThrowableAsError(
-                    new CredentialUnavailableException("Managed Identity authentication is not available.", e));
-            } else {
-                throw LOGGER.logThrowableAsError(
-                    new CredentialAuthenticationException("Managed Identity authentication is not available.", e));
-            }
+        } catch (RuntimeException e) {
+            throw LOGGER
+                .throwableAtError(clientOptions.isChained()
+                    ? CredentialUnavailableException::new
+                    : CredentialAuthenticationException::new)
+                .addKeyValue("scopes", CoreUtils.stringJoin(", ", request.getScopes()))
+                .log("Azure Identity => ERROR getToken(). Managed Identity authentication is not available.", e);
         }
     }
 

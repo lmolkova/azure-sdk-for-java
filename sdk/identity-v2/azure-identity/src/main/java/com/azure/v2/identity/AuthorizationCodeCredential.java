@@ -10,12 +10,14 @@ import com.azure.v2.identity.implementation.client.PublicClient;
 import com.azure.v2.identity.implementation.models.ConfidentialClientOptions;
 import com.azure.v2.identity.implementation.models.MsalToken;
 import com.azure.v2.identity.implementation.models.PublicClientOptions;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
 import io.clientcore.core.utils.CoreUtils;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * <p>Authorization Code authentication in Azure is a type of authentication mechanism that allows users to
@@ -94,11 +96,10 @@ public class AuthorizationCodeCredential implements TokenCredential {
                 accessToken = publicClient.authenticateWithAuthorizationCode(request);
             }
             cache.updateCache(accessToken, publicClientOptions, request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return accessToken;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(e.getMessage(), e));
+        } catch (RuntimeException e) {
+            throw logTokenError(LOGGER.throwableAtError(CredentialAuthenticationException::new), request, e);
         }
     }
 }

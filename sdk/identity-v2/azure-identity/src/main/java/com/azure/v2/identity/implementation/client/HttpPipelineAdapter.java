@@ -15,14 +15,12 @@ import io.clientcore.core.http.models.Response;
 import io.clientcore.core.http.models.HttpHeader;
 import io.clientcore.core.http.pipeline.HttpPipeline;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
-import io.clientcore.core.instrumentation.logging.LogLevel;
 import io.clientcore.core.models.binarydata.BinaryData;
 import io.clientcore.core.utils.CoreUtils;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.text.MessageFormat;
 import java.util.Base64;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,13 +30,10 @@ import java.util.stream.Collectors;
  */
 class HttpPipelineAdapter implements IHttpClient {
     private static final ClientLogger CLIENT_LOGGER = new ClientLogger(HttpPipelineAdapter.class);
-    private static final String ACCOUNT_IDENTIFIER_LOG_MESSAGE
-        = "[Authenticated account] Client ID: {0}, Tenant ID: {1}"
-            + ", User Principal Name: {2}, Object ID (user): {3})";
     private static final String APPLICATION_IDENTIFIER = "Application Identifier";
-    private static final String OBJECT_ID = "Object Id";
-    private static final String TENANT_ID = "Tenant Id";
-    private static final String USER_PRINCIPAL_NAME = "User Principal Name";
+    private static final String OBJECT_ID = "object.id";
+    private static final String TENANT_ID = "tenant.id";
+    private static final String USER_PRINCIPAL_NAME = "user.principal.name";
     private static final String APPLICATION_ID_JSON_KEY = "appid";
     private static final String OBJECT_ID_JSON_KEY = "oid";
     private static final String TENANT_ID_JSON_KEY = "tid";
@@ -103,23 +98,17 @@ class HttpPipelineAdapter implements IHttpClient {
                         ? jsonMap.get(USER_PRINCIPAL_NAME_JSON_KEY)
                         : null;
 
-                    CLIENT_LOGGER.atLevel(LogLevel.INFORMATIONAL)
-                        .log(MessageFormat.format(ACCOUNT_IDENTIFIER_LOG_MESSAGE,
-                            getAccountIdentifierMessage(APPLICATION_IDENTIFIER, appId),
-                            getAccountIdentifierMessage(TENANT_ID, tenantId),
-                            getAccountIdentifierMessage(USER_PRINCIPAL_NAME, userPrincipalName),
-                            getAccountIdentifierMessage(OBJECT_ID, objectId)));
+                    CLIENT_LOGGER.atInfo()
+                        .addKeyValue(APPLICATION_IDENTIFIER, appId == null ? "Not available." : appId)
+                        .addKeyValue(TENANT_ID, tenantId == null ? "Not available." : tenantId)
+                        .addKeyValue(USER_PRINCIPAL_NAME,
+                            userPrincipalName == null ? "Not available." : userPrincipalName)
+                        .addKeyValue(OBJECT_ID, objectId == null ? "Not available." : objectId)
+                        .log("Authenticated account");
                 }
             }
         } catch (IOException e) {
-            CLIENT_LOGGER.logThrowableAsWarning(e);
+            CLIENT_LOGGER.atWarning().setThrowable(e);
         }
-    }
-
-    private String getAccountIdentifierMessage(String identifierName, String identifierValue) {
-        if (identifierValue == null) {
-            return "No " + identifierName + " available.";
-        }
-        return identifierValue;
     }
 }

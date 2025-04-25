@@ -34,8 +34,10 @@ public final class ValidationUtil {
         }
 
         if (!missing.isEmpty()) {
-            throw logger.logThrowableAsWarning(new IllegalArgumentException(
-                "Must provide non-null values for " + missing + " properties in " + className));
+            throw logger.throwableAtWarning(IllegalArgumentException::new)
+                .addKeyValue("missingProperties", missing)
+                .addKeyValue("className", className)
+                .log("Missing some required properties");
         }
     }
 
@@ -62,8 +64,9 @@ public final class ValidationUtil {
         }
 
         if (!missing.isEmpty()) {
-            throw logger.logThrowableAsWarning(
-                new IllegalArgumentException("Must provide non-null values for " + missing + " properties."));
+            throw logger.throwableAtWarning(IllegalArgumentException::new)
+                .addKeyValue("missingProperties", missing)
+                .log("Missing some required properties");
         }
     }
 
@@ -96,8 +99,9 @@ public final class ValidationUtil {
         }
 
         if (!missing.isEmpty()) {
-            throw logger.logThrowableAsWarning(
-                new IllegalArgumentException("Must provide non-null values for " + missing + " properties."));
+            throw logger.throwableAtWarning(IllegalArgumentException::new)
+                .addKeyValue("missingProperties", missing)
+                .log("Missing some required properties");
         }
     }
 
@@ -211,8 +215,10 @@ public final class ValidationUtil {
         }
 
         if (!missing.isEmpty()) {
-            throw logger.logThrowableAsWarning(new IllegalArgumentException(
-                "Must provide non-null values for " + missing + " properties in " + className));
+            throw logger.throwableAtWarning(IllegalArgumentException::new)
+                .addKeyValue("missingProperties", missing)
+                .addKeyValue("className", className)
+                .log("Missing some required properties");
         }
     }
 
@@ -240,8 +246,10 @@ public final class ValidationUtil {
         }
 
         if (!missing.isEmpty()) {
-            throw logger.logThrowableAsWarning(new IllegalArgumentException(
-                "Must provide non-null values for " + missing + " properties in " + className));
+            throw logger.throwableAtWarning(IllegalArgumentException::new)
+                .addKeyValue("missingProperties", missing)
+                .addKeyValue("className", className)
+                .log("Missing some required properties");
         }
     }
 
@@ -271,10 +279,11 @@ public final class ValidationUtil {
         if (subscription != null) {
             for (int i = 0; i < subscription.length(); i++) {
                 if (!isValidSubscriptionCharacter(subscription.charAt(i))) {
-                    throw logger.logThrowableAsError(new IllegalArgumentException("Invalid subscription: "
-                        + subscription + " provided. If this is the name of a subscription, use its ID instead."
-                        + " You can locate your subscription ID by following the instructions"
-                        + " listed here: https://learn.microsoft.com/azure/azure-portal/get-subscription-tenant-id"));
+                    throw logger.throwableAtError(IllegalArgumentException::new)
+                        .addKeyValue("subscription", subscription)
+                        .log("Invalid subscription provided. If this is the name of a subscription, use its ID instead."
+                            + " You can locate your subscription ID by following the instructions"
+                            + " listed here: https://learn.microsoft.com/azure/azure-portal/get-subscription-tenant-id");
                 }
             }
         }

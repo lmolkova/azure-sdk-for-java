@@ -8,7 +8,6 @@ import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import com.azure.v2.identity.implementation.models.DevToolsClientOptions;
 import com.azure.v2.identity.implementation.models.AzureCliToken;
 import com.azure.v2.identity.implementation.util.IdentityUtil;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.identity.implementation.util.ScopeUtil;
 import com.azure.v2.identity.implementation.util.ValidationUtil;
 import com.azure.v2.core.credentials.TokenRequestContext;
@@ -17,7 +16,6 @@ import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
 import io.clientcore.core.serialization.json.JsonReader;
 import io.clientcore.core.utils.CoreUtils;
-import io.clientcore.core.instrumentation.logging.LogLevel;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -85,7 +83,7 @@ public class DevToolsClient extends ClientBase {
         for (PowershellManager powershellManager : powershellManagers) {
             try {
                 return getAccessTokenFromPowerShell(request, powershellManager);
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 if (ex instanceof CredentialUnavailableException) {
                     exceptions.add((CredentialUnavailableException) ex);
                 } else {
@@ -106,7 +104,7 @@ public class DevToolsClient extends ClientBase {
                 + "Azure PowerShell authentication failed using powershell-core(powershell)" + " with following error: "
                 + last.getMessage(), last.getCause());
         }
-        LoggingUtil.logCredentialUnavailableException(LOGGER, (last));
+        LOGGER.logThrowableAsError(last);
         return null;
     }
 
@@ -134,13 +132,13 @@ public class DevToolsClient extends ClientBase {
 
         String output = powershellManager.runCommand(command);
         if (output.contains("VersionTooOld")) {
-            LoggingUtil.logCredentialUnavailableException(LOGGER,
+            LOGGER.logThrowableAsError(
                 new CredentialUnavailableException("Az.Account module with version >= 2.2.0 is not installed. "
-                    + "It needs to be installed to use Azure PowerShell " + "Credential."));
+                    + "It needs to be installed to use Azure PowerShell Credential."));
         }
 
         if (output.contains("Run Connect-AzAccount to login")) {
-            LoggingUtil.logCredentialUnavailableException(LOGGER,
+            LOGGER.logThrowableAsError(
                 new CredentialUnavailableException("Run Connect-AzAccount to login to Azure account in PowerShell."));
         }
 
@@ -152,7 +150,7 @@ public class DevToolsClient extends ClientBase {
             OffsetDateTime expiresOn = OffsetDateTime.parse(time).withOffsetSameInstant(ZoneOffset.UTC);
             return new AccessToken(accessToken, expiresOn);
         } catch (IOException e) {
-            LoggingUtil.logCredentialUnavailableException(LOGGER, new CredentialUnavailableException(
+            LOGGER.logThrowableAsError(new CredentialUnavailableException(
                 "Encountered error when deserializing response from Azure Power Shell.", e));
         }
         return null;
@@ -198,9 +196,7 @@ public class DevToolsClient extends ClientBase {
         try {
             return getTokenFromAzureDeveloperCLIAuthentication(azdCommand);
         } catch (RuntimeException e) {
-            throw (e instanceof CredentialUnavailableException
-                ? LoggingUtil.logCredentialUnavailableException(LOGGER, (CredentialUnavailableException) e)
-                : LOGGER.logThrowableAsError(e));
+            throw LOGGER.logThrowableAsError(e);
         }
     }
 
@@ -243,7 +239,7 @@ public class DevToolsClient extends ClientBase {
 
                     if (WINDOWS_PROCESS_ERROR_MESSAGE.matcher(line).find()
                         || SH_PROCESS_ERROR_MESSAGE.matcher(line).find()) {
-                        throw LoggingUtil.logCredentialUnavailableException(LOGGER, new CredentialUnavailableException(
+                        throw LOGGER.logThrowableAsError(new CredentialUnavailableException(
                             "AzureDeveloperCliCredential authentication unavailable. Azure Developer CLI not installed."
                                 + "To mitigate this issue, please refer to the troubleshooting guidelines here at "
                                 + "https://aka.ms/azsdk/java/identity/azdevclicredential/troubleshoot"));
@@ -260,7 +256,7 @@ public class DevToolsClient extends ClientBase {
                 if (processOutput.length() > 0) {
                     String redactedOutput = redactInfo(processOutput);
                     if (redactedOutput.contains("azd auth login") || redactedOutput.contains("not logged in")) {
-                        throw LoggingUtil.logCredentialUnavailableException(LOGGER,
+                        throw LOGGER.logThrowableAsError(
                             new CredentialUnavailableException("AzureDeveloperCliCredential authentication unavailable."
                                 + " Please run 'azd auth login' to set up account."));
                     }
@@ -271,7 +267,7 @@ public class DevToolsClient extends ClientBase {
                 }
             }
 
-            LOGGER.atLevel(LogLevel.VERBOSE)
+            LOGGER.atVerbose()
                 .log(
                     "Azure Developer CLI Authentication => A token response was received from Azure Developer CLI, deserializing the"
                         + " response into an Access Token.");
@@ -332,11 +328,8 @@ public class DevToolsClient extends ClientBase {
         try {
             return getTokenFromAzureCLIAuthentication(azCommand);
         } catch (RuntimeException e) {
-            throw (e instanceof CredentialUnavailableException
-                ? LoggingUtil.logCredentialUnavailableException(LOGGER, (CredentialUnavailableException) e)
-                : LOGGER.logThrowableAsError(e));
+            throw LOGGER.logThrowableAsError(e);
         }
-
     }
 
     AccessToken getTokenFromAzureCLIAuthentication(StringBuilder azCommand) {
@@ -379,11 +372,10 @@ public class DevToolsClient extends ClientBase {
 
                     if (WINDOWS_PROCESS_ERROR_MESSAGE.matcher(line).find()
                         || SH_PROCESS_ERROR_MESSAGE.matcher(line).find()) {
-                        throw LoggingUtil.logCredentialUnavailableException(LOGGER,
-                            new CredentialUnavailableException(
-                                "AzureCliCredential authentication unavailable. Azure CLI not installed."
-                                    + "To mitigate this issue, please refer to the troubleshooting guidelines here at "
-                                    + "https://aka.ms/azsdk/java/identity/azclicredential/troubleshoot"));
+                        throw LOGGER.logThrowableAsError(new CredentialUnavailableException(
+                            "AzureCliCredential authentication unavailable. Azure CLI not installed."
+                                + "To mitigate this issue, please refer to the troubleshooting guidelines here at "
+                                + "https://aka.ms/azsdk/java/identity/azclicredential/troubleshoot"));
                     }
                     output.append(line);
                 }
@@ -396,7 +388,7 @@ public class DevToolsClient extends ClientBase {
                 if (processOutput.length() > 0) {
                     String redactedOutput = redactInfo(processOutput);
                     if (redactedOutput.contains("az login") || redactedOutput.contains("az account set")) {
-                        throw LoggingUtil.logCredentialUnavailableException(LOGGER,
+                        throw LOGGER.logThrowableAsError(
                             new CredentialUnavailableException("AzureCliCredential authentication unavailable."
                                 + " Please run 'az login' to set up account. To further mitigate this"
                                 + " issue, please refer to the troubleshooting guidelines here at "
@@ -409,7 +401,7 @@ public class DevToolsClient extends ClientBase {
                 }
             }
 
-            LOGGER.atLevel(LogLevel.VERBOSE)
+            LOGGER.atVerbose()
                 .log("Azure CLI Authentication => A token response was received from Azure CLI, deserializing the"
                     + " response into an Access Token.");
             try (JsonReader reader = JsonReader.fromString(processOutput)) {

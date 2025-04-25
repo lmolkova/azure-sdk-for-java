@@ -12,6 +12,10 @@ import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
 import io.clientcore.core.instrumentation.logging.ClientLogger;
+import io.clientcore.core.instrumentation.logging.ExceptionLoggingEvent;
+import io.clientcore.core.models.CoreException;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
 
 /**
  * <p>The Azure Powershell is a command-line tool that allows users to manage Azure resources from their local machine
@@ -68,12 +72,12 @@ public class AzurePowerShellCredential implements TokenCredential {
             AccessToken accessToken = devToolslClient.authenticateWithAzurePowerShell(request);
             LoggingUtil.logTokenSuccess(LOGGER, request);
             return accessToken;
-        } catch (Exception ex) {
-            LoggingUtil.logTokenError(LOGGER, request, ex);
-            if (devToolslClient.getClientOptions().isChained()) {
-                throw LOGGER.logThrowableAsError(new CredentialUnavailableException(ex.getMessage(), ex));
-            }
-            throw LOGGER.logThrowableAsError(new CredentialAuthenticationException(ex.getMessage(), ex));
+        } catch (RuntimeException ex) {
+            ExceptionLoggingEvent<CoreException> errorLog
+                = LOGGER.throwableAtError(devToolslClient.getClientOptions().isChained()
+                    ? CredentialUnavailableException::new
+                    : CredentialAuthenticationException::new);
+            throw logTokenError(errorLog, request, ex);
         }
     }
 }

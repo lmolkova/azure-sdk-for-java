@@ -5,6 +5,7 @@ package com.azure.v2.identity.exceptions;
 
 import com.azure.v2.core.credentials.TokenCredential;
 import io.clientcore.core.credentials.oauth.AccessToken;
+import io.clientcore.core.models.CoreException;
 
 /**
  * The exception thrown when a {@link TokenCredential} attempted to authenticate and retrieve {@link AccessToken},
@@ -16,7 +17,7 @@ import io.clientcore.core.credentials.oauth.AccessToken;
  *
  * @see com.azure.v2.identity
  */
-public class CredentialAuthenticationException extends RuntimeException {
+public class CredentialAuthenticationException extends CoreException {
 
     /**
      * Initializes a new instance of the {@link CredentialAuthenticationException} class.
@@ -24,7 +25,7 @@ public class CredentialAuthenticationException extends RuntimeException {
      * @param message The exception message.
      */
     public CredentialAuthenticationException(String message) {
-        super(message);
+        super(message, null);
     }
 
     /**
@@ -35,5 +36,10 @@ public class CredentialAuthenticationException extends RuntimeException {
      */
     public CredentialAuthenticationException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    @Override
+    public boolean isRetryable() {
+        return false;
     }
 }

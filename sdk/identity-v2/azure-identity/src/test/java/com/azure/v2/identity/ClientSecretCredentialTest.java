@@ -18,6 +18,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockConstruction;
@@ -119,7 +121,7 @@ public class ClientSecretCredentialTest {
     }
 
     @Test
-    public void testInvalidSecrets() throws Exception {
+    public void testInvalidSecrets() {
         // setup
         String secret = "secret";
         String badSecret = "badsecret";
@@ -140,9 +142,9 @@ public class ClientSecretCredentialTest {
                 .build();
             try {
                 credential.getToken(request);
-            } catch (Exception e) {
-                Assertions
-                    .assertTrue(e instanceof CredentialAuthenticationException && "bad secret".equals(e.getMessage()));
+            } catch (Throwable e) {
+                assertInstanceOf(CredentialAuthenticationException.class, e);
+                assertTrue(e.getMessage().contains("bad secret"), e.getMessage());
             }
             Assertions.assertNotNull(identityClientMock);
         }

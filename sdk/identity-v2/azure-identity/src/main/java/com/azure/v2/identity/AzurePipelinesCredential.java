@@ -8,7 +8,6 @@ import com.azure.v2.identity.implementation.client.ConfidentialClient;
 import com.azure.v2.identity.implementation.models.ConfidentialClientOptions;
 import com.azure.v2.identity.implementation.models.OidcTokenResponse;
 import com.azure.v2.identity.implementation.util.IdentityUtil;
-import com.azure.v2.identity.implementation.util.LoggingUtil;
 import com.azure.v2.core.credentials.TokenCredential;
 import com.azure.v2.core.credentials.TokenRequestContext;
 import io.clientcore.core.credentials.oauth.AccessToken;
@@ -22,6 +21,9 @@ import io.clientcore.core.models.binarydata.BinaryData;
 import io.clientcore.core.serialization.json.JsonReader;
 
 import java.io.IOException;
+
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenError;
+import static com.azure.v2.identity.implementation.util.LoggingUtil.logTokenSuccess;
 
 /**
  * The {@link AzurePipelinesCredential} acquires a token using the Azure Pipelines service connection.
@@ -95,19 +97,18 @@ public class AzurePipelinesCredential implements TokenCredential {
         try {
             AccessToken token = confidentialClient.authenticateWithCache(request);
             if (token != null) {
-                LoggingUtil.logTokenSuccess(LOGGER, request);
+                logTokenSuccess(LOGGER, request);
                 return token;
             }
-        } catch (Exception ignored) {
+        } catch (RuntimeException ignored) {
         }
 
         try {
             AccessToken token = confidentialClient.authenticate(request);
-            LoggingUtil.logTokenSuccess(LOGGER, request);
+            logTokenSuccess(LOGGER, request);
             return token;
-        } catch (Exception e) {
-            LoggingUtil.logTokenError(LOGGER, request, e);
-            throw LOGGER.logThrowableAsError(new RuntimeException(e));
+        } catch (RuntimeException e) {
+            throw logTokenError(LOGGER.throwableAtError(RuntimeException::new), request, e);
         }
     }
 }
