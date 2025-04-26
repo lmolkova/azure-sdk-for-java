@@ -14,12 +14,22 @@
   <suppress files="com.azure.v2.identity.implementation.client.LinuxKeyRingAccessor.java" checks="com.azure.tools.checkstyle.checks.EnforceFinalFieldsCheck" />
   <suppress files="com.azure.v2.identity.implementation.client.DevToolsClient.java" checks="JavadocMethodCheck" />
   <suppress files="com.azure.v2.identity.implementation.client.DevToolsClient.java" checks="MissingJavadocTypeCheck" />
-  <suppress files="com.azure.v2.identity.implementation.client.DevToolsClient.java" checks="com.azure.tools.checkstyle.checks.ThrowFromClientLoggerCheck" />
   <suppress files="com.azure.v2.identity.implementation.client.AzureToolkitCacheAccessor.java" checks="MissingJavadocMethodCheck" />
-  <suppress files="com.azure.v2.identity.implementation.client.AzureToolkitCacheAccessor.java" checks="com.azure.tools.checkstyle.checks.JavadocThrowsChecks" />
-  <suppress files="com.azure.v2.identity.implementation.client.AzureToolkitCacheAccessor.java" checks="com.azure.tools.checkstyle.checks.ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.implementation.client.AzureToolkitCacheAccessor.java" checks="ThrowFromClientLoggerCheck" />
   <suppress files="com.azure.v2.identity.implementation.client.PersistentTokenCacheImpl.java" checks="MissingJavadocMethodCheck" />
   <suppress files="com.azure.v2.identity.implementation.client.PersistentTokenCacheImpl.java" checks="MissingJavadocTypeCheck" />
   <suppress files="com.azure.v2.identity.implementation.models.PublicClientOptions.java" checks="GoodLoggingCheck" />
+  <suppress files="com.azure.v2.identity.AuthorizationCodeCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.AzureCliCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.AzureDeveloperCliCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.AzurePipelinesCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.AzurePowerShellCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.AzureToolkitCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.ClientCertificateCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.ClientSecretCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.DeviceCodeCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.InteractiveBrowserCredential.java" checks="ThrowFromClientLoggerCheck" />
+  <suppress files="com.azure.v2.identity.OnBehalfOfCredential.java" checks="ThrowFromClientLoggerCheck" />
+
 
 </suppressions>

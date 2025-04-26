@@ -6,7 +6,6 @@ package com.azure.v2.identity.implementation.client;
 import com.azure.v2.identity.models.TokenCachePersistenceOptions;
 import com.azure.v2.identity.models.BrowserCustomizationOptions;
 import com.azure.v2.identity.models.DeviceCodeInfo;
-import com.azure.v2.identity.exceptions.CredentialUnavailableException;
 import com.azure.v2.identity.exceptions.CredentialAuthenticationException;
 import com.azure.v2.identity.implementation.models.MsalToken;
 import com.azure.v2.identity.implementation.models.PublicClientOptions;
@@ -379,9 +378,9 @@ public class PublicClient extends ClientBase {
                     new CredentialAuthenticationException("Failed to get token using IntelliJ auth", e));
             }
         }
-        String exception
-            = "Azure Toolkit authentication not available. Please login with the Azure Toolkit for IntelliJ/Eclipse.";
-        LOGGER.logThrowableAsError(new CredentialUnavailableException(exception));
+        LOGGER.atError()
+            .log(
+                "Azure Toolkit authentication not available. Please login with the Azure Toolkit for IntelliJ/Eclipse.");
         return null;
     }
 

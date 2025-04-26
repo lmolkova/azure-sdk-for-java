@@ -104,7 +104,7 @@ public class DevToolsClient extends ClientBase {
                 + "Azure PowerShell authentication failed using powershell-core(powershell)" + " with following error: "
                 + last.getMessage(), last.getCause());
         }
-        LOGGER.logThrowableAsError(last);
+        LOGGER.atError().setThrowable(last).log("Azure PowerShell authentication failed.");
         return null;
     }
 

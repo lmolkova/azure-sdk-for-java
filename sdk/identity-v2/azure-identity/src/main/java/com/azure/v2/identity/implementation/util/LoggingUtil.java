@@ -32,6 +32,14 @@ public final class LoggingUtil {
             .log(SUCCESS_MESSAGE);
     }
 
+    /**
+     * Log a failure message for a getToken() call.
+     * @param errorLog the error log event
+     * @param context the context of the getToken() request
+     * @param throwable the exception that was thrown
+     * @return the throwable that was logged
+     * @param <T> the type of the throwable
+     */
     public static <T extends Throwable> T logTokenError(ExceptionLoggingEvent<T> errorLog, TokenRequestContext context,
         Throwable throwable) {
         return errorLog.addKeyValue(SCOPE_KEY, CoreUtils.stringJoin(", ", context.getScopes()))

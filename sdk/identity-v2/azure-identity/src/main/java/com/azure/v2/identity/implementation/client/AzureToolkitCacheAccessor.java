@@ -68,6 +68,12 @@ public class AzureToolkitCacheAccessor {
         return null;
     }
 
+    /**
+     * Parses the refresh token from the JSON string.
+     * @param jsonString the JSON string to parse
+     * @return the refresh token if found, null otherwise
+     * @throws CredentialUnavailableException if the refresh token is not found
+     */
     public String parseRefreshTokenFromJson(String jsonString) {
         /*
             The json we are parsing looks like this:
